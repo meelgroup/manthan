@@ -1,0 +1,5 @@
+numpy==1.16.4
+sklearn==0.20.4
+collections==2.7
+networkx==2.2
+pydotplus
