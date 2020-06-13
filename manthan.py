@@ -1481,8 +1481,12 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
                 break
     if args.logtime:
     	write_to_logfile("total time : " + str(time.time() - start))
-    os.unlink("strash.txt")
-    os.unlink("variable_mapping.txt")
+    exists = os.path.isfile("strash.txt")
+    if exists:
+    	os.unlink("strash.txt")
+    exists = os.path.isfile("variable_mapping.txt")
+    if exists:
+    	os.unlink("variable_mapping.txt")
     return
 
 
