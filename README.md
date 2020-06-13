@@ -25,7 +25,7 @@ python2.7 manthan.py --seed <int> --varlist <list of Y variables> <inputfile ver
 ### Examples of use:
 
 ```
-python manthan.py --seed 1 --varlist benchmarks\Yvarlist\adder_varstoelim.txt benchmarks\adder.v
+python manthan.py --seed 1 --varlist benchmarks/Yvarlist/adder_varstoelim.txt benchmarks/adder.v
 ```
 ```
 generating samples  10000
