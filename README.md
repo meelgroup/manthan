@@ -4,7 +4,7 @@ Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi suc
 
 ## Requirements to run
 
-The required binaries are included in `dependencies` folder.
+ In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for all the required dependencies.
 
 
 * Python 2.7
@@ -25,23 +25,23 @@ python2.7 manthan.py --seed <int> --varlist <list of Y variables> <inputfile ver
 ### Examples of use:
 
 ```
-python manthan.py --seed 1 --varlist benchmarks/Yvarlist/adder_varstoelim.txt benchmarks/adder.v
+python2.7 manthan.py --seed 1 --varlist benchmarks/Yvarlist/adder_varstoelim.txt benchmarks/adder.v
 ```
 ```
 generating samples  10000
 weighted samples....
 leaning candidate skolem functions..
-Total number of refinement needed 0
+total number of refinement needed 0
 error formula unsat.. skolem functions generated
 error formula unsat..reverse substituing...
 
-Skolem functions: adder_skolem.v
+skolem function: adder_skolem.v
 
 ```
 you can also provide different option to consider for manthan.
 
 ```
-python manthan.py [options] --seed <int>  --varlist <list of Y variables> <inputfile verilog> 
+python2.7 manthan.py [options] --seed <int>  --varlist <list of Y variables> <inputfile verilog> 
 ```
 
 ### Options

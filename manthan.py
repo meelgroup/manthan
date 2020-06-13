@@ -295,8 +295,8 @@ def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg):
         print("candidateskf ..")
 
     # For create decision tree, we need feature names, feature data and label data
-    inputFile = args.input
-    inputfile_name = inputFile.split('/')[-1][:-2]
+    
+    inputfile_name = args.input.split('/')[-1][:-2]
     candidateskf = {}
     for i in Yvar:
         feat_name = np.arange(len(Xvar) + len(Yvar))
@@ -411,8 +411,8 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
                     maxsatstr += str(1) + " " + str(Yvar_map[i]) + " 0\n"
         itr = itr + 1
     refine_maxsat_content += maxsatstr
-    inputFile = args.input
-    inputfile_name = inputFile.split('/')[-1][:-2]
+    
+    inputfile_name = args.input.split('/')[-1][:-2]
     maxsatformula = tempfile.gettempdir() + \
         '/' + inputfile_name + "_maxsat.cnf"
     
@@ -463,8 +463,7 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
 
 
 def add_skolem_to_errorformula(error_content, selfsub):
-    inputFile = args.input
-    inputfile_name = inputFile.split('/')[-1][:-2]
+    inputfile_name = args.input.split('/')[-1][:-2]
     skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
     with open(skolemformula, 'r') as f:
         skolemcontent = f.read()
@@ -531,8 +530,8 @@ def create_error_formula(Xvar, Yvar, verilog_formula):
 
 
 def verify(Xvar, Yvar):
-    inputFile = args.input
-    inputfile_name = inputFile.split('/')[-1][:-2]
+
+    inputfile_name = args.input.split('/')[-1][:-2]
     errorformula = tempfile.gettempdir() + \
         '/' + inputfile_name + "_errorformula.v"
     cexfile = tempfile.gettempdir() + '/' + inputfile_name + "_cex.txt"
@@ -596,8 +595,7 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
             cnf_str += "%s 0\n" % (y_map[i])
     refine_cnf_content += cnf_str.strip("\n")
 
-    inputFile = args.input
-    inputfile_name = inputFile.split('/')[-1][:-2]
+    inputfile_name = args.input.split('/')[-1][:-2]
 
     # cnffile = tempfile.gettempdir()+'/'+inputfile_name+"_unsat.cnf"
 
@@ -1077,8 +1075,8 @@ def sub_skolem(skolemformula, Xvar, Yvar, Yvar_order, verilog_formula, selfsub):
 
 
 def unate_skolemfunction(Xvar, Yvar, pos_unate, neg_unate):
-    inputfile = args.input
-    inputfile_name = inputfile.split('/')[-1][:-2]
+    
+    inputfile_name = args.input.split('/')[-1][:-2]
     candidateskf = {}
 
     skolemformula = tempfile.gettempdir() + \
@@ -1203,7 +1201,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
     # only if could not do preprocessing : proceed without preprocessing
     if len(Xvar_tmp) == 0 or len(Yvar_tmp) == 0:
         cmd = "./dependencies/file_generation_cnf %s %s.cnf %s_mapping.txt  > /dev/null 2>&1" % (
-            inputFile, inputfile_name, inputfile_name)
+            args.input, inputfile_name, inputfile_name)
         os.system(cmd)
         with open(inputfile_name + "_mapping.txt", 'r') as f:
             lines = f.readlines()
@@ -1369,7 +1367,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
             break
 
         if ret == 0:
-            print("Total number of refinement needed", refine_itr)
+            print("total number of refinement needed", refine_itr)
             print('error formula unsat.. skolem functions generated')
 
             if args.logtime:
@@ -1380,7 +1378,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
             ) + '/' + inputfile_name + "_skolem.v"
             sub_skolem(skolemformula, Xvar, Yvar, Yvar_order, verilog_formula, ref.selfsub)
             exists = os.path.isfile(skolemformula)
-            print("Skolem functions: %s_skolem.v" %(inputfile_name))
+            print("skolem function: %s_skolem.v" %(inputfile_name))
             if exists:
                 os.system(
                     "cp " + skolemformula + " " + inputfile_name + "_skolem.v")
