@@ -4,9 +4,6 @@ Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi suc
 
 ## Requirements to run
 
- In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for all the required dependencies.
-
-
 * Python 2.7
 
 To install the required libraries, run:
@@ -14,7 +11,7 @@ To install the required libraries, run:
 ```
 python2.7 -m pip install -r requirements.txt
 ```
-
+In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for all the required dependencies.
 
 ## How to Use
 
