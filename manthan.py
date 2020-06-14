@@ -1,22 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+'''
+Copyright (C) 2020 Priyanka Golia, Subhajit Roy, and Kuldeep Meel
 
-# Copyright (C) 2020 Priyanka Golia, Subhajit Roy, and Kuldeep Meel
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; version 2
-# of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+'''
 
 
 from __future__ import print_function
@@ -444,7 +448,7 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
             if ymap < 0:
                 ymap = -1 * ymap
             if ymap in Yvar_map.values():
-                index = Yvar_map.keys()[Yvar_map.values().index(ymap)]
+                index = list(Yvar_map.keys())[list(Yvar_map.values()).index(ymap)]
                 indlist.append(index)
     indlist = np.array(indlist)
     indlist = np.unique(indlist)
@@ -487,8 +491,7 @@ def add_skolem_to_errorformula(error_content, selfsub):
 
 def create_error_formula(Xvar, Yvar, verilog_formula):
     refine_var_log = {}
-    # inputFile = args.input
-
+    
     inputformula = '('
     inputskolem = '('
     inputerrorx = 'module MAIN ('
@@ -627,11 +630,11 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
         for line in lines:
             C = int(line.strip(" \n"))
             if C in Xvar_map.values():
-                clistx.append(Xvar_map.values().index(C))
+                clistx.append(list(Xvar_map.values()).index(C))
                 continue
             if C in Yvar_map.values():
                 if C != yi_map:
-                    clisty.append(Yvar_map.values().index(C))
+                    clisty.append(list(Yvar_map.values()).index(C))
                 continue
         os.unlink(cnffile)
         os.unlink(unsatcorefile)
@@ -643,7 +646,7 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
         ret = 0
         beta = ''
         one = np.ones(len(Yvar_mapping), dtype=int)
-        Yvar_mapping = np.subtract(Yvar_mapping, one).astype(np.int)
+        Yvar_mapping = np.subtract(list(Yvar_mapping), one).astype(np.int)
         with open(satfile, 'r') as f:
             content = f.read()
         f.close()
@@ -880,10 +883,10 @@ class Experiment:
                 for betavar in beta_varlist.clistx:
                     if modelx[betavar] == 0:
                         betaformula += "~i%s & " % (
-                            self.Xvar_map.keys()[betavar])
+                            list(self.Xvar_map.keys())[betavar])
                     else:
                         betaformula += "i%s & " % (
-                            self.Xvar_map.keys()[betavar])
+                            list(self.Xvar_map.keys())[betavar])
                 for betavar in beta_varlist.clisty:
                     if Yvar[betavar] in ancestors:
                         continue
@@ -892,26 +895,26 @@ class Experiment:
                         if Yvar[betavar] in sat_var:
                             if(modelyp[betavar] == 0):
                                 betaformula += "~i%s & " % (
-                                    self.Yvar_map.keys()[betavar])
+                                    list(self.Yvar_map.keys())[betavar])
                             else:
                                 betaformula += "i%s & " % (
-                                    self.Yvar_map.keys()[betavar])
+                                    list(self.Yvar_map.keys())[betavar])
                             continue
                
                         if(modelyp[betavar] == 0):
                             betaformula += "i%s & " % (
-                                self.Yvar_map.keys()[betavar])
+                                list(self.Yvar_map.keys())[betavar])
                         else:
                             betaformula += "~i%s & " % (
-                                self.Yvar_map.keys()[betavar])
+                                list(self.Yvar_map.keys())[betavar])
                         continue
           
                     if(modelyp[betavar] == 0):
                         betaformula += "~i%s & " % (
-                            self.Yvar_map.keys()[betavar])
+                            list(self.Yvar_map.keys())[betavar])
                     else:
                         betaformula += "i%s & " % (
-                            self.Yvar_map.keys()[betavar])
+                            list(self.Yvar_map.keys())[betavar])
 
                 betaformula = betaformula.strip("& ")
                 assert(betaformula != "")
@@ -1221,9 +1224,9 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
         Xvar = np.sort(Xvar)
         Yvar = np.sort(Yvar)
     for unate in pos_unate_tmp:
-        pos_unate.append(Yvar_map.keys()[Yvar_map.values().index(unate)])
+        pos_unate.append(list(Yvar_map.keys())[list(Yvar_map.values()).index(unate)])
     for unate in neg_unate_tmp:
-        neg_unate.append(Yvar_map.keys()[Yvar_map.values().index(unate)])
+        neg_unate.append(list(Yvar_map.keys())[list(Yvar_map.values()).index(unate)])
     
     if args.logtime:
     	write_to_logfile("preprocesing time : " + str(time.time() - start))
@@ -1492,7 +1495,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('--seed', type=int, required=True, dest='seed')
+    parser.add_argument('--seed', type=int, default=10, dest='seed')
     parser.add_argument('--verb', type=int, help="0 ,1 ,2", dest='verbose')
     parser.add_argument(
         '--gini', type=float, help="minimum impurity drop, default = 0.005", default=0.005, dest='gini')
