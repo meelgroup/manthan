@@ -59,8 +59,8 @@ python manthan.py [options]  --varlist <Y variables> <inputfile verilog>
 | --showtrees  | {0,1} | 0 | to show the decision tree learnt by Manthan |
 | --maxrefineitr  | int | 1000 | maximum number of allowed refinement iterations |
 | --selfsubthres  | int | 10 | self substitution threshold
-| --logtime  | {0,1} | 1 | to log the time taken by individual module; if 1 it give a file `timedetails`  |
-| --samples  | int | 0 | set 1 to use given samples to learn; if 0: manthan will decide number of samples as per |Y| |
+| --logtime  | {0,1} | 1 | to log the time taken by individual module; if 1 Manthan will generate a file `timedetails` where you can find time taken by individual module |
+| --samples  | int | 0 | set 1 to use given samples to learn; if 0: manthan will decide number of samples as per cardinality of Y |
 | --maxsamp  | int | - | required --samples to 1; number of samples to learn candidate functions.
 
 We did experiments with random seed 10.
