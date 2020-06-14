@@ -11,6 +11,10 @@ To install the required libraries, run:
 ```
 python -m pip install -r requirements.txt
 ```
+Manthan uses [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc)  for MaxSAT queries and [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. Manthan also uses the [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates. Manthan depends on [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions. 
+
+Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing.
+
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for all the required dependencies.
 
 ## How to Use
