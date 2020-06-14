@@ -4,12 +4,12 @@ Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi suc
 
 ## Requirements to run
 
-* Python 2.7
+* Python 2.7+
 
 To install the required libraries, run:
 
 ```
-python2.7 -m pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for all the required dependencies.
 
@@ -17,12 +17,12 @@ In the `dependencies` directory, you will find 64-bit x86 Linux compiled binarie
 
 A simple invocation look like:
 ```bash
-python2.7 manthan.py --seed <int> --varlist <list of Y variables> <inputfile verilog> 
+python manthan.py --varlist <Y variables> <inputfile verilog> 
 ```
 ### Examples of use:
 
 ```
-python2.7 manthan.py --seed 1 --varlist benchmarks/Yvarlist/adder_varstoelim.txt benchmarks/adder.v
+python manthan.py --seed 1 --varlist benchmarks/Yvarlist/adder_varstoelim.txt benchmarks/adder.v
 ```
 ```
 generating samples  10000
@@ -38,7 +38,7 @@ skolem function: adder_skolem.v
 you can also provide different option to consider for manthan.
 
 ```
-python2.7 manthan.py [options] --seed <int>  --varlist <list of Y variables> <inputfile verilog> 
+python manthan.py [options]  --varlist <Y variables> <inputfile verilog> 
 ```
 
 ### Options
@@ -46,13 +46,13 @@ python2.7 manthan.py [options] --seed <int>  --varlist <list of Y variables> <in
 1. Required
     - input in verilog format
     - list of Y variables
-    - random seed
 
     
 2. Optional
 
 |        Argument          |       Type        | Default value  | Description | 
 | -----------------------  | ----------------- | ---------------| ----------- |
+| --seed | int | 10 | random seed|
 | --verb   |   {0, 1 ,2}   | 0 | verbose  |
 | --gini | float | 0.005 | minimum impurity drop  |
 | --weighted | {0,1} | 1 | to do weighted sampling set 1; to do uniform sampling set 0 |
@@ -68,7 +68,16 @@ We did experiments with random seed 10.
 ## Benchmarks
 Few benchmarks are given in `benchmarks` directory and their corresponding Y variable list is in `benchmarks\Yvarlist` directory. 
 
-Full list of benchmarks used for our experiments is available [here](https://zenodo.org/record/3892859#.XuTB2XUzZhE).
+Full list of benchmarks used for our experiments is available [here](https://zenodo.org/record/3892859#.XuTB2XUzZhE). The dataset includes qdimacs and verilog benchmarks. 
+
+You can use readCnf provided by [BFSS](https://github.com/Sumith1896/bfss) to convert qdimacs files to verilog. 
+
+We have also included complied readCnf in `dependencies` directory.  Running 
+
+```
+./dependencies/readCnf benchmark.qdimacs
+```
+creates 2 new files in the working directory: benchmark.v and benchmark_vars.txt (list of variables to be eliminated).
 
 ## Issues, questions, bugs, etc.
 Please click on "issues" at the top and [create a new issue](https://github.com/meelgroup/manthan/issues). All issues are responded to promptly.
