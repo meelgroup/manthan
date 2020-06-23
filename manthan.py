@@ -1244,12 +1244,18 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
         if exists:
             os.system("cp " + skolemformula +
                       " " + inputfile_name + "_skolem.v")
-            os.system("rm *.txt")
-        write_to_logfile("sampling time : " + str(0))
-        write_to_logfile("Candidate time : " + str(0))
-        write_to_logfile("refinement time : " + str(0))
-        write_to_logfile("rev sub time : " + str(0))
-        write_to_logfile("total time : " + str(time.time() - start))
+        if args.logtime:
+            write_to_logfile("sampling time : " + str(0))
+            write_to_logfile("Candidate time : " + str(0))
+            write_to_logfile("refinement time : " + str(0))
+            write_to_logfile("rev sub time : " + str(0))
+            write_to_logfile("total time : " + str(time.time() - start))
+        exists = os.path.isfile("strash.txt")
+        if exists:
+            os.unlink("strash.txt")
+        exists = os.path.isfile("variable_mapping.txt")
+        if exists:
+            os.unlink("variable_mapping.txt")
         return
 
     # to sample, we need a cnf file and variable mapping coressponding to
