@@ -64,10 +64,10 @@ def write_to_logfile(text):
     file_log.close()
 
 
-def preprocess(varlistfile):
-    inputfile_name = args.input.split(".v")[0]
+def preprocess(varlistfile,verilog):
+    inputfile_name = verilog.split(".v")[0]
     cmd = "./dependencies/preprocess -b %s -v %s > /dev/null 2>&1 " % (
-        args.input, varlistfile)
+        verilog, varlistfile)
     os.system(cmd)
     pos_unate = []
     neg_unate = []
@@ -145,50 +145,55 @@ def preprocess(varlistfile):
 
 
 def get_sample_cms(allvar_map, cnf_content, no_samples):
-    inputfile_name = args.input.split('/')[-1][:-2]
-    tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + ".cnf"
-    f = open(tempcnffile, "w")
-    f.write(cnf_content)
-    f.close()
-    tempoutputfile = tempfile.gettempdir() + '/' + inputfile_name + "_.txt"
-    if args.weighted:
-        print("weighted samples....")
-        cmd = "./dependencies/cryptominisat5 -n1 --sls 0 --comps 0"
-        cmd += " --restart luby  --nobansol --maple 0 --presimp 0"
-        cmd += " --polar weight --freq 0.9999 --verb 0 --scc 0"
-        cmd += " --random %s --maxsol %s" % (args.seed, no_samples)
-        cmd += " %s" % (tempcnffile)
-        cmd += " --dumpresult %s > /dev/null 2>&1" % (tempoutputfile)
-    else:
-        print("uniform samples....")
-        cmd = "./dependencies/cryptominisat5 --restart luby"
-        cmd += " --maple 0 --verb 0 --nobansol"
-        cmd += " --scc 1 -n1 --presimp 0 --polar rnd --freq 0.9999"
-        cmd += " --random %s --maxsol %s" % (args.seed, no_samples)
-        cmd += " %s" % (tempcnffile)
-        cmd += " --dumpresult %s > /dev/null 2>&1" % (tempoutputfile)
-    if args.verbose:
-        print("cmd: ", cmd)
-    os.system(cmd)
-    with open(tempoutputfile, 'r') as f:
-        content = f.read()
-    f.close()
-    os.unlink(tempoutputfile)
-    os.unlink(tempcnffile)
-    content = content.replace("SAT\n", "").replace(
-        "\n", " ").strip(" \n").strip(" ")
-    models = content.split(" ")
-    models = np.array(models)
-    if(models[len(models) - 1] != '0'):
-        models = np.delete(models, len(models) - 1, axis=0)
-    index = np.where(models == "0")[0][0]
-    var_model = np.reshape(models, (-1, index + 1)).astype(np.int)
-    one = np.ones(len(allvar_map), dtype=int)
-    allvar_map = np.subtract(allvar_map, one).astype(np.int)
-    var_model = var_model[:, allvar_map]
-    var_model = var_model > 1
-    var_model = var_model.astype(np.int)
-    return var_model
+
+	if args.qdimacs:
+		inputfile_name = args.input.split("/")[-1][:-8]
+	else:
+		inputfile_name = args.input.split("/")[-1][:-2]
+
+	tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + ".cnf"
+	f = open(tempcnffile, "w")
+	f.write(cnf_content)
+	f.close()
+	tempoutputfile = tempfile.gettempdir() + '/' + inputfile_name + "_.txt"
+	if args.weighted:
+		print("weighted samples....")
+		cmd = "./dependencies/cryptominisat5 -n1 --sls 0 --comps 0"
+		cmd += " --restart luby  --nobansol --maple 0 --presimp 0"
+		cmd += " --polar weight --freq 0.9999 --verb 0 --scc 0"
+		cmd += " --random %s --maxsol %s" % (args.seed, no_samples)
+		cmd += " %s" % (tempcnffile)
+		cmd += " --dumpresult %s > /dev/null 2>&1" % (tempoutputfile)
+	else:
+		print("uniform samples....")
+		cmd = "./dependencies/cryptominisat5 --restart luby"
+		cmd += " --maple 0 --verb 0 --nobansol"
+		cmd += " --scc 1 -n1 --presimp 0 --polar rnd --freq 0.9999"
+		cmd += " --random %s --maxsol %s" % (args.seed, no_samples)
+		cmd += " %s" % (tempcnffile)
+		cmd += " --dumpresult %s > /dev/null 2>&1" % (tempoutputfile)
+	if args.verbose:
+		print("cmd: ", cmd)
+	os.system(cmd)
+	with open(tempoutputfile, 'r') as f:
+		content = f.read()
+	f.close()
+	os.unlink(tempoutputfile)
+	os.unlink(tempcnffile)
+	content = content.replace("SAT\n", "").replace(
+		"\n", " ").strip(" \n").strip(" ")
+	models = content.split(" ")
+	models = np.array(models)
+	if(models[len(models) - 1] != '0'):
+		models = np.delete(models, len(models) - 1, axis=0)
+	index = np.where(models == "0")[0][0]
+	var_model = np.reshape(models, (-1, index + 1)).astype(np.int)
+	one = np.ones(len(allvar_map), dtype=int)
+	allvar_map = np.subtract(allvar_map, one).astype(np.int)
+	var_model = var_model[:, allvar_map]
+	var_model = var_model > 1
+	var_model = var_model.astype(np.int)
+	return var_model
 
 
 def treepaths(root, is_leaves, children_left, children_right, data_feature_names, feature, values, dependson):
@@ -299,8 +304,10 @@ def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg):
         print("candidateskf ..")
 
     # For create decision tree, we need feature names, feature data and label data
-    
-    inputfile_name = args.input.split('/')[-1][:-2]
+    if args.qdimacs:
+    	inputfile_name = args.input.split('/')[-1][:-8]
+    else:
+    	inputfile_name =  args.input.split("/")[-1][:-2]
     candidateskf = {}
     for i in Yvar:
         feat_name = np.arange(len(Xvar) + len(Yvar))
@@ -416,7 +423,10 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
         itr = itr + 1
     refine_maxsat_content += maxsatstr
     
-    inputfile_name = args.input.split('/')[-1][:-2]
+    if args.qdimacs:
+    	inputfile_name = args.input.split('/')[-1][:-8]
+    else:
+    	inputfile_name =  args.input.split("/")[-1][:-2]
     maxsatformula = tempfile.gettempdir() + \
         '/' + inputfile_name + "_maxsat.cnf"
     
@@ -467,26 +477,29 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
 
 
 def add_skolem_to_errorformula(error_content, selfsub):
-    inputfile_name = args.input.split('/')[-1][:-2]
-    skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
-    with open(skolemformula, 'r') as f:
-        skolemcontent = f.read()
-    f.close()
-    errorformula = tempfile.gettempdir() + \
-        '/' + inputfile_name + "_errorformula.v"
-    skolemcontent_write = ''
-    if len(selfsub) != 0:
-        for all_selfsub_var in selfsub:
-            file_open = open(
-                tempfile.gettempdir()+"/selfsub/formula%s_true.v" % (all_selfsub_var), "r")
-            content = file_open.read()
-            file_open.close()
-            skolemcontent_write += "\n" + content
-    f = open(errorformula, "w")
-    f.write(error_content)
-    f.write(skolemcontent)
-    f.write(skolemcontent_write)
-    f.close()
+	
+	if args.qdimacs:
+		inputfile_name = args.input.split('/')[-1][:-8]
+	else:
+		inputfile_name = args.input.split('/')[-1][:-2]
+	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
+	with open(skolemformula, 'r') as f:
+		skolemcontent = f.read()
+	f.close()
+	errorformula = tempfile.gettempdir() + '/' + inputfile_name + "_errorformula.v"
+	skolemcontent_write = ''
+	if len(selfsub) != 0:
+		for all_selfsub_var in selfsub:
+			file_open = open(
+				tempfile.gettempdir()+"/selfsub/formula%s_true.v" % (all_selfsub_var), "r")
+			content = file_open.read()
+			file_open.close()
+			skolemcontent_write += "\n" + content
+	f = open(errorformula, "w")
+	f.write(error_content)
+	f.write(skolemcontent)
+	f.write(skolemcontent_write)
+	f.close()
 
 
 def create_error_formula(Xvar, Yvar, verilog_formula):
@@ -534,9 +547,11 @@ def create_error_formula(Xvar, Yvar, verilog_formula):
 
 def verify(Xvar, Yvar):
 
-    inputfile_name = args.input.split('/')[-1][:-2]
-    errorformula = tempfile.gettempdir() + \
-        '/' + inputfile_name + "_errorformula.v"
+    if args.qdimacs:
+    	inputfile_name = args.input.split("/")[-1][:-8]
+    else:
+    	inputfile_name = args.input.split("/")[-1][:-2]
+    errorformula = tempfile.gettempdir() + '/' + inputfile_name + "_errorformula.v"
     cexfile = tempfile.gettempdir() + '/' + inputfile_name + "_cex.txt"
     e = os.path.isfile("strash.txt")
     if e:
@@ -598,19 +613,20 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
             cnf_str += "%s 0\n" % (y_map[i])
     refine_cnf_content += cnf_str.strip("\n")
 
-    inputfile_name = args.input.split('/')[-1][:-2]
+    if args.qdimacs:
+    	inputfile_name = args.input.split('/')[-1][:-8]
+    else:
+    	inputfile_name = args.input.split('/')[-1][:-2]
 
-    # cnffile = tempfile.gettempdir()+'/'+inputfile_name+"_unsat.cnf"
+    cnffile = tempfile.gettempdir()+'/'+inputfile_name+"_unsat.cnf"
 
-    cnffile = "temp_unsat.cnf"
     f = open(cnffile, "w")
     f.write(refine_cnf_content)
     f.close()
     unsatcorefile = tempfile.gettempdir() + \
         '/' + inputfile_name + "_unsatcore.txt"
     satfile = tempfile.gettempdir() + '/' + inputfile_name + "_sat.txt"
-    # unsatcorefile = "temp.txt"
-    # satfile ="temp1.txt"
+    
     exists = os.path.isfile(unsatcorefile)
     if exists:
         os.remove(unsatcorefile)
@@ -874,9 +890,7 @@ class Experiment:
                 # generate Beta formula from unsat core variable list:
                 betaformula = ''
                 index = np.where(self.Yvar_order == var)[0][0]
-                # ancestors=nx.ancestors(self.dg,var)
                 ancestors = self.Yvar_order[range(0, index)]
-                # ancestors=[]
                 if args.verbose == 2:
                     print("in unsat core of %s X var %s and Y var %s",
                           var, beta_varlist.clistx, beta_varlist.clisty)
@@ -1078,8 +1092,10 @@ def sub_skolem(skolemformula, Xvar, Yvar, Yvar_order, verilog_formula, selfsub):
 
 
 def unate_skolemfunction(Xvar, Yvar, pos_unate, neg_unate):
-    
-    inputfile_name = args.input.split('/')[-1][:-2]
+    if args.qdimacs:
+    	inputfile_name = args.input.split('/')[-1][:-8]
+    else:
+    	inputfile_name = args.input.split('/')[-1][:-2]
     candidateskf = {}
 
     skolemformula = tempfile.gettempdir() + \
@@ -1165,8 +1181,18 @@ def gen_weighted_cnf(cnf_content, Xvar_map, Yvar_map, allvar_map):
     return sample_cnf_content
 
 
-def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
-    inputfile_name = args.input.split('/')[-1][:-2]
+def convert_verilog(input):
+	cmd = "./dependencies/readCnf %s > /dev/null 2>&1 " % (input)
+	os.system(cmd)
+	inputfile_name = args.input.split('/')[-1][:-8]
+	os.remove(inputfile_name+"_dep.txt")
+	os.system("rm *.noUnary")
+	return inputfile_name+".v" , inputfile_name+"_var.txt"
+
+
+
+def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
+    inputfile_name = verilog.split('/')[-1][:-2]
     Xvar = []
     Yvar = []
     varlist = [line.rstrip('\n')
@@ -1174,7 +1200,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
     dg = nx.DiGraph()  # dag to handle dependencies
     flag = 0
     verilog_formula = ''
-    with open(args.input, 'r') as f:
+    with open(verilog, 'r') as f:
         for x, line in enumerate(f):
             if line.startswith("module"):
                 line_split = line.split("(")
@@ -1199,12 +1225,12 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
     if args.logtime:
     	write_to_logfile("file : " + str(args.input))
     start = time.time()
-    pos_unate_tmp, neg_unate_tmp, Xvar_tmp, Yvar_tmp, Xvar_map, Yvar_map = preprocess(varlistfile)
+    pos_unate_tmp, neg_unate_tmp, Xvar_tmp, Yvar_tmp, Xvar_map, Yvar_map = preprocess(varlistfile,verilog)
 
     # only if could not do preprocessing : proceed without preprocessing
     if len(Xvar_tmp) == 0 or len(Yvar_tmp) == 0:
         cmd = "./dependencies/file_generation_cnf %s %s.cnf %s_mapping.txt  > /dev/null 2>&1" % (
-            args.input, inputfile_name, inputfile_name)
+            verilog, inputfile_name, inputfile_name)
         os.system(cmd)
         with open(inputfile_name + "_mapping.txt", 'r') as f:
             lines = f.readlines()
@@ -1260,7 +1286,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted):
 
     # to sample, we need a cnf file and variable mapping coressponding to
     # varilog variables
-    cnffile = args.input.split(".v")[0] + ".cnf"
+    cnffile = verilog.split(".v")[0] + ".cnf"
 
     # to add c ind and positive and negative unate in cnf
     unates = []
@@ -1523,14 +1549,32 @@ if __name__ == "__main__":
                         help="samples used to learn: manthan will use this only if --samples is set to 1", dest='maxSamples')
     parser.add_argument('--logtime', type=int, default=1,
                         help="to log the time taken by individual module", dest='logtime')
+    parser.add_argument("--qdimacs",action='store_true')
+    parser.add_argument("--verilog",action='store_true')
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
+
+    
+    if args.qdimacs:
+    	verilog, varlistfile = convert_verilog(args.input)
+    
+    if args.verilog:
+    	verilog = args.input
+    	varlistfile = args.varlist
+
+    if args.qdimacs or args.verilog:
+    	print("starting Manthan")
+    else:
+    	print("If you are providing qdimacs file as input, please use --qdimacs flag\n")
+    	print("If you are providing verilog file and varlist of Y variable as inputs, please use --verilog flag\n")
+    	exit()
 
     manthan(
         samples=args.samples,
         maxSamples=args.maxSamples,
         seed=args.seed,
         verb=args.verbose,
-        varlistfile=args.varlist,
-        weighted=args.weighted
+        varlistfile = varlistfile,
+        weighted=args.weighted,
+        verilog = verilog
         )
