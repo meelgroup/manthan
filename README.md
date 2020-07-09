@@ -11,24 +11,31 @@ To install the required libraries, run:
 ```
 python -m pip install -r requirements.txt
 ```
-Manthan uses [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc)  for MaxSAT queries and [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. Manthan also uses the [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates. Manthan depends on [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions. 
+Manthan depends on: 
+1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc)  for MaxSAT queries
+2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
+3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
+4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions. 
 
-Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing.
+Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing, and to convert qdimacs files to verilog.
 
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for all the required dependencies.
 
 ## How to Use
 
-A simple invocation look like:
+A simple invocation with verilog as input:
 ```bash
-python manthan.py --varlist <Y variables> <inputfile verilog> 
+python manthan.py --varlist <Y variables> --verilog <inputfile verilog>
+```
+And, with qdimacs as input:
+```bash
+python manthan.py --qdimacs <inputfile qdimacs>
 ```
 ### Examples of use:
 
 ```
-python manthan.py --seed 1 --varlist benchmarks/Yvarlist/adder_varstoelim.txt benchmarks/adder.v
-```
-```
+python manthan.py --seed 1 --varlist benchmarks/Yvarlist/adder_varstoelim.txt --verilog benchmarks/adder.v
+
 generating samples  10000
 weighted samples....
 leaning candidate skolem functions..
@@ -42,14 +49,21 @@ skolem function: adder_skolem.v
 you can also provide different option to consider for manthan.
 
 ```
-python manthan.py [options]  --varlist <Y variables> <inputfile verilog> 
+python manthan.py [options]  --varlist <Y variables>  --verilog <inputfile verilog> 
+                             or 
+python manthan.py [options]  --qdimacs <inputfile qdimacs> 
 ```
 
 ### Options
 
-1. Required
+1. 
+    Required with flag --verilog
     - input in verilog format
     - list of Y variables
+   
+    Required with flag --qdimacs
+    - input in qdimacs format
+    
 
     
 2. Optional
