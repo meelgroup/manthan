@@ -1,4 +1,4 @@
-## Manthan- A Data-Driven Approach for Boolean Functional Synthesis
+## Manthan: A Data-Driven Approach for Boolean Functional Synthesis
 Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi such that \exists Y F(X, Y) = F(X,\Psi(X)). Manthan works at the intersection of machine learning, constrained sampling, and automated reasoning. 
 
 This work is by Priyanka Golia, Subhajit Roy and Kuldeep S. Meel, as published in CAV-20. To read more about Manthan, please refer to [our paper](https://priyanka-golia.github.io/publication/cav20-manthan/cav20-manthan.pdf)
