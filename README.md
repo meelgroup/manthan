@@ -1,5 +1,7 @@
 ## Manthan- A Data-Driven Approach for Boolean Functional Synthesis
-Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi such that \exists Y F(X, Y) = F(X,\Psi(X)). Manthan works at the intersection of machine learning, constrained sampling, and automated reasoning. This work is by Priyanka Golia, Subhajit Roy and Kuldeep S. Meel, as published in [CAV-20](https://priyanka-golia.github.io/publication/cav20-manthan/cav20-manthan.pdf)
+Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi such that \exists Y F(X, Y) = F(X,\Psi(X)). Manthan works at the intersection of machine learning, constrained sampling, and automated reasoning. 
+
+This work is by Priyanka Golia, Subhajit Roy and Kuldeep S. Meel, as published in CAV-20. To read more about Manthan, please refer to [our paper](https://priyanka-golia.github.io/publication/cav20-manthan/cav20-manthan.pdf)
 
 
 ## Requirements to run
@@ -46,6 +48,7 @@ error formula unsat..reverse substituing...
 skolem function: adder_skolem.v
 
 ```
+
 you can also provide different option to consider for manthan.
 
 ```
@@ -53,35 +56,12 @@ python manthan.py [options]  --varlist <Y variables>  --verilog <inputfile veril
                              or 
 python manthan.py [options]  --qdimacs <inputfile qdimacs> 
 ```
+To see detailed list of available option:
 
-### Options
+```
+python manthan.py --help
+```
 
-1. 
-    Required with flag --verilog
-    - input in verilog format
-    - list of Y variables
-   
-    Required with flag --qdimacs
-    - input in qdimacs format
-    
-
-    
-2. Optional
-
-|        Argument          |       Type        | Default value  | Description | 
-| -----------------------  | ----------------- | ---------------| ----------- |
-| --seed | int | 10 | random seed|
-| --verb   |   {0, 1 ,2}   | 0 | verbose  |
-| --gini | float | 0.005 | minimum impurity drop  |
-| --weighted | {0,1} | 1 | to do weighted sampling set 1; to do uniform sampling set 0 |
-| --showtrees  | {0,1} | 0 | to show the decision tree learnt by Manthan |
-| --maxrefineitr  | int | 1000 | maximum number of allowed refinement iterations |
-| --selfsubthres  | int | 10 | self substitution threshold
-| --logtime  | {0,1} | 1 | to log the time taken by individual module; if 1 Manthan will generate a file `timedetails` where you can find time taken by individual module |
-| --samples  | int | 0 | set 1 to use given samples to learn; if 0: manthan will decide number of samples as per cardinality of Y |
-| --maxsamp  | int | - | required --samples to 1; number of samples to learn candidate functions.
-
-We did experiments with random seed 10.
 
 ## Benchmarks
 Few benchmarks are given in `benchmarks` directory and their corresponding Y variable list is in `benchmarks\Yvarlist` directory. 
