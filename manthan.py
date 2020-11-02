@@ -972,7 +972,6 @@ class Experiment:
                 refineformula[var] = betaformula
 
                 if args.dumpdata:
-                    print(betaformula)
                     dummping_data("\n\nc refine for %s" %(self.Yvar_map[var]))  
                     temp_str = ''
                     and_varibles = betaformula.split("&")
