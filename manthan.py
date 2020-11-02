@@ -35,7 +35,7 @@ import numpy as np
 from numpy import count_nonzero
 from sklearn import tree
 import collections
-import pydotplus
+#import pydotplus
 import time
 import networkx as nx
 
@@ -60,6 +60,11 @@ class clist:
 
 def write_to_logfile(text):
     file_log = open("time_details", "a+")
+    file_log.write(text + "\n")
+    file_log.close()
+
+def dummping_data(text):
+    file_log = open(args.dumpdata, "a+")
     file_log.write(text + "\n")
     file_log.close()
 
@@ -294,7 +299,7 @@ def create_decision_tree(feat_name, feat_data, label, e_var):
     return(psi_i.strip("| "), D)
 
 
-def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg):
+def learn_skf(samples, Xvar, Yvar, Xvar_map,Yvar_map, pos_unate, neg_unate, dg):
 
     # finding samples unique with respect to X variables.
     x_data, indices = np.unique(samples[:, Xvar], axis=0, return_index=True)
@@ -342,6 +347,34 @@ def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg):
 
     if args.verbose == 2:
         print("candidate Skolem functions:", candidateskf)
+
+    if args.dumpdata:
+
+        for i in candidateskf.keys():
+            if (i in pos_unate) or (i in neg_unate):
+                dummping_data("\n\nunates %s\n" %(Yvar_map[i]))
+                continue
+            dummping_data("\n\nc candidate skf for %s" %(Yvar_map[i]))
+            dummping_data("c or of all the paths")
+            # for every path with leaf node 1
+            or_paths = candidateskf[i].split("|")
+            for or_path in or_paths:
+                dummping_data("c path: and of varibles listed below:")    
+                temp_str = ''
+                and_varibles = or_path.split("&")
+                for stri in and_varibles:
+                    if "i" in stri:
+                        if "~i" in stri:
+                            temp_str += "-"
+                            stri = stri.replace("~i","")
+                        stri = int(stri.strip(" (").strip(" )").strip(" ").replace("i",""))
+                        if stri in Yvar_map.keys():
+                            temp_str += str(Yvar_map[stri])+" "
+                        else:
+                            temp_str += str(Xvar_map[stri])+" "
+                dummping_data(temp_str)
+
+
 
     # we have candidate skolem functions for every y in Y
     # Now, lets generate Skolem formula F(X,Y') : input X and output Y'
@@ -590,8 +623,11 @@ def verify(Xvar, Yvar):
 
 
 def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, Xvar_map, Yvar_map):
-    Yvar = Yvar_map.keys()
-    Yvar_mapping = Yvar_map.values()
+    Yvar = sorted(Yvar_map.keys())
+    Xvar = sorted(Xvar_map.keys())
+    Yvar_mapping = []
+    for var in Yvar:
+        Yvar_mapping.append(Yvar_map[var])
     n_x = len(Xvar_map.keys())
     lines = refine_cnf_content.split("\n")
     for line in lines:
@@ -646,11 +682,11 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
         for line in lines:
             C = int(line.strip(" \n"))
             if C in Xvar_map.values():
-                clistx.append(list(Xvar_map.values()).index(C))
+                clistx.append(Xvar.index(list(Xvar_map.keys())[list(Xvar_map.values()).index(C)]))
                 continue
             if C in Yvar_map.values():
                 if C != yi_map:
-                    clisty.append(list(Yvar_map.values()).index(C))
+                    clisty.append(Yvar.index(list(Yvar_map.keys())[list(Yvar_map.values()).index(C)]))
                 continue
         os.unlink(cnffile)
         os.unlink(unsatcorefile)
@@ -805,6 +841,7 @@ class Experiment:
 
     def refine(self, Experiment, refine_cnf_content, ind_var, modelx, modely, modelyp, refine_repeat_var):
         Yvar = sorted(self.Yvar_map.keys())
+        Xvar = sorted(self.Xvar_map.keys())
         refineformula = {}
         itr = 0
         sat_var = []
@@ -835,9 +872,9 @@ class Experiment:
             # \hat{Y}=\sigma[\hat{Y}]
             index = np.where(self.Yvar_order == var)[0][0]
             for tmp in range(index, len(Yvar)):
-                temp_var = self.Yvar_order[tmp]
-                yj = np.where(Yvar == temp_var)[0][0]
-                if Yvar[yj] == var or Yvar[yj] in self.unates:
+                yj = np.where(Yvar == self.Yvar_order[tmp])[0][0]
+                
+                if (Yvar[yj] == var) or (Yvar[yj] in self.unates):
                     continue
 
                 if Yvar[yj] in ind_var:
@@ -897,10 +934,10 @@ class Experiment:
                 for betavar in beta_varlist.clistx:
                     if modelx[betavar] == 0:
                         betaformula += "~i%s & " % (
-                            list(self.Xvar_map.keys())[betavar])
+                            Xvar[betavar])
                     else:
                         betaformula += "i%s & " % (
-                            list(self.Xvar_map.keys())[betavar])
+                            Xvar[betavar])
                 for betavar in beta_varlist.clisty:
                     if Yvar[betavar] in ancestors:
                         continue
@@ -909,30 +946,48 @@ class Experiment:
                         if Yvar[betavar] in sat_var:
                             if(modelyp[betavar] == 0):
                                 betaformula += "~i%s & " % (
-                                    list(self.Yvar_map.keys())[betavar])
+                                    Yvar[betavar])
                             else:
                                 betaformula += "i%s & " % (
-                                    list(self.Yvar_map.keys())[betavar])
+                                    Yvar[betavar])
                             continue
                
                         if(modelyp[betavar] == 0):
                             betaformula += "i%s & " % (
-                                list(self.Yvar_map.keys())[betavar])
+                                Yvar[betavar])
                         else:
                             betaformula += "~i%s & " % (
-                                list(self.Yvar_map.keys())[betavar])
+                                Yvar[betavar])
                         continue
           
                     if(modelyp[betavar] == 0):
                         betaformula += "~i%s & " % (
-                            list(self.Yvar_map.keys())[betavar])
+                            Yvar[betavar])
                     else:
                         betaformula += "i%s & " % (
-                            list(self.Yvar_map.keys())[betavar])
+                            Yvar[betavar])
 
                 betaformula = betaformula.strip("& ")
                 assert(betaformula != "")
                 refineformula[var] = betaformula
+
+                if args.dumpdata:
+                    print(betaformula)
+                    dummping_data("\n\nc refine for %s" %(self.Yvar_map[var]))  
+                    temp_str = ''
+                    and_varibles = betaformula.split("&")
+                    for stri in and_varibles:
+                        if "i" in stri:
+                            if "~i" in stri:
+                                temp_str += "-"
+                                stri = stri.replace("~i","")
+                            stri = int(stri.strip(" (").strip(" )").strip(" ").replace("i",""))
+                            if stri in self.Yvar_map.keys():
+                                temp_str += str(self.Yvar_map[stri])+" "
+                            else:
+                                temp_str += str(self.Xvar_map[stri])+" "
+                    dummping_data(temp_str)
+
                 del beta_varlist
 
         if args.verbose == 2:
@@ -1206,8 +1261,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
                 line_split = line.split("(")
                 total_var = line_split[1].split(",")
                 for var in range(len(total_var) - 1):
-                    variable_check = total_var[var]
-                    variable_check = variable_check.strip(" ").strip("\n")
+                    variable_check = total_var[var].strip(" ").strip("\n")
                     if str(variable_check) in varlist:
                         Yvar.append(var)
                         dg.add_node(var)
@@ -1312,6 +1366,10 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
     for i in neg_unate:
         fixedvar += "-%s 0\n" % (Yvar_map[i])
         unates.append(i)
+    
+    if args.dumpdata:
+        dummping_data("c unates --\n"+fixedvar)
+
     with open(cnffile, 'r') as f:
         lines = f.readlines()
     f.close()
@@ -1342,11 +1400,11 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
         if args.samples:
             no_samples = args.maxSamples
         else:
-            if(len(Yvar) + len(Xvar) < 1200):
+            if len(Yvar) + len(Xvar) < 1200:
                 no_samples = 10000
-            if(len(Yvar) + len(Xvar) > 1200 and len(Yvar) + len(Xvar) < 4000):
+            if (len(Yvar) + len(Xvar) > 1200) and (len(Yvar) + len(Xvar) < 4000):
                 no_samples = 5000
-            if(len(Yvar) + len(Xvar) > 4000):
+            if len(Yvar) + len(Xvar) > 4000:
                 no_samples = 1000
 
         print("generating samples ", no_samples)
@@ -1363,7 +1421,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
     # algo
     print("leaning candidate skolem functions..")
     start_t = time.time()
-    dg = learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg)
+    dg = learn_skf(samples, Xvar, Yvar, Xvar_map,Yvar_map, pos_unate, neg_unate, dg)
     
     if args.logtime:
     	write_to_logfile("Candidate time : " + str(time.time() - start_t))
@@ -1551,6 +1609,7 @@ if __name__ == "__main__":
                         help="to log the time taken by individual module", dest='logtime')
     parser.add_argument("--qdimacs",action='store_true')
     parser.add_argument("--verilog",action='store_true')
+    parser.add_argument("--dumpdata",type=str,dest='dumpdata')
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
 
