@@ -35,7 +35,7 @@ import numpy as np
 from numpy import count_nonzero
 from sklearn import tree
 import collections
-import pydotplus
+#import pydotplus
 import time
 import networkx as nx
 
@@ -64,7 +64,7 @@ def write_to_logfile(text):
     file_log.close()
 
 
-def preprocess(varlistfile,verilog):
+def preprocess(varlistfile,verilog,Xvar_tmp,Yvar_tmp):
     inputfile_name = verilog.split(".v")[0]
     cmd = "./dependencies/preprocess -b %s -v %s > /dev/null 2>&1 " % (
         verilog, varlistfile)
@@ -139,9 +139,34 @@ def preprocess(varlistfile,verilog):
             print("preprocess done")
             print("creating cnf file..")
         os.unlink(inputfile_name + "_vardetails")
+        Xvar_map = dict(zip(Xvar, Xvar_map))
+        Yvar_map = dict(zip(Yvar, Yvar_map))
+        Xvar = sorted(Xvar)
+        Yvar = sorted(Yvar)
     else:
         print("preprocessing error .. contining ")
-    return(pos_unate, neg_unate, Xvar, Yvar, Xvar_map, Yvar_map)
+        cmd = "./dependencies/file_generation_cnf %s %s.cnf %s_mapping.txt  > /dev/null 2>&1" % (
+            verilog, inputfile_name, inputfile_name)
+        os.system(cmd)
+        with open(inputfile_name + "_mapping.txt", 'r') as f:
+            lines = f.readlines()
+        f.close()
+        for line in lines:
+            allvar_map = line.strip(" \n").split(" ")
+        os.unlink(inputfile_name + "_mapping.txt")
+        allvar_map = np.array(allvar_map).astype(np.int)
+        Xvar_map = dict(zip(Xvar_tmp, allvar_map[Xvar]))
+        Yvar_map = dict(zip(Yvar_tmp, allvar_map[Yvar]))
+        Xvar = np.sort(np.array(Xvar_tmp))
+        Yvar = np.sort(np.array(Yvar_tmp))
+
+    pos_unate_list = []
+    neg_unate_list = []
+    for unate in pos_unate:
+        pos_unate_list.append(list(Yvar_map.keys())[list(Yvar_map.values()).index(unate)])
+    for unate in neg_unate:
+        neg_unate_list.append(list(Yvar_map.keys())[list(Yvar_map.values()).index(unate)])
+    return(pos_unate_list, neg_unate_list, Xvar, Yvar, Xvar_map, Yvar_map)
 
 
 def get_sample_cms(allvar_map, cnf_content, no_samples):
@@ -407,7 +432,6 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
     itr = 0
     for i in Yvar:
         if i not in unates:
-            yindex = np.where(i == Yvar_order)[0][0]
             if i in selfsub:
                 if (modely[itr] == 0):
                     maxsatstr += str(maxsat_wt) + " -" + str(
@@ -446,7 +470,7 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
     with open(outputfile, 'r') as f:
         lines = f.readlines()
     f.close()
-    os.unlink(maxsatformula)
+    #os.unlink(maxsatformula)
     os.unlink(outputfile)
 
     indlist = []
@@ -590,8 +614,12 @@ def verify(Xvar, Yvar):
 
 
 def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, Xvar_map, Yvar_map):
-    Yvar = Yvar_map.keys()
-    Yvar_mapping = Yvar_map.values()
+    Yvar = sorted(Yvar_map.keys())
+    Xvar = sorted(Xvar_map.keys())
+    Yvar_mapping = []
+    for var in Yvar:
+        Yvar_mapping.append(Yvar_map[var])
+
     n_x = len(Xvar_map.keys())
     lines = refine_cnf_content.split("\n")
     for line in lines:
@@ -646,11 +674,13 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
         for line in lines:
             C = int(line.strip(" \n"))
             if C in Xvar_map.values():
-                clistx.append(list(Xvar_map.values()).index(C))
+                index = list(Xvar_map.values()).index(C)
+                clistx.append(Xvar.index(list(Xvar_map.keys())[index]))
                 continue
             if C in Yvar_map.values():
                 if C != yi_map:
-                    clisty.append(list(Yvar_map.values()).index(C))
+                    index = list(Yvar_map.values()).index(C)
+                    clisty.append(Yvar.index(list(Yvar_map.keys())[index]))
                 continue
         os.unlink(cnffile)
         os.unlink(unsatcorefile)
@@ -805,14 +835,18 @@ class Experiment:
 
     def refine(self, Experiment, refine_cnf_content, ind_var, modelx, modely, modelyp, refine_repeat_var):
         Yvar = sorted(self.Yvar_map.keys())
+        Xvar = sorted(self.Xvar_map.keys())
+        
         refineformula = {}
         itr = 0
         sat_var = []
+        
         while itr < len(ind_var):
 
             var = ind_var[itr]
             itr += 1
             self.refine_var_log[var] += 1
+            
             yi = np.where(Yvar == var)[0][0]
             yi_model = modelyp[yi]
 
@@ -824,19 +858,23 @@ class Experiment:
 
             if self.refine_var_log[var] > args.selfsubthres or refine_repeat_var[yi] == 10:
                 if var not in self.selfsub:
+                    
                     if len(self.selfsub) == 0:
                         os.system("mkdir "+tempfile.gettempdir()+"/selfsub")
+                    
                     self.selfsub.append(var)
+                    
                     refineformula[var] = selfsubstitute(
                         self.Xvar_map.keys(), Yvar, var, yi, self.selfsub, self.verilog_formula)
+                    
                     continue
 
             # to constrain  G(X,Y) formula over \hat{Y},
             # \hat{Y}=\sigma[\hat{Y}]
+            
             index = np.where(self.Yvar_order == var)[0][0]
-            for tmp in range(index, len(Yvar)):
-                temp_var = self.Yvar_order[tmp]
-                yj = np.where(Yvar == temp_var)[0][0]
+            for tmp in range(index, len(Yvar)): 
+                yj = np.where(Yvar == self.Yvar_order[tmp])[0][0]
                 if Yvar[yj] == var or Yvar[yj] in self.unates:
                     continue
 
@@ -891,17 +929,21 @@ class Experiment:
                 betaformula = ''
                 index = np.where(self.Yvar_order == var)[0][0]
                 ancestors = self.Yvar_order[range(0, index)]
+                
                 if args.verbose == 2:
                     print("in unsat core of %s X var %s and Y var %s",
                           var, beta_varlist.clistx, beta_varlist.clisty)
+                
                 for betavar in beta_varlist.clistx:
                     if modelx[betavar] == 0:
                         betaformula += "~i%s & " % (
-                            list(self.Xvar_map.keys())[betavar])
+                            Xvar[betavar])
                     else:
                         betaformula += "i%s & " % (
-                            list(self.Xvar_map.keys())[betavar])
+                            Xvar[betavar])
+                
                 for betavar in beta_varlist.clisty:
+                    
                     if Yvar[betavar] in ancestors:
                         continue
 
@@ -909,26 +951,26 @@ class Experiment:
                         if Yvar[betavar] in sat_var:
                             if(modelyp[betavar] == 0):
                                 betaformula += "~i%s & " % (
-                                    list(self.Yvar_map.keys())[betavar])
+                                    Yvar[betavar])
                             else:
                                 betaformula += "i%s & " % (
-                                    list(self.Yvar_map.keys())[betavar])
+                                    Yvar[betavar])
                             continue
                
                         if(modelyp[betavar] == 0):
                             betaformula += "i%s & " % (
-                                list(self.Yvar_map.keys())[betavar])
+                                Yvar[betavar])
                         else:
                             betaformula += "~i%s & " % (
-                                list(self.Yvar_map.keys())[betavar])
+                                Yvar[betavar])
                         continue
           
                     if(modelyp[betavar] == 0):
                         betaformula += "~i%s & " % (
-                            list(self.Yvar_map.keys())[betavar])
+                            Yvar[betavar])
                     else:
                         betaformula += "i%s & " % (
-                            list(self.Yvar_map.keys())[betavar])
+                            Yvar[betavar])
 
                 betaformula = betaformula.strip("& ")
                 assert(betaformula != "")
@@ -1193,13 +1235,13 @@ def convert_verilog(input):
 
 def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
     inputfile_name = verilog.split('/')[-1][:-2]
-    Xvar = []
-    Yvar = []
     varlist = [line.rstrip('\n')
                for line in open(varlistfile)]  # Y variable list
     dg = nx.DiGraph()  # dag to handle dependencies
     flag = 0
     verilog_formula = ''
+    Xvar_tmp = []
+    Yvar_tmp = []
     with open(verilog, 'r') as f:
         for x, line in enumerate(f):
             if line.startswith("module"):
@@ -1209,50 +1251,19 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
                     variable_check = total_var[var]
                     variable_check = variable_check.strip(" ").strip("\n")
                     if str(variable_check) in varlist:
-                        Yvar.append(var)
                         dg.add_node(var)
+                        Yvar_tmp.append(var)
                     else:
-                        Xvar.append(var)
+                        Xvar_tmp.append(var)
                 modulename = line.split("(")[0].split(" ")[1]
                 line = line.replace(modulename, "FORMULA")
             verilog_formula += line
 
     f.close()
-    pos_unate = []
-    neg_unate = []
-    Xvar = np.array(Xvar)
-    Yvar = np.array(Yvar)
     if args.logtime:
     	write_to_logfile("file : " + str(args.input))
     start = time.time()
-    pos_unate_tmp, neg_unate_tmp, Xvar_tmp, Yvar_tmp, Xvar_map, Yvar_map = preprocess(varlistfile,verilog)
-
-    # only if could not do preprocessing : proceed without preprocessing
-    if len(Xvar_tmp) == 0 or len(Yvar_tmp) == 0:
-        cmd = "./dependencies/file_generation_cnf %s %s.cnf %s_mapping.txt  > /dev/null 2>&1" % (
-            verilog, inputfile_name, inputfile_name)
-        os.system(cmd)
-        with open(inputfile_name + "_mapping.txt", 'r') as f:
-            lines = f.readlines()
-        f.close()
-        for line in lines:
-            allvar_map = line.strip(" \n").split(" ")
-        os.unlink(inputfile_name + "_mapping.txt")
-        allvar_map = np.array(allvar_map).astype(np.int)
-        Xvar_map = dict(zip(Xvar, allvar_map[Xvar]))
-        Yvar_map = dict(zip(Yvar, allvar_map[Yvar]))
-        flag = 1
-    else:
-        Xvar = Xvar_tmp
-        Yvar = Yvar_tmp
-        Xvar_map = dict(zip(Xvar, Xvar_map))
-        Yvar_map = dict(zip(Yvar, Yvar_map))
-        Xvar = np.sort(Xvar)
-        Yvar = np.sort(Yvar)
-    for unate in pos_unate_tmp:
-        pos_unate.append(list(Yvar_map.keys())[list(Yvar_map.values()).index(unate)])
-    for unate in neg_unate_tmp:
-        neg_unate.append(list(Yvar_map.keys())[list(Yvar_map.values()).index(unate)])
+    pos_unate, neg_unate, Xvar, Yvar, Xvar_map, Yvar_map = preprocess(varlistfile,verilog,Xvar_tmp,Yvar_tmp)
     
     if args.logtime:
     	write_to_logfile("preprocesing time : " + str(time.time() - start))
@@ -1315,8 +1326,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
     with open(cnffile, 'r') as f:
         lines = f.readlines()
     f.close()
-    if flag != 1:
-        fixedvar += "%s 0\n" % (1)  # output variable always true.
+    fixedvar += "%s 0\n" % (1)  # output variable always true.
 
     unates = np.sort(unates)
     cnf_content = ''
@@ -1344,7 +1354,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
         else:
             if(len(Yvar) + len(Xvar) < 1200):
                 no_samples = 10000
-            if(len(Yvar) + len(Xvar) > 1200 and len(Yvar) + len(Xvar) < 4000):
+            if ((len(Yvar) + len(Xvar) > 1200) and (len(Yvar) + len(Xvar) < 4000)):
                 no_samples = 5000
             if(len(Yvar) + len(Xvar) > 4000):
                 no_samples = 1000
@@ -1359,16 +1369,15 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
     if args.logtime:
     	write_to_logfile("sampling time : " + str(time.time() - start_t))
 
-    # phase two : learn candidate skolem functions using decision tree based
-    # algo
-    print("leaning candidate skolem functions..")
+    # phase two : learn candidate skolem functions using decision tree based algo
+    print("learning candidate skolem functions..")
     start_t = time.time()
     dg = learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg)
     
     if args.logtime:
     	write_to_logfile("Candidate time : " + str(time.time() - start_t))
 
-    # find order
+    # find total order
     Yvar_order = np.array(list(nx.topological_sort(dg)))
     if args.verbose == 2:
         print("total order of Y variables", Yvar_order)
@@ -1393,7 +1402,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
 
         # sat call to errorformula:
         check, sigma, ret = verify(Xvar, Yvar)
-        # phase three : Refinement
+        # phase 3 : Refinement
 
         if check == 0:
             print("error...ABC network read fail")
@@ -1446,6 +1455,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
             refine_cnf_content, refine_maxsat_content = add_x_models(
                 cnf_content, maxsat_cnf_content, maxsat_wt, Xvar_map, sigma.modelx)
 
+            #find candidates to refine: call maxsat open-wbo
             ind_var = call_maxsat(refine_maxsat_content, Yvar, Yvar_map,
                                   sigma.modelyp, sigma.modely, unates, Yvar_order, ref.selfsub, maxsat_wt)
 
@@ -1512,14 +1522,18 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
                 print("problem !! refinemenet itr > %d" % (args.maxrefineitr))
                 print("not solved")
                 break
+    
     if args.logtime:
     	write_to_logfile("total time : " + str(time.time() - start))
+    
     exists = os.path.isfile("strash.txt")
     if exists:
     	os.unlink("strash.txt")
+    
     exists = os.path.isfile("variable_mapping.txt")
     if exists:
     	os.unlink("variable_mapping.txt")
+    
     return
 
 
