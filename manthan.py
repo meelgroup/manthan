@@ -35,7 +35,7 @@ import numpy as np
 from numpy import count_nonzero
 from sklearn import tree
 import collections
-#import pydotplus
+import pydotplus
 import time
 import networkx as nx
 
