@@ -35,7 +35,7 @@ import numpy as np
 from numpy import count_nonzero
 from sklearn import tree
 import collections
-#import pydotplus
+import pydotplus
 import time
 import networkx as nx
 
@@ -470,7 +470,7 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
     with open(outputfile, 'r') as f:
         lines = f.readlines()
     f.close()
-    #os.unlink(maxsatformula)
+    os.unlink(maxsatformula)
     os.unlink(outputfile)
 
     indlist = []
