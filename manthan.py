@@ -35,10 +35,16 @@ import numpy as np
 from numpy import count_nonzero
 from sklearn import tree
 import collections
-import pydotplus
+import subprocess as subprocess
 import time
 import networkx as nx
+from DefinabilityChecker import DefinabilityChecker
+import pydotplus
 
+from collections import OrderedDict
+
+from subprocess import Popen, PIPE, check_output
+import signal
 
 SAMPLER_CMS = 1
 
@@ -64,131 +70,149 @@ def write_to_logfile(text):
     file_log.close()
 
 
-def preprocess(varlistfile,verilog,Xvar_tmp,Yvar_tmp):
-    inputfile_name = verilog.split(".v")[0]
-    cmd = "./dependencies/preprocess -b %s -v %s > /dev/null 2>&1 " % (
-        verilog, varlistfile)
+
+def unique_dep(qdimacs_formula,Yvar_map,dg):
+    inputfile_name = args.input.split('/')[-1][:-8]+"_qdimacs.qdimacs"
+    f = open(inputfile_name,"w")
+    f.write(qdimacs_formula)
+    f.close()
+
+    cmd = "./dependencies/unique-dep %s > /dev/null 2>&1" % (inputfile_name)
+    print(cmd)
     os.system(cmd)
-    pos_unate = []
-    neg_unate = []
-    Xvar = []
-    Yvar = []
-    Xvar_map = []
-    Yvar_map = []
     found_neg = 0
+    unique_var = []
     exists = os.path.isfile(inputfile_name + "_vardetails")
     if exists:
         with open(inputfile_name + "_vardetails", 'r') as f:
             lines = f.readlines()
         f.close()
+        count = 0
         for line in lines:
-            if "Xvar " in line:
-                Xvar = line.split(":")[1].strip(" \n").split(" ")
-                Xvar = np.array(Xvar)
-                Xvar = Xvar.astype(np.int)
-                # first variable is 0 now, not 1
-                Xvar = np.subtract(Xvar, 1)
-                continue
-            if "Yvar " in line:
-                Yvar = line.split(":")[1].strip(" \n").split(" ")
-                Yvar = np.array(Yvar)
-                Yvar = Yvar.astype(np.int)
-                # first variable is 0 now, not 1
-                Yvar = np.subtract(Yvar, 1)
-                continue
-            if "Yvar_map " in line:
-                Yvar_map = line.split(":")[1].strip(" \n").split(" ")
-                Yvar_map = np.array(Yvar_map)
-                Yvar_map = Yvar_map.astype(np.int)
-                continue
-            if "Xvar_map " in line:
-                Xvar_map = line.split(":")[1].strip(" \n").split(" ")
-                Xvar_map = np.array(Xvar_map)
-                Xvar_map = Xvar_map.astype(np.int)
-                continue
-            if "Posunate" in line:
-                pos = line.split(":")[1].strip(" \n")
-                if pos != "":
-                    pos_unate = pos.split(" ")
-                    pos_unate = np.array(pos_unate)
-                    pos_unate = pos_unate.astype(np.int)
-                continue
-            if "Negunate" in line:
-                neg = line.split(":")[1].strip(" \n")
-                if neg != "":
-                    neg_unate = neg.split(" ")
-                    neg_unate = np.array(neg_unate)
-                    neg_unate = neg_unate.astype(np.int)
-                continue
+            
+            
+            if "unique : " in line:
+                unique = line.split(":")[1].strip(" ")
+                depends = unique.split("dependencies")[1]
+                check_var = unique.split("dependencies")[0]
+                if check_var != "":
+                    unique_variable = list(Yvar_map.keys())[list(Yvar_map.values()).index(int(check_var))]
+                    count += 1
+                    if unique_variable not in unique_var:
+                        unique_var.append(unique_variable)
+                    
+                    depends = depends.strip(" \n").strip(" ")
+                    if depends.strip("") != "":
+                    	depends = depends.split(" ")
+                    	for var in depends:
+	                        depends_var = list(Yvar_map.keys())[list(Yvar_map.values()).index(int(var))]
+	                        dg.add_edge(int(unique_variable),int(depends_var))
+
         if args.verbose:
-            print("count X variables", len(Xvar))
-            print("X variables", Xvar)
-            print("count Y variables", len(Yvar))
-            print("Y variables", Yvar)
-            print("Xvar", Xvar)
-            print("Yvar", Yvar)
-            print("Xvar_map", Xvar_map)
-            print("Yvar_map", Yvar_map)
+            
             print("preprocessing ...")
-            print("count positive unate", len(pos_unate))
-            if len(pos_unate) > 0:
-                print("positive unate Y variables", pos_unate)
-            print("count negative unate", len(neg_unate))
-            if len(neg_unate) > 0:
-                print("negative unate Y variables", neg_unate)
-            print("preprocess done")
-            print("creating cnf file..")
+            print("count unique defined var", len(unique_var),"Yvar",len(Yvar_map),count)
+            print("unique check done done")
         os.unlink(inputfile_name + "_vardetails")
-        Xvar_map = dict(zip(Xvar, Xvar_map))
-        Yvar_map = dict(zip(Yvar, Yvar_map))
-        Xvar = sorted(Xvar)
-        Yvar = sorted(Yvar)
     else:
         print("preprocessing error .. contining ")
-        cmd = "./dependencies/file_generation_cnf %s %s.cnf %s_mapping.txt  > /dev/null 2>&1" % (
-            verilog, inputfile_name, inputfile_name)
-        os.system(cmd)
-        with open(inputfile_name + "_mapping.txt", 'r') as f:
-            lines = f.readlines()
-        f.close()
-        for line in lines:
-            allvar_map = line.strip(" \n").split(" ")
-        os.unlink(inputfile_name + "_mapping.txt")
-        allvar_map = np.array(allvar_map).astype(np.int)
-        Xvar_map = dict(zip(Xvar_tmp, allvar_map[Xvar]))
-        Yvar_map = dict(zip(Yvar_tmp, allvar_map[Yvar]))
-        Xvar = np.sort(np.array(Xvar_tmp))
-        Yvar = np.sort(np.array(Yvar_tmp))
+        exit()
+    return  unique_var, dg
 
-    pos_unate_list = []
-    neg_unate_list = []
-    for unate in pos_unate:
-        pos_unate_list.append(list(Yvar_map.keys())[list(Yvar_map.values()).index(unate)])
-    for unate in neg_unate:
-        neg_unate_list.append(list(Yvar_map.keys())[list(Yvar_map.values()).index(unate)])
-    return(pos_unate_list, neg_unate_list, Xvar, Yvar, Xvar_map, Yvar_map)
+
+def preprocess(verilogfile,orderfile,Yvar):
+    
+    cmd = "./dependencies/preprocess -b %s -v %s >  /dev/null 2>&1" % (verilogfile,orderfile)
+    with Popen(cmd, shell=True, stdout=PIPE, preexec_fn=os.setsid) as process:
+        try:
+            output = process.communicate(timeout=500)[0]
+        except Exception:
+            os.killpg(process.pid, signal.SIGINT)
+            pos_unate = []
+            neg_unate = []
+            unates = []
+            print("timeout preprocessing..")
+            return pos_unate, neg_unate, unates
+        else:
+            pos_unate_tmp = []
+            neg_unate_tmp = []
+            pos_unate = []
+            neg_unate = []
+            unates = []
+            found_neg = 0
+            inputfile_name = verilogfile.split(".v")[0]
+            exists = os.path.isfile(inputfile_name + "_vardetails")
+            if exists:
+                with open(inputfile_name + "_vardetails", 'r') as f:
+                    lines = f.readlines()
+                f.close()
+                for line in lines:
+                    
+                    if "Posunate" in line:
+                        pos = line.split(":")[1].strip(" \n")
+                        if pos != "":
+                            pos_unate_tmp = pos.split(" ")
+                            pos_unate_tmp = np.array(pos_unate_tmp)
+                            pos_unate_tmp = pos_unate_tmp.astype(np.int)
+                        continue
+                    if "Negunate" in line:
+                        neg = line.split(":")[1].strip(" \n")
+                        if neg != "":
+                            neg_unate_tmp = neg.split(" ")
+                            neg_unate_tmp = np.array(neg_unate_tmp)
+                            neg_unate_tmp = neg_unate_tmp.astype(np.int)
+                        continue
+
+                    if "Yvar_map :" in line:
+                        Yvar_map = line.split(":")[1].strip(" \n").split(" ")
+                        #Yvar_map = np.array(Yvar_map)
+                        #Yvar_map = Yvar_map.astype(np.int)
+                        continue
+                    
+                for unate in pos_unate_tmp:
+        	        pos_unate.append(Yvar[Yvar_map.index(str(unate))])
+        	        unates.append(unate)
+                
+                for unate in neg_unate_tmp:
+                    neg_unate.append(list(Yvar)[Yvar_map.index(str(unate))])
+                    unates.append(unate)
+
+                if args.verbose:
+                    
+                    print("preprocessing ...")
+                    print("count positive unate", len(pos_unate))
+                    if len(pos_unate) > 0:
+                        print("positive unate Y variables", pos_unate)
+                    print("count negative unate", len(neg_unate))
+                    if len(neg_unate) > 0:
+                        print("negative unate Y variables", neg_unate)
+                    
+                    
+                os.unlink(inputfile_name + "_vardetails")
+            else:
+                print("preprocessing error .. contining ")
+                exit()
+            return pos_unate, neg_unate, unates
+    
 
 
 def get_sample_cms(allvar_map, cnf_content, no_samples):
 
-	if args.qdimacs:
-		inputfile_name = args.input.split("/")[-1][:-8]
-	else:
-		inputfile_name = args.input.split("/")[-1][:-2]
-
+	inputfile_name = args.input.split("/")[-1][:-8]
 	tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + ".cnf"
 	f = open(tempcnffile, "w")
 	f.write(cnf_content)
 	f.close()
+	print(tempcnffile)
 	tempoutputfile = tempfile.gettempdir() + '/' + inputfile_name + "_.txt"
 	if args.weighted:
 		print("weighted samples....")
 		cmd = "./dependencies/cryptominisat5 -n1 --sls 0 --comps 0"
 		cmd += " --restart luby  --nobansol --maple 0 --presimp 0"
 		cmd += " --polar weight --freq 0.9999 --verb 0 --scc 0"
-		cmd += " --random %s --maxsol %s" % (args.seed, no_samples)
+		cmd += " --random %s --maxsol %s > /dev/null 2>&1" % (args.seed, no_samples)
 		cmd += " %s" % (tempcnffile)
-		cmd += " --dumpresult %s > /dev/null 2>&1" % (tempoutputfile)
+		cmd += " --dumpresult %s " % (tempoutputfile)
 	else:
 		print("uniform samples....")
 		cmd = "./dependencies/cryptominisat5 --restart luby"
@@ -221,20 +245,21 @@ def get_sample_cms(allvar_map, cnf_content, no_samples):
 	return var_model
 
 
-def treepaths(root, is_leaves, children_left, children_right, data_feature_names, feature, values, dependson):
+def treepaths(root, is_leaves, children_left, children_right, data_feature_names, feature, values, dependson,Yvar_name,Xvar_name,leave_label,index,size):
     if (is_leaves[root]):
-        temp = values[root]
-        temp = temp.ravel()
-        if(temp[1] < temp[0]):
-            return(['val=0'], dependson)
-        else:
-            return(['1'], dependson)
+    	temp = values[root]
+    	temp = temp.ravel()
+    	if(temp[1] < temp[0]):
+    		return(['val=0'], dependson)
+    	else:
+    		return(['1'], dependson)
+
     left_subtree, dependson = treepaths(
         children_left[root], is_leaves, children_left,
-        children_right, data_feature_names, feature, values, dependson)
+        children_right, data_feature_names, feature, values, dependson,Yvar_name,Xvar_name,leave_label,index,size)
     right_subtree, dependson = treepaths(
         children_right[root], is_leaves, children_left,
-        children_right, data_feature_names, feature, values, dependson)
+        children_right, data_feature_names, feature, values, dependson,Yvar_name,Xvar_name,leave_label,index,size)
 
     # conjunction of all the literal in a path where leaf node has label 1
     # Dependson is list of Y variables on which candidate SKF of y_i depends
@@ -243,20 +268,25 @@ def treepaths(root, is_leaves, children_left, children_right, data_feature_names
         if leaf != "val=0":
             dependson.append(data_feature_names[feature[root]])
             # the left part
-            list_left.append(
-                "~i" + str(data_feature_names[feature[root]]) + ' & ' + leaf)
+            if data_feature_names[feature[root]] in Yvar_name.keys():
+            	list_left.append("~i" + str(Yvar_name[data_feature_names[feature[root]]]) + ' & ' + leaf)
+            if data_feature_names[feature[root]] in Xvar_name.keys():
+            	list_left.append("~i" + str(Xvar_name[data_feature_names[feature[root]]]) + ' & ' + leaf)
     list_right = []
     for leaf in right_subtree:
         if leaf != "val=0":
             dependson.append(data_feature_names[feature[root]])
             # the right part
-            list_right.append(
-                "i" + str(data_feature_names[feature[root]]) + ' & ' + leaf)
+            if data_feature_names[feature[root]] in Yvar_name.keys():
+            	list_left.append("i" + str(Yvar_name[data_feature_names[feature[root]]]) + ' & ' + leaf)
+            if data_feature_names[feature[root]] in Xvar_name.keys():
+            	list_left.append("i" + str(Xvar_name[data_feature_names[feature[root]]]) + ' & ' + leaf)
+            #list_right.append("i" + str(data_feature_names[feature[root]]) + ' & ' + leaf)
     dependson = list(set(dependson))
     return(list_left + list_right, dependson)
 
 
-def create_decision_tree(feat_name, feat_data, label, e_var):
+def create_decision_tree(feat_name, feat_data, label, e_var,Xvar_name,Yvar_name):
     clf = tree.DecisionTreeClassifier(
         criterion='gini',
         min_impurity_decrease=args.gini, random_state=args.seed)
@@ -288,8 +318,10 @@ def create_decision_tree(feat_name, feat_data, label, e_var):
     leaves = children_left == -1
     leaves = np.arange(0, n_nodes)[leaves]
     node_depth = np.zeros(shape=n_nodes, dtype=np.int64)
+    leave_label = np.zeros(shape=n_nodes, dtype=np.int64)
     is_leaves = np.zeros(shape=n_nodes, dtype=bool)
     stack = [(0, -1)]  # seed is the root node id and its parent depth
+
 
     while len(stack) > 0:
         node_id, parent_depth = stack.pop()
@@ -299,74 +331,84 @@ def create_decision_tree(feat_name, feat_data, label, e_var):
             stack.append((children_right[node_id], parent_depth + 1))
         else:
             is_leaves[node_id] = True
-    D = []  # y_i does not depend on any y_j
+            leave_label[node_id]=clf.classes_[np.argmax(clf.tree_.value[node_id])]
+    D = []
     if (is_leaves[0]):
-        len_one = count_nonzero(label)
-        if len_one >= int(len(label) / 2):
-            paths = ["1"]  # Maximum label for class 1: tree no split
-        else:
-            paths = ["0"]  # Maximum label for class 0: tree no split
+    	#print("yes")
+    	len_one = count_nonzero(label)
+    	if len_one >= int(len(label)/2):
+    		paths = ["1"] # Maximum label for class 1: tree no split
+    	else:
+    		paths = ["0"] # Maximum label for class 0: tree no split
     else:
-        paths, D = treepaths(
-            0, is_leaves, children_left, children_right,
-            feat_name, feature, values, D)
+    	paths, D = treepaths(0, is_leaves, children_left, children_right,feat_name, feature, values, D,Yvar_name,Xvar_name,leave_label,0,0)
     psi_i = ''
     if len(paths) == 0:
-        paths.append('0')
-        D = []
+    	paths.append('0')
+    	D = []
     for path in paths:
-        psi_i += "( " + path + " ) | "
-    return(psi_i.strip("| "), D)
+    	psi_i += "( " + path + " ) | "
+    return psi_i.strip("| "), D
+    
+def divide_chunks(lst,n):
+	x = [lst[i:i + n] for i in range(0, len(lst), n)]
+	return x
+
+def binary_to_int(lst):
+	lst = np.array(lst)
+	# filling the begining with zeros to form bytes
+	diff = 8 - lst.shape[1] % 8
+	if diff > 0 and diff != 8:
+		lst = np.c_[np.zeros((lst.shape[0],diff),int),lst]
+
+	label = np.packbits(lst,axis=1)
+
+	return label
 
 
-def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg):
-
-    # finding samples unique with respect to X variables.
-    x_data, indices = np.unique(samples[:, Xvar], axis=0, return_index=True)
-    samples = samples[indices, :]
+def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, unique_var, dg, def_unique, Xvar_name, Yvar_name):
+    '''x_data, indices = np.unique(samples[:, Xvar], axis=0, return_index=True)
+    samples = samples[indices, :]'''
 
     if args.verbose:
         print("candidateskf ..")
 
     # For create decision tree, we need feature names, feature data and label data
-    if args.qdimacs:
-    	inputfile_name = args.input.split('/')[-1][:-8]
-    else:
-    	inputfile_name =  args.input.split("/")[-1][:-2]
+    inputfile_name = args.input.split('/')[-1][:-8]
     candidateskf = {}
     for i in Yvar:
-        feat_name = np.arange(len(Xvar) + len(Yvar))
         if i in neg_unate:
             candidateskf[i] = ' 0 '
             continue
         if i in pos_unate:
             candidateskf[i] = ' 1 '
             continue
-
-        # In dag all ancestors of i^th node; depends on i^th node.
-        # all y_j variables that depends on y_i
-        dependent = list(nx.ancestors(dg, i))
-
-        # selecting feature name, data and label
-        dependent.append(i)
-        feat_name = np.delete(feat_name, dependent, axis=0)
-        feat_data = np.delete(samples, dependent, axis=1)
-
-        label = samples[:, i]
-        psi_i, D = create_decision_tree(feat_name, feat_data, label, i)
+        if i in unique_var:
+            continue
+        feat_name = list(Xvar)
+        hop_neighbour = Yvar
+        dependson = list(nx.ancestors(dg,i))
+        for j in hop_neighbour:
+            if i != j:
+                if (j not in dependson):
+                    feat_name.append(j)
+        feat_data = samples[:,feat_name]
+        label = samples[:,i]
+        psi_i, D = create_decision_tree(feat_name, feat_data, label, i, Xvar_name, Yvar_name)
         D = list(set(D) - set(Xvar))
-        # cyclic dependencies due to only Y variables
         candidateskf[i] = psi_i
-
-        # update dependenciess:
         for j in D:
             dg.add_edge(i, j)
+	
+
+    
 
     if args.verbose:
         print("generated candidateskf for all Y")
 
     if args.verbose == 2:
         print("candidate Skolem functions:", candidateskf)
+    #exit()
 
     # we have candidate skolem functions for every y in Y
     # Now, lets generate Skolem formula F(X,Y') : input X and output Y'
@@ -383,18 +425,21 @@ def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg):
     itr = 1
     wtlist = []
     for var in range(len(Xvar) + len(Yvar)):
-        inputstr += "i%s, " % (var)
+        
         if var in Xvar:
-            declarestr += "input i%s;\n" % (var)
+            declarestr += "input i%s;\n" % (Xvar_name[var])
+            inputstr += "i%s, " % (Xvar_name[var])
         if var in Yvar:
             flag = 0
-            declarestr += "input i%s;\n" % (var)
-            wirestr += "wire wi%s;\n" % (var)
-            assignstr += 'assign wi%s = (' % (var)
-            temp = candidateskf[var].replace(
-                " 1 ", " one ").replace(" 0 ", " zero ")
-            assignstr += temp + ");\n"
-            outstr += "(~(wi%s ^ i%s)) & " % (var, var)
+            declarestr += "input i%s;\n" % (Yvar_name[var])
+            inputstr += "i%s, " % (Yvar_name[var])
+            wirestr += "wire wi%s;\n" % (Yvar_name[var])
+            if var not in unique_var:
+	            assignstr += 'assign wi%s = (' % (Yvar_name[var])
+	            temp = candidateskf[var].replace(
+	                " 1 ", " one ").replace(" 0 ", " zero ")
+	            assignstr += temp + ");\n"
+            outstr += "(~(wi%s ^ i%s)) & " % (Yvar_name[var], Yvar_name[var])
             if itr % 10 == 0:
                 flag = 1
                 outstr = outstr.strip("& ")
@@ -419,20 +464,23 @@ def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg):
     f.write(inputstr)
     f.write(declarestr)
     f.write(wirestr)
+    f.write(def_unique.strip("\n")+"\n")
     f.write(assignstr)
     f.write("endmodule")
     f.close()
-
     return dg
 
 
-def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, Yvar_order, selfsub, maxsat_wt):
+
+def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, unique_var, Yvar_order, selfsub, maxsat_wt):
 
     maxsatstr = ''
     itr = 0
     for i in Yvar:
+        yindex = np.where(i == Yvar_order)[0][0]
         if i not in unates:
-            if i in selfsub:
+            
+            if (i in selfsub) or (i in unique_var):
                 if (modely[itr] == 0):
                     maxsatstr += str(maxsat_wt) + " -" + str(
                         Yvar_map[i]) + " 0\n"
@@ -440,19 +488,15 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
                     maxsatstr += str(maxsat_wt) + " " + str(
                         Yvar_map[i]) + " 0\n"
             else:
+                weight = 1
                 if (modelyp[itr] == 0):
-                    maxsatstr += str(1) + " -" + str(Yvar_map[i]) + " 0\n"
+                    maxsatstr += str(weight) + " -" + str(Yvar_map[i]) + " 0\n"
                 else:
-                    maxsatstr += str(1) + " " + str(Yvar_map[i]) + " 0\n"
+                    maxsatstr += str(weight) + " " + str(Yvar_map[i]) + " 0\n"
         itr = itr + 1
     refine_maxsat_content += maxsatstr
-    
-    if args.qdimacs:
-    	inputfile_name = args.input.split('/')[-1][:-8]
-    else:
-    	inputfile_name =  args.input.split("/")[-1][:-2]
-    maxsatformula = tempfile.gettempdir() + \
-        '/' + inputfile_name + "_maxsat.cnf"
+    inputfile_name = args.input.split('/')[-1][:-8]
+    maxsatformula = inputfile_name + "_maxsat.cnf"
     
     # outputfile = tempfile.gettempdir()+'/'+"o" #openwbo has a limit on
     # characters of filename
@@ -501,11 +545,7 @@ def call_maxsat(refine_maxsat_content, Yvar, Yvar_map, modelyp, modely, unates, 
 
 
 def add_skolem_to_errorformula(error_content, selfsub):
-	
-	if args.qdimacs:
-		inputfile_name = args.input.split('/')[-1][:-8]
-	else:
-		inputfile_name = args.input.split('/')[-1][:-2]
+	inputfile_name = args.input.split('/')[-1][:-8]
 	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
 	with open(skolemformula, 'r') as f:
 		skolemcontent = f.read()
@@ -526,9 +566,8 @@ def add_skolem_to_errorformula(error_content, selfsub):
 	f.close()
 
 
-def create_error_formula(Xvar, Yvar, verilog_formula):
+def create_error_formula(Xvar, Yvar, unique_var, verilog_formula):
     refine_var_log = {}
-    
     inputformula = '('
     inputskolem = '('
     inputerrorx = 'module MAIN ('
@@ -546,11 +585,16 @@ def create_error_formula(Xvar, Yvar, verilog_formula):
         if var in Yvar:
             refine_var_log[var] = 0
             inputformula += "i%s, " % (var)
-            inputskolem += "ip%s, " % (var)
             inputerrory += "i%s, " % (var)
-            inputerroryp += "ip%s, " % (var)
             declarey += "input i%s ;\n" % (var)
-            declareyp += "input ip%s ;\n" % (var)
+            if var in unique_var:
+                inputskolem += "i%s, " % (var)
+                inputerroryp += "ip%s, " % (var)
+                declareyp += "input ip%s ;\n" %(var)
+            else:    
+                inputskolem += "ip%s, " % (var)
+                inputerroryp += "ip%s, " % (var)
+                declareyp += "input ip%s ;\n" % (var)
     inputformula += "out1 );\n"
     inputformula_sk = inputskolem + "out3 );\n"
     inputskolem += "out2 );\n"
@@ -569,12 +613,8 @@ def create_error_formula(Xvar, Yvar, verilog_formula):
     return error_content, refine_var_log
 
 
-def verify(Xvar, Yvar):
-
-    if args.qdimacs:
-    	inputfile_name = args.input.split("/")[-1][:-8]
-    else:
-    	inputfile_name = args.input.split("/")[-1][:-2]
+def verify(Xvar, Yvar, unique_var):
+    inputfile_name = args.input.split("/")[-1][:-8]
     errorformula = tempfile.gettempdir() + '/' + inputfile_name + "_errorformula.v"
     cexfile = tempfile.gettempdir() + '/' + inputfile_name + "_cex.txt"
     e = os.path.isfile("strash.txt")
@@ -601,7 +641,15 @@ def verify(Xvar, Yvar):
             templist = np.split(cex, [len(Xvar), len(Xvar) + len(Yvar)])
             modelx = templist[0]
             modely = templist[1]
-            modelyp = templist[2]
+            modelyp_tmp = templist[2]
+            modelyp=[]
+            itr_out = 0
+            for itr in range(len(Yvar)):
+                if Yvar[itr] in unique_var:
+                    modelyp.append(modely[itr])
+                else:
+                    modelyp.append(modelyp_tmp[itr_out])
+                    itr_out += 1
             assert(len(modelx) == len(Xvar))
             assert(len(modelyp) == len(Yvar))
             assert(len(modely) == len(Yvar))
@@ -618,8 +666,7 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
     Xvar = sorted(Xvar_map.keys())
     Yvar_mapping = []
     for var in Yvar:
-        Yvar_mapping.append(Yvar_map[var])
-
+    	Yvar_mapping.append(Yvar_map[var])
     n_x = len(Xvar_map.keys())
     lines = refine_cnf_content.split("\n")
     for line in lines:
@@ -641,12 +688,9 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
             cnf_str += "%s 0\n" % (y_map[i])
     refine_cnf_content += cnf_str.strip("\n")
 
-    if args.qdimacs:
-    	inputfile_name = args.input.split('/')[-1][:-8]
-    else:
-    	inputfile_name = args.input.split('/')[-1][:-2]
+    inputfile_name = args.input.split('/')[-1][:-8]
 
-    cnffile = tempfile.gettempdir()+'/'+inputfile_name+"_unsat.cnf"
+    cnffile = inputfile_name+"_unsat.cnf"
 
     f = open(cnffile, "w")
     f.write(refine_cnf_content)
@@ -674,13 +718,13 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
         for line in lines:
             C = int(line.strip(" \n"))
             if C in Xvar_map.values():
-                index = list(Xvar_map.values()).index(C)
-                clistx.append(Xvar.index(list(Xvar_map.keys())[index]))
+                #clistx.append(list(Xvar_map.values()).index(C))
+                clistx.append(Xvar.index(list(Xvar_map.keys())[list(Xvar_map.values()).index(C)]))
                 continue
             if C in Yvar_map.values():
                 if C != yi_map:
-                    index = list(Yvar_map.values()).index(C)
-                    clisty.append(Yvar.index(list(Yvar_map.keys())[index]))
+                	clisty.append(Yvar.index(list(Yvar_map.keys())[list(Yvar_map.values()).index(C)]))
+                    #clisty.append(list(Yvar_map.values()).index(C))
                 continue
         os.unlink(cnffile)
         os.unlink(unsatcorefile)
@@ -697,7 +741,7 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
             content = f.read()
         f.close()
         os.unlink(satfile)
-        os.unlink(cnffile)
+        #os.unlink(cnffile)
         content = content.replace("s SATISFIABLE\n", "").replace(
             "v", "").replace("\n", "").strip(" \n")
 
@@ -711,7 +755,7 @@ def find_unsat_core(refine_cnf_content, yi, yi_map, yi_model, yj_map, yj_model, 
 
 
   
-def selfsubstitute(Xvar, Yvar, var, yi, selfsub, verilog_formula):
+def selfsubstitute(Xvar, Yvar, var, yi, selfsub, verilog_formula,Xvarnames,Yvarnames):
 
     Yvar = np.array(Yvar)
     index_selfsub = selfsub.index(var)
@@ -724,11 +768,14 @@ def selfsubstitute(Xvar, Yvar, var, yi, selfsub, verilog_formula):
                 inputstr += "# ,"
             else:
                 if i in Yvar:
-                    yj = np.where(Yvar == i)[0][0]
+                    #yj = np.where(Yvar == i)[0][0]
+                    ij = Yvarnames[i]
+                else:
+                	ij = Xvarnames[i]
 
-                inputstr += "i%s ," % (i)
-                selfsub_inputstr += "i%s ," % (i)
-                selfsub_declarestr += "input i%s;\n" % (i)
+                inputstr += "i%s ," % (ij)
+                selfsub_inputstr += "i%s ," % (ij)
+                selfsub_declarestr += "input i%s;\n" % (ij)
         inputstr += "out );\nendmodule"
         write_str_true = "module FORMULA" + \
             str(var) + "_true ( " + selfsub_inputstr + " out);\n"
@@ -773,11 +820,13 @@ def selfsubstitute(Xvar, Yvar, var, yi, selfsub, verilog_formula):
             else:
                 if i not in selfsub:
                     if i in Yvar:
-                        yj = np.where(Yvar == i)[0][0]
+                        ij = Yvarnames[i]
+                    else:
+                        ij = Xvarnames[i]
 
-                    inputstr += "i%s ," % (i)
-                    selfsub_inputstr += "i%s ," % (i)
-                    selfsub_declarestr += "input i%s;\n" % (i)
+                    inputstr += "i%s ," % (ij)
+                    selfsub_inputstr += "i%s ," % (ij)
+                    selfsub_declarestr += "input i%s;\n" % (ij)
 
         write_str_true = "module FORMULA" + \
             str(var) + "_true ( " + selfsub_inputstr + " out);\n"
@@ -833,14 +882,15 @@ class Experiment:
         self.verilog_formula = verilog_formula
         self.dg = dg
 
-    def refine(self, Experiment, refine_cnf_content, ind_var, modelx, modely, modelyp, refine_repeat_var):
+    def refine(self, Experiment, refine_cnf_content, ind_var, modelx, modely, modelyp, unique_var):
         Yvar = sorted(self.Yvar_map.keys())
         Xvar = sorted(self.Xvar_map.keys())
-        
         refineformula = {}
         itr = 0
         sat_var = []
-        
+        ind_var_list = ind_var.copy()
+        beta_ind = {}
+        mostly_sat = []
         while itr < len(ind_var):
 
             var = ind_var[itr]
@@ -852,31 +902,41 @@ class Experiment:
 
             yj_model = []
             yj_map = []
+            allowed_y = []
+
+            if var in sat_var:
+            	continue
 
             if var in self.selfsub:
                 continue
 
-            if self.refine_var_log[var] > args.selfsubthres or refine_repeat_var[yi] == 10:
+            if var in unique_var:
+                continue
+
+            if self.refine_var_log[var] > args.selfsubthres:
                 if var not in self.selfsub:
-                    
                     if len(self.selfsub) == 0:
                         os.system("mkdir "+tempfile.gettempdir()+"/selfsub")
-                    
                     self.selfsub.append(var)
-                    
+                    if len(self.selfsub) > 2:
+                        print("self sub more than 2")
+                        exit()
                     refineformula[var] = selfsubstitute(
-                        self.Xvar_map.keys(), Yvar, var, yi, self.selfsub, self.verilog_formula)
-                    
+                        self.Xvar_map.keys(), Yvar, var, yi, self.selfsub, self.verilog_formula,self.Xvar_map, self.Yvar_map)
                     continue
 
             # to constrain  G(X,Y) formula over \hat{Y},
             # \hat{Y}=\sigma[\hat{Y}]
-            
             index = np.where(self.Yvar_order == var)[0][0]
-            for tmp in range(index, len(Yvar)): 
-                yj = np.where(Yvar == self.Yvar_order[tmp])[0][0]
+            
+            for tmp in range(index, len(Yvar)):
+                
+                temp_var = self.Yvar_order[tmp]
+                yj = np.where(Yvar == temp_var)[0][0]
                 if Yvar[yj] == var or Yvar[yj] in self.unates:
                     continue
+
+                
 
                 if Yvar[yj] in ind_var:
                     if Yvar[yj] in sat_var:
@@ -889,6 +949,8 @@ class Experiment:
                 else:
                     yj_model.append(modelyp[yj])
                 yj_map.append(self.Yvar_map[Yvar[yj]])
+                allowed_y.append(Yvar[yj])
+
 
             ret, models, beta_varlist = find_unsat_core(
                 refine_cnf_content, var, self.Yvar_map[var], yi_model, yj_map, yj_model, self.Xvar_map, self.Yvar_map)
@@ -901,84 +963,84 @@ class Experiment:
                 index = np.where(diff == 1)[0]
                 temp = []
                 for yk in index:
-                    if Yvar[yk] not in ind_var and Yvar[yk] not in self.unates:
-                        temp.append(Yvar[yk])
+                	if (Yvar[yk] not in ind_var) and (Yvar[yk] not in self.unates):
+                		temp.append(Yvar[yk])
                 index = np.where(self.Yvar_order == Yvar[yi])[0][0]
-                l = itr + 1
+                l = itr
                 for tmp in range(index - 1, -1, -1):
-                    var1 = self.Yvar_order[tmp]
-                    if var1 in temp:
-                        if var1 not in ind_var:
-                            flag = 0
-                            while (l < len(ind_var)):
-                                temp_yvar = ind_var[l]
-                                index1 = np.where(
-                                    self.Yvar_order == temp_yvar)[0][0]
-                                if index1 < tmp:
-                                    flag = 1
-                                    ind_var = np.insert(ind_var, l, var1)
-                                    break
-                                l = l + 1
-                            if flag == 0:
-                                ind_var = np.append(
-                                    ind_var, var1).astype(np.int)
-
+                	var1 = self.Yvar_order[tmp]
+                	if var1 in temp:
+                		if var1 not in ind_var:
+                			flag = 0
+                			while (l < len(ind_var)):
+                				temp_yvar = ind_var[l]
+                				index1 = np.where(self.Yvar_order == temp_yvar)[0][0]
+                				if index1 < tmp:
+                					flag = 1
+                					ind_var = np.insert(ind_var, l, var1)
+                					break
+                				l = l + 1
+                			if flag == 0:
+                				ind_var = np.append(ind_var, var1).astype(np.int)
                 continue
             else:
                 # generate Beta formula from unsat core variable list:
                 betaformula = ''
-                index = np.where(self.Yvar_order == var)[0][0]
-                ancestors = self.Yvar_order[range(0, index)]
-                
                 if args.verbose == 2:
                     print("in unsat core of %s X var %s and Y var %s",
                           var, beta_varlist.clistx, beta_varlist.clisty)
-                
                 for betavar in beta_varlist.clistx:
                     if modelx[betavar] == 0:
-                        betaformula += "~i%s & " % (
-                            Xvar[betavar])
+                        betaformula += "~i%s & " % (self.Xvar_map[Xvar[betavar]])
                     else:
-                        betaformula += "i%s & " % (
-                            Xvar[betavar])
-                
+                        betaformula += "i%s & " % (self.Xvar_map[Xvar[betavar]])
                 for betavar in beta_varlist.clisty:
-                    
-                    if Yvar[betavar] in ancestors:
+                    if Yvar[betavar] not in allowed_y:
                         continue
 
                     if Yvar[betavar] in ind_var:
-                        if Yvar[betavar] in sat_var:
-                            if(modelyp[betavar] == 0):
-                                betaformula += "~i%s & " % (
-                                    Yvar[betavar])
-                            else:
-                                betaformula += "i%s & " % (
-                                    Yvar[betavar])
-                            continue
-               
-                        if(modelyp[betavar] == 0):
-                            betaformula += "i%s & " % (
-                                Yvar[betavar])
-                        else:
-                            betaformula += "~i%s & " % (
-                                Yvar[betavar])
-                        continue
-          
+                    	if Yvar[betavar] in sat_var:
+                    		if(modelyp[betavar] == 0):
+                    			betaformula += "~i%s & " % (self.Yvar_map[Yvar[betavar]])
+                    		else:
+                    			betaformula += "i%s & " % (self.Yvar_map[Yvar[betavar]])
+                    		continue
+                    	if itr-1 < np.where(ind_var == Yvar[betavar])[0][0]:
+                    		sat_var.append(Yvar[betavar])
+                    	if var in list(beta_ind.keys()):
+                    		beta_ind[var].append(betavar)
+                    	else:
+                    		beta_ind[var] = [betavar]
+                    	continue
                     if(modelyp[betavar] == 0):
-                        betaformula += "~i%s & " % (
-                            Yvar[betavar])
+                    	betaformula += "~i%s & " % (self.Yvar_map[Yvar[betavar]])
                     else:
-                        betaformula += "i%s & " % (
-                            Yvar[betavar])
-
+                    	betaformula += "i%s & " % (self.Yvar_map[Yvar[betavar]])
                 betaformula = betaformula.strip("& ")
-                assert(betaformula != "")
+                if var not in list(beta_ind.keys()):
+                	assert(betaformula != "")
                 refineformula[var] = betaformula
                 del beta_varlist
 
         if args.verbose == 2:
             print(refineformula)
+
+        for var in list(beta_ind.keys()):
+        	for yvar_index in list(beta_ind[var]):
+        		yvar = Yvar[yvar_index]
+        		if yvar in sat_var:
+        			if modelyp[yvar_index] == 0:
+        				refineformula[var] += "& ~i%s " % (self.Yvar_map[Yvar[yvar_index]])
+        			else:
+        				refineformula[var] += "& i%s " % (self.Yvar_map[Yvar[yvar_index]])
+        		else:
+        			if modelyp[yvar_index] == 0:
+        				refineformula[var] += "& ~i%s " % (self.Yvar_map[Yvar[yvar_index]])
+        			else:
+        				refineformula[var] += "& i%s " % (self.Yvar_map[Yvar[yvar_index]])
+        		refineformula[var] = refineformula[var].strip("& ")
+        	assert(refineformula[var]!= "")
+        
         return refineformula, self.refine_var_log, self.selfsub
 
 
@@ -1023,115 +1085,6 @@ def add_x_models(cnf_content, maxsat_cnf_content, maxsat_wt, Xvar_map, modelx):
     return cnf_content, maxsat_cnf_content
 
 
-def sub_skolem(skolemformula, Xvar, Yvar, Yvar_order, verilog_formula, selfsub):
-    print("error formula unsat..reverse substituing...\n")
-
-    with open(skolemformula, 'r') as f:
-        lines = f.readlines()
-    f.close()
-
-    declare = ''
-    assign = ''
-    for var in range(len(Xvar) + len(Yvar)):
-        if var in Xvar:
-            declare += "input i%s;\n" % (var)
-        if var in Yvar:
-            declare += "output i%s;\n" % (var)
-            assign += "assign i%s = wi%s;\n" % (var, var)
-    skolemcontent = ""
-    flag = 0
-    for line in lines:
-        if line.startswith("input"):
-            if flag == 0:
-                skolemcontent += declare
-                flag = 1
-            continue
-        if line.startswith("output"):
-            continue
-        if line.startswith('assign out'):
-            skolemcontent += assign
-        else:
-            skolemcontent += line
-
-    skolemcontent_lines = skolemcontent.split("\n")
-    for var in Yvar:
-        if var in selfsub:
-            continue
-        yi_index = np.where(Yvar_order == var)[0]
-        for i in range(len(skolemcontent_lines)):
-            if skolemcontent_lines[i].startswith("assign beta%s_" % (var)) or skolemcontent_lines[i].startswith("assign wi%s" % (var)):
-
-                tmp_state = skolemcontent_lines[i].split('=')[1]
-
-                if "i" not in tmp_state:
-                    continue
-
-                for dep_var in selfsub:
-                    yj_index = np.where(Yvar_order == dep_var)[0]
-
-                    if (yj_index < yi_index):
-                        continue
-
-                    if " ~i%s &" % (dep_var) in skolemcontent_lines[i]:
-                        skolemcontent_lines[i] = skolemcontent_lines[
-                            i].replace(" ~i%s &" % (dep_var), "")
-
-                    if " ~i%s;" % (dep_var) in skolemcontent_lines[i]:
-                        skolemcontent_lines[i] = skolemcontent_lines[
-                            i].replace(" & ~i%s;" % (dep_var), ";")
-                        skolemcontent_lines[i] = skolemcontent_lines[
-                            i].replace("~i%s;" % (dep_var), ";")
-
-                    if " i%s &" % (dep_var) in skolemcontent_lines[i]:
-                        skolemcontent_lines[i] = skolemcontent_lines[
-                            i].replace(" i%s &" % (dep_var), "")
-
-                    if " i%s;" % (dep_var) in skolemcontent_lines[i]:
-                        skolemcontent_lines[i] = skolemcontent_lines[
-                            i].replace(" & i%s;" % (dep_var), ";")
-                        skolemcontent_lines[i] = skolemcontent_lines[
-                            i].replace(" i%s;" % (dep_var), ";")
-
-                    skolemcontent_lines[i] = skolemcontent_lines[
-                        i].strip(";").strip(" ").strip("&")
-                    skolemcontent_lines[i] += ";"
-                    if "=" in skolemcontent_lines[i]:
-                        sanity_check = skolemcontent_lines[i].split("=")
-                        sanity_check[1] = sanity_check[1].strip(" ")
-
-                        if sanity_check[1] == ";":
-                            skolemcontent_lines[i] = ''
-
-                    else:
-                        skolemcontent_lines[i] = ""
-
-                    if skolemcontent_lines[i].startswith("assign wi%s" % (var)):
-                        temp_str = sanity_check[
-                            0].split("assign")[1].strip(" ")
-                        skolemcontent_lines[i] = skolemcontent_lines[
-                            i].replace("& ~(%s)" % (temp_str), "")
-                        skolemcontent_lines[i] = skolemcontent_lines[
-                            i].replace("| (%s)" % (temp_str), "")
-
-    skolemcontent = "\n".join(skolemcontent_lines)
-    skolemcontent_write = ''
-    if len(selfsub) != 0:
-        for all_selfsub_var in selfsub:
-            file_open = open(
-                tempfile.gettempdir()+"/selfsub/formula%s_true.v" % (all_selfsub_var), "r")
-            content = file_open.read()
-            file_open.close()
-            skolemcontent_write += "\n" + content
-    f = open(skolemformula, "w")
-    f.write(skolemcontent + "\n")
-    f.write(verilog_formula)
-    f.write(skolemcontent_write)
-    f.close()
-    cmd = "./dependencies/file_write_verilog %s %s > /dev/null 2>&1 " % (
-        skolemformula, skolemformula)
-    os.system(cmd)
-
-
 
 def unate_skolemfunction(Xvar, Yvar, pos_unate, neg_unate):
     if args.qdimacs:
@@ -1168,6 +1121,51 @@ def unate_skolemfunction(Xvar, Yvar, pos_unate, neg_unate):
         skolemformula, skolemformula)
     os.system(cmd)
 
+def unate_unique_skolemfunction(Xvar, Yvar, pos_unate, neg_unate, unique_var,def_unique, Xvar_name,Yvar_name):
+    if args.qdimacs:
+        inputfile_name = args.input.split('/')[-1][:-8]
+    else:
+        inputfile_name = args.input.split('/')[-1][:-2]
+    candidateskf = {}
+
+    skolemformula = tempfile.gettempdir() + \
+        '/' + inputfile_name + \
+        "_skolem.v"  # F(X,Y')
+    inputstr = 'module SKOLEMFORMULA ('
+    declarestr = ''
+    assignstr = ''
+    itr = 1
+    for v in range(len(Xvar) + len(Yvar)):
+        
+        if v in Xvar:
+            inputstr += "i%s, " % (Xvar_name[v])
+            declarestr += "input i%s;\n" % (Xvar_name[v])
+        if v in Yvar:
+            declarestr += "output i%s;\n" % (Yvar_name[v])
+            if v in neg_unate:
+                assignstr += "assign i%s = 0;\n" % (Yvar_name[v])
+            if v in pos_unate:
+                assignstr += "assign i%s = 1;\n" % (Yvar_name[v])
+    inputstr += ");\n"
+    unique_assign = ''
+    wire_assign = ''
+    for v in unique_var:
+        wire_assign += "wire wi%s;\n" %(Yvar_name[v])
+        unique_assign += "assign i%s = wi%s;\n" %(Yvar_name[v],Yvar_name[v])
+
+    f = open(skolemformula, "w")
+    f.write(inputstr)
+    f.write(declarestr)
+    f.write(assignstr)
+    f.write(wire_assign)
+    f.write(def_unique)
+    f.write(unique_assign)
+    f.write("endmodule")
+    f.close()
+    cmd = "./dependencies/file_write_verilog %s %s > /dev/null 2>&1  " % (
+        skolemformula, skolemformula)
+    os.system(cmd)
+
 
 def adaptive_samples(sample_cnf_content, Yvar_map, allvar_map):
     sample_cnf_content_one = ''
@@ -1191,8 +1189,13 @@ def adaptive_samples(sample_cnf_content, Yvar_map, allvar_map):
             bias[var] = 0.9
     return bias
 
+def get_key(val,dicts):
+    for key,value in dicts:
+        if val == value:
+            return key
+    return(-1)
 
-def gen_weighted_cnf(cnf_content, Xvar_map, Yvar_map, allvar_map):
+def gen_weighted_cnf(cnf_content, Xvar_map, Yvar_map, allvar_map,unique_var):
 
     lines = cnf_content.split("\n")
     sample_cnf_content = ''
@@ -1219,54 +1222,330 @@ def gen_weighted_cnf(cnf_content, Xvar_map, Yvar_map, allvar_map):
             sample_cnf_content += "w %d %f\n" % (Yvar_map[var], bias_y[var])
     else:
         for var in Yvar_map.keys():
-            sample_cnf_content += "w %d 0.9\n" % (Yvar_map[var])
+        	if var in unique_var:
+        		sample_cnf_content += "w %d 0.5\n" % (Yvar_map[var])
+        	else:
+        		sample_cnf_content += "w %d 0.9\n" % (Yvar_map[var])
     return sample_cnf_content
 
 
 def convert_verilog(input):
-	cmd = "./dependencies/readCnf %s > /dev/null 2>&1 " % (input)
-	os.system(cmd)
-	inputfile_name = args.input.split('/')[-1][:-8]
-	os.remove(inputfile_name+"_dep.txt")
-	os.system("rm *.noUnary")
-	return inputfile_name+".v" , inputfile_name+"_var.txt"
+    inputfile_name = args.input.split('/')[-1][:-8]
+    verilogfile = inputfile_name+".v"
+    orderfile = inputfile_name+"._varstoelim.txt"
 
 
-
-def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
-    inputfile_name = verilog.split('/')[-1][:-2]
-    varlist = [line.rstrip('\n')
-               for line in open(varlistfile)]  # Y variable list
-    dg = nx.DiGraph()  # dag to handle dependencies
-    flag = 0
-    verilog_formula = ''
-    Xvar_tmp = []
-    Yvar_tmp = []
-    with open(verilog, 'r') as f:
-        for x, line in enumerate(f):
-            if line.startswith("module"):
-                line_split = line.split("(")
-                total_var = line_split[1].split(",")
-                for var in range(len(total_var) - 1):
-                    variable_check = total_var[var]
-                    variable_check = variable_check.strip(" ").strip("\n")
-                    if str(variable_check) in varlist:
-                        dg.add_node(var)
-                        Yvar_tmp.append(var)
-                    else:
-                        Xvar_tmp.append(var)
-                modulename = line.split("(")[0].split(" ")[1]
-                line = line.replace(modulename, "FORMULA")
-            verilog_formula += line
-
+    with open(args.input, 'r') as f:
+        qdimacs_formula = f.read()
     f.close()
+
+
+    with open(args.input, 'r') as f:
+        lines = f.readlines()
+    f.close()
+    
+    qdimacs_formula = qdimacs_formula.replace('a ','c ret ')
+    qdimacs_formula = qdimacs_formula.replace('e ','c ind ')
+
+    wire_clause=''
+    assign_wire=''
+    declare="module FORMULA ("
+    declare_input=""
+    clause=[]
+    qdimacs_list = []
+    count_var = 0
+    Xvar_map = {}
+    Yvar_map = {}
+    dg = nx.DiGraph()  # dag to handle dependencies
+    
+    e_var_list=''
+    H_set = {}
+    dqbf_Y_var = []
+    qbf_Y_var = []
+    i=1
+    for line in lines:
+        line = line.strip(" ")
+        
+        if (line == "") or (line == "\n"):
+            continue
+        
+  
+        if line.startswith("c "):
+        	continue
+        
+        if line.startswith("p cnf"):
+            continue
+        
+        if line.startswith('a'):
+            all_var=line.strip("a").strip(" ").strip("\n").split(" ")[:-1]
+            for var in all_var:
+                declare +="v_%s, " %(var)
+                declare_input +="input v_%s;\n" %(var)
+                Xvar_map[count_var] = int(var)
+                count_var += 1
+            continue
+        
+        if line.startswith('e'):
+            e_var=line.strip("e").strip(" ").strip("\n").split(" ")[:-1]
+            for var in e_var:
+                e_var_list += "v_%s\n" %(var)
+                declare +="v_%s, " %(var)
+                declare_input +="input v_%s;\n" %(var)
+                Yvar_map[count_var] = int(var)
+                dg.add_node(count_var)
+                count_var += 1
+            continue    
+        
+        qdimacs_clause = []
+        wire_clause += "wire x_%s;\n" %(i)
+        clause.append("x_%s" %(i))
+        assign_wire += "assign x_%s = " %(i)
+        i=i+1
+        line_vars=line.strip(" \n").split(" ")[:-1]
+        polarity={}
+        for var in line_vars:
+            qdimacs_clause.append(int(var))
+            flag=0
+            
+            if "-" in var:
+                flag=1
+                var=var.strip("-")
+                polarity[int(var)]=-1
+            else:
+                polarity[int(var)]=1
+
+            if (int(var) in Xvar_map.values()) or (int(var) in Yvar_map.values()):
+                if flag == 1:
+                    assign_wire += "~v_%s | " %(var)
+                else:
+                    assign_wire += "v_%s | " %(var)
+            else:
+            	print(int(var))
+
+        assign_wire = assign_wire.strip("| ")+";\n"
+        if len(qdimacs_clause)>0:
+        	qdimacs_list.append(qdimacs_clause)
+
+    x_string=''
+    xassign=''
+    outstr=''
+    temp_wire=""
+    itr=1
+    while(itr<=len(clause)):
+        flag=0
+        x_string += clause[itr-1]+" & "
+        if itr% 100 ==0:
+            flag=1
+            temp_wire +="wire xt_%s;\n" %(itr)
+            x_string = x_string.strip("& ")
+            xassign += "assign xt_"+str(itr)+" = "+x_string+";\n"
+            outstr += "xt_%s & " %(itr)
+            x_string=''
+        itr +=1
+    if flag==0:
+        temp_wire +="wire xt_%s;\n" %(itr)
+        x_string = x_string.strip("& ")
+        xassign += "assign xt_"+str(itr)+" = "+x_string+";\n"
+        outstr += "xt_%s & " %(itr)
+    outstr = "assign out = "+outstr.strip("& ")+";\n"
+
+    declare += "out);\n"
+    declare_input +="output out;\n"
+    verilog_formula = declare + declare_input + wire_clause + assign_wire + temp_wire + xassign + outstr + "endmodule\n"
+    file_write = open(verilogfile,"w")
+    file_write.write(verilog_formula.strip("\n"))
+    file_write.close()
+
+    file_write=open(orderfile,"w")
+    file_write.write(e_var_list)
+    file_write.close()
+    return verilogfile, verilog_formula, qdimacs_formula, qdimacs_list, orderfile,  Xvar_map, Yvar_map, dg
+    
+
+
+def call_unique(qdimacs_list, Xvar_name, Yvar_name, dg, unates):
+    declare_wire = ''
+    defination_unique_var = ''
+    Yvar_value = list(map(int, list(Yvar_name.values())))
+    Xvar_value = list(map(int,list(Xvar_name.values())))   
+    offset = 5*(len(Yvar_value)+len(Xvar_value))+100
+    unique = []
+    count_unique = 0
+    Yvar = sorted(list(Yvar_name.keys()))
+    checker = DefinabilityChecker(qdimacs_list,Yvar_value)
+    max_len = 0
+    start = time.time()
+    defining_y_variables = []
+    
+    if not args.dqbf:
+	    for j in Yvar:
+	    	defining_y_variables.append(int(Yvar_name[j]))
+
+
+    for i in range(len(Yvar)):
+    	var = Yvar[i]
+
+    	defining_y_variables_var = defining_y_variables[:i]
+
+    	if var in unates:
+    		continue
+
+    	defination = checker.checkDefinability(Xvar_value+defining_y_variables_var,int(Yvar_name[var]),offset)
+    	count_offset = 0
+    	if defination[0] == True:
+            unique.append(var)
+            if len(defination[1]) > max_len:
+            	max_len = len(defination[1])
+            
+            for lists in defination[1]:
+                clause = lists[0]
+                    
+                if isinstance(clause,list):
+                    temp_str = ''
+                    for def_var in clause:
+                        if abs(def_var) in Yvar_value:
+                            def_y_var = list(Yvar_name.keys())[Yvar_value.index(abs(def_var))]
+                            dg.add_edge(var,abs(def_y_var))
+                            if def_var > 0:
+                                temp_str += "wi%s & " %(abs(def_var))
+                            else:
+                                temp_str += "~wi%s & " %(abs(def_var))
+                        else:
+                            if abs(def_var) in Xvar_value:
+                                if def_var > 0:
+                                    temp_str += "i%s & " %(abs(def_var))
+                                else:
+                                    temp_str += "~i%s & " %(abs(def_var))
+                            else:
+                                if def_var > 0:
+                                    temp_str += "utemp%s & " %(abs(def_var))
+                                else:
+                                    temp_str += "~utemp%s & " %(abs(def_var))
+                    
+
+                    if len(defination[1]) > 1:
+                        
+
+                        if lists[1] not in Yvar_value:
+                            count_offset += 1
+                            declare_wire += "wire utemp%s;\n" %(lists[1])
+                            defination_unique_var += "assign utemp%s = %s;\n " %(lists[1],temp_str.strip("& "))
+                        else:
+                            defination_unique_var += "assign wi%s = %s;\n" %(lists[1],temp_str.strip("& "))
+                    else:
+                    	count_offset += 1
+                    	def_var  = clause[0]
+                    	temp_str = ''
+                    	if def_var < 0:
+                    		temp_str += "~"
+                    	
+                    	if abs(def_var) in Xvar_value:
+                    		temp_str += "i%s;\n" %(abs(def_var))
+                    	else:
+                    		if abs(def_var) in Yvar_value:
+                    			temp_str += "wi%s;\n" %(abs(def_var))
+                    		else:
+                    			print("problem\n",defination)
+                    			exit()
+
+                    	defination_unique_var += "assign wi%s = %s" %(int(Yvar_name[var]),temp_str)
+                    	
+                else:
+                	if clause > 0:
+                		defination_unique_var += "assign wi%s = one ;\n" %(abs(clause))
+                	else:
+                		defination_unique_var += "assign wi%s = zero ;\n" %(abs(clause))
+                	count_offset += 1
+    	offset += count_offset+100
+
+    if args.verbose:
+    	print("Total unates",len(unates))
+    	print("Total unique variable",len(unique))
+    	print("Total Y variable",len(Yvar))
+    	print("unique/total_y",round(len(unique)/len(Yvar),2))
+    	print("maximum interpolant size",max_len)
+    	print("total time taken %s seconds" %(round(time.time()-start,2)))
+    if args.logtime:
+    	write_to_logfile("Total-unates: "+str(len(unates)))
+    	write_to_logfile("Total-unique: "+str(len(unique)))
+    	write_to_logfile("Total-Y-var: "+str(len(Yvar)))
+    	write_to_logfile("Unique/Total-Y-var: "+str(round(len(unique)/len(Yvar),2)))
+    	write_to_logfile("maximum interpolant size: "+str(max_len))
+    	write_to_logfile("total unique-finding-time: "+str(round(time.time()-start,2)))
+    f = open("check_unique","w")
+    f.write(defination_unique_var)
+    f.close()
+    return declare_wire.strip("\n")+defination_unique_var, unique, dg
+
+
+
+def sub_skolem(skolemformula, Xvar, Yvar, def_unique, Xvar_map, Yvar_map):
+    with open(skolemformula, 'r') as f:
+        lines = f.readlines()
+    f.close()
+
+    declare = ''
+    assign = ''
+    for var in range(len(Xvar) + len(Yvar)):
+        if var in Xvar:
+            declare += "input i%s;\n" % (Xvar_map[var])
+        if var in Yvar:
+            declare += "output i%s;\n" % (Yvar_map[var])
+            assign += "assign i%s = wi%s;\n" % (Yvar_map[var], Yvar_map[var])
+    skolemcontent = ""
+    flag = 0
+    for line in lines:
+        if line.startswith("input"):
+            if flag == 0:
+                skolemcontent += declare
+                skolemcontent += def_unique
+                flag = 1
+            continue
+        if line.startswith("output"):
+            continue
+        if line.startswith('assign out'):
+            skolemcontent += assign
+        else:
+            skolemcontent += line
+
+    f = open(skolemformula, "w")
+    f.write(skolemcontent)
+    f.close()
+    cmd = "./dependencies/file_write_verilog %s %s > /dev/null 2>&1  " % (
+        skolemformula, skolemformula)
+    os.system(cmd)
+
+
+
+
+
+
+
+def manthan(samples, maxSamples, seed, verb, weighted):
+
+    verilogfile, verilog_formula, qdimacs_formula, qdimacs_list, orderfile, Xvar_map, Yvar_map, dg = convert_verilog(args.input)
+
+    inputfile_name = args.input.split('/')[-1][:-8]
+    allvar_map = list(Xvar_map.values()) + list(Yvar_map.values())
+    Xvar = list(Xvar_map.keys())
+    Yvar = list(Yvar_map.keys())
+    pos_unate = []
+    neg_unate = []
+    unates = []
+    Xvar = np.array(Xvar)
+    Yvar = np.array(Yvar)
+    
     if args.logtime:
     	write_to_logfile("file : " + str(args.input))
     start = time.time()
-    pos_unate, neg_unate, Xvar, Yvar, Xvar_map, Yvar_map = preprocess(varlistfile,verilog,Xvar_tmp,Yvar_tmp)
-    
+   
+    if args.preprocess:
+    	print("preprocessing...")
+    	pos_unate, neg_unate, unates = preprocess(verilogfile, orderfile, Yvar)
+
     if args.logtime:
-    	write_to_logfile("preprocesing time : " + str(time.time() - start))
+        write_to_logfile("preprocesing time : " + str(time.time() - start))
+    
 
     # if all Y variables are unate
     if len(pos_unate) + len(neg_unate) == len(Yvar):
@@ -1275,18 +1554,27 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
         print("all Y variables are unates")
         print("Solved !! done !")
         unate_skolemfunction(Xvar, Yvar, pos_unate, neg_unate)
+        
         skolemformula = tempfile.gettempdir() + \
             '/' + inputfile_name + "_skolem.v"
         exists = os.path.isfile(skolemformula)
+        
         if exists:
             os.system("cp " + skolemformula +
                       " " + inputfile_name + "_skolem.v")
+        
         if args.logtime:
-            write_to_logfile("sampling time : " + str(0))
-            write_to_logfile("Candidate time : " + str(0))
-            write_to_logfile("refinement time : " + str(0))
-            write_to_logfile("rev sub time : " + str(0))
-            write_to_logfile("total time : " + str(time.time() - start))
+        	write_to_logfile("Total-unates: "+str(len(Yvar)))
+        	write_to_logfile("Total-unique: "+str(0))
+        	write_to_logfile("Total-Y-var: "+str(len(Yvar)))
+        	write_to_logfile("Unique/Total-Y-var: "+str(0))
+        	write_to_logfile("maximum interpolant size: "+str(0))
+        	write_to_logfile("total unique-finding-time: "+str(0))
+        	write_to_logfile("sampling time : " + str(0))
+        	write_to_logfile("Candidate time : " + str(0))
+        	write_to_logfile("refinement time : " + str(0))
+        	write_to_logfile("rev sub time : " + str(0))
+        	write_to_logfile("total time : " + str(time.time() - start))
         exists = os.path.isfile("strash.txt")
         if exists:
             os.unlink("strash.txt")
@@ -1295,55 +1583,91 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
             os.unlink("variable_mapping.txt")
         return
 
+    Xvar = np.sort(Xvar)
+    Yvar = np.sort(Yvar)
+
+    if args.unique:
+    	print("finding defination...")
+    	for i in pos_unate:
+    		var = int(Yvar_map[i])
+    		qdimacs_list.append([var])
+    	for i in neg_unate:
+    		var = int("-"+str(Yvar_map[i]))
+    		qdimacs_list.append([var])
+    	def_unique, unique_var, dg = call_unique(qdimacs_list, Xvar_map, Yvar_map, dg, pos_unate + neg_unate)
+    else:
+        def_unique = ''
+        unique_var = []
+        if args.logtime:
+            write_to_logfile("Total-unates: 0")
+            write_to_logfile("Total-unique: 0")
+            write_to_logfile("Total-Y-var: 0")
+            write_to_logfile("Unique/Total-Y-var: 0")
+            write_to_logfile("maximum interpolant size: 0")
+            write_to_logfile("total unique-finding-time: 0")
+
+    if len(pos_unate)+ len(neg_unate)+len(unique_var) == len(Yvar):
+        print("all variables either unate or unique. Found Skolem functions\n")
+        if args.logtime:
+            write_to_logfile("sampling time : " + str(0))
+            write_to_logfile("Candidate time : " + str(0))
+            write_to_logfile("refinement time : " + str(0))
+            write_to_logfile("rev sub time : " + str(0))
+            write_to_logfile("total time : " + str(time.time() - start))
+            unate_unique_skolemfunction(Xvar, Yvar, pos_unate, neg_unate,unique_var,def_unique, Xvar_map, Yvar_map)
+        
+            skolemformula = tempfile.gettempdir() + \
+                '/' + inputfile_name + "_skolem.v"
+            exists = os.path.isfile(skolemformula)
+            
+            if exists:
+                os.system("cp " + skolemformula +
+                          " " + inputfile_name + "_skolem.v")
+
+            return
+
+
+        
+
     # to sample, we need a cnf file and variable mapping coressponding to
-    # varilog variables
-    cnffile = verilog.split(".v")[0] + ".cnf"
+
+
+    cnffile = args.input.split('/')[-1][:-8] + ".cnf"
 
     # to add c ind and positive and negative unate in cnf
-    unates = []
-    indIter = 1
-    indStr = 'c ind '
-    allvar_map = []
-    for i in range(len(Xvar) + len(Yvar)):
-        if i in Xvar:
-            i_map = Xvar_map[i]
-        if i in Yvar:
-            i_map = Yvar_map[i]
-        allvar_map.append(i_map)
-        if indIter % 10 == 0:
-            indStr += ' 0\nc ind '
-        indStr += "%d " % i_map
-        indIter += 1
-    indStr += " 0\n"
-    allvar_map = np.array(allvar_map)
+    qdimacs_formula = qdimacs_formula.replace("c ret ", "c ind ")
     fixedvar = ''
+    unates = []
     for i in pos_unate:
         fixedvar += "%s 0\n" % (Yvar_map[i])
         unates.append(i)
     for i in neg_unate:
         fixedvar += "-%s 0\n" % (Yvar_map[i])
         unates.append(i)
-    with open(cnffile, 'r') as f:
-        lines = f.readlines()
-    f.close()
-    fixedvar += "%s 0\n" % (1)  # output variable always true.
+    
+    '''if flag != 1:
+        fixedvar += "%s 0\n" % (1)  # output variable always true.'''
 
-    unates = np.sort(unates)
+
+    lines = qdimacs_formula.split("\n")
     cnf_content = ''
     for line in lines:
         line = line.strip(" \n")
         if line.startswith("c"):
-            continue
+        	continue
         if line.startswith('p cnf'):
             numVar = int(line.split()[2])
             numCls = int(line.split()[3])
             line = line.replace("p cnf " + str(numVar) + " " + str(
-                numCls), "p cnf " + str(numVar) + " " + str(numCls + len(unates) + 1))
+                numCls), "p cnf " + str(numVar) + " " + str(numCls  + len(unates)))
+            cnf_content += line + "\n"
+            continue
         cnf_content += line + "\n"
     cnf_content = cnf_content.strip("\n")
-    cnf_content = indStr + cnf_content + "\n" + fixedvar.rstrip(' \n')
+    cnf_content = cnf_content + "\n" + fixedvar 
 
-    os.unlink(cnffile)
+    #print("cnf_content",cnf_content)
+    
 
     # generate sample
     start_t = time.time()
@@ -1354,37 +1678,40 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
         else:
             if(len(Yvar) + len(Xvar) < 1200):
                 no_samples = 10000
-            if ((len(Yvar) + len(Xvar) > 1200) and (len(Yvar) + len(Xvar) < 4000)):
+            if(len(Yvar) + len(Xvar) > 1200 and len(Yvar) + len(Xvar) < 4000):
                 no_samples = 5000
             if(len(Yvar) + len(Xvar) > 4000):
                 no_samples = 1000
 
         print("generating samples ", no_samples)
-
         if args.weighted:
             sample_cnf_content = gen_weighted_cnf(
-                cnf_content, Xvar_map, Yvar_map, allvar_map)
+                cnf_content, Xvar_map, Yvar_map, allvar_map,unique_var)
         samples = get_sample_cms(allvar_map, sample_cnf_content, no_samples)
 
     if args.logtime:
     	write_to_logfile("sampling time : " + str(time.time() - start_t))
 
-    # phase two : learn candidate skolem functions using decision tree based algo
-    print("learning candidate skolem functions..")
+    # phase two : learn candidate skolem functions using decision tree based
+    # algo
+    print("leaning candidate skolem functions..")
     start_t = time.time()
-    dg = learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, dg)
+
+    dg = learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, unique_var, dg, def_unique, Xvar_map, Yvar_map)
     
     if args.logtime:
     	write_to_logfile("Candidate time : " + str(time.time() - start_t))
 
-    # find total order
+    # find order
     Yvar_order = np.array(list(nx.topological_sort(dg)))
+
+    assert(len(Yvar_order) == len(Yvar))
     if args.verbose == 2:
         print("total order of Y variables", Yvar_order)
 
     # create error formula : E(X,Y,Y') = F(X,Y) \land \lnot F(X,Y')
     error_content, refine_var_log = create_error_formula(
-        Xvar, Yvar, verilog_formula)
+        Xvar, Yvar, unique_var, verilog_formula)
 
     # phase 3: refinement and verfiy
     maxsat_wt, maxsat_cnf_content = maxsat_content(
@@ -1397,12 +1724,13 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
                      selfsub=selfsub, verilog_formula=verilog_formula, dg=dg)
     start_t = time.time()
     refine_repeat_var = np.zeros(len(Yvar), dtype=int)
+    first_refine = 0
     while True:
         add_skolem_to_errorformula(error_content, ref.selfsub)
 
         # sat call to errorformula:
-        check, sigma, ret = verify(Xvar, Yvar)
-        # phase 3 : Refinement
+        check, sigma, ret = verify(Xvar, Yvar, unique_var)
+        # phase three : Refinement
 
         if check == 0:
             print("error...ABC network read fail")
@@ -1413,6 +1741,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
         if ret == 0:
             print("total number of refinement needed", refine_itr)
             print('error formula unsat.. skolem functions generated')
+            print("number of selfsub",len(selfsub))
 
             if args.logtime:
             	write_to_logfile("refinement time : " + str(time.time() - start_t))
@@ -1420,7 +1749,13 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
             start_t = time.time()
             skolemformula = tempfile.gettempdir(
             ) + '/' + inputfile_name + "_skolem.v"
-            sub_skolem(skolemformula, Xvar, Yvar, Yvar_order, verilog_formula, ref.selfsub)
+            
+            #sub_skolem(skolemformula, Xvar, Yvar, Yvar_order, verilog_formula, ref.selfsub, def_unique)
+            if len(ref.selfsub) == 0:
+                print("self sub zero")
+                print("Skolem function")
+                sub_skolem(skolemformula, Xvar, Yvar, def_unique, Xvar_map, Yvar_map)
+
             exists = os.path.isfile(skolemformula)
             print("skolem function: %s_skolem.v" %(inputfile_name))
             if exists:
@@ -1446,7 +1781,10 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
                 print(
                     "calling MaxSAT to find candidate error skolem functions..")
 
+
             refine_itr = refine_itr + 1
+
+
 
             assert len(sigma.modelx) == len(Xvar)
             assert len(sigma.modely) == len(Yvar)
@@ -1455,15 +1793,10 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
             refine_cnf_content, refine_maxsat_content = add_x_models(
                 cnf_content, maxsat_cnf_content, maxsat_wt, Xvar_map, sigma.modelx)
 
-            #find candidates to refine: call maxsat open-wbo
+            print("calling open-wbo:maxsat to find candidates to repair")
             ind_var = call_maxsat(refine_maxsat_content, Yvar, Yvar_map,
-                                  sigma.modelyp, sigma.modely, unates, Yvar_order, ref.selfsub, maxsat_wt)
+                                  sigma.modelyp, sigma.modely, unates, unique_var, Yvar_order, ref.selfsub, maxsat_wt)
 
-            for y in range(len(Yvar)):
-                if Yvar[y] in ind_var:
-                    refine_repeat_var[y] = refine_repeat_var[y] + 1
-                else:
-                    refine_repeat_var[y] = 0
 
             assert len(ind_var) > 0
 
@@ -1473,7 +1806,7 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
                 print("variables undergoing refinement", ind_var)
 
             refineformula, ref.refine_var_log, ref.selfsub = ref.refine(
-                Experiment, refine_cnf_content, ind_var, sigma.modelx, sigma.modely, sigma.modelyp, refine_repeat_var)
+                Experiment, refine_cnf_content, ind_var, sigma.modelx, sigma.modely, sigma.modelyp, unique_var)
 
             skolemformula = tempfile.gettempdir(
             ) + '/' + inputfile_name + "_skolem.v"
@@ -1484,26 +1817,28 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
             skolemcontent = "".join(lines)
 
             # refine the candidates with refineformula(beta)
-            for refine_var in refineformula.keys():
-
-                if refine_var in ref.selfsub:
-                    psi_refine_var_old = [
-                        line for line in lines if "assign wi" + str(refine_var) in line][0]
+            for refine_var_yvar in refineformula.keys():
+                refine_var = Yvar_map[int(refine_var_yvar)]
+                if refine_var_yvar in ref.selfsub:
+                    psi_refine_var_old = [line for line in lines if "assign wi" + str(refine_var)+" " in line][0]
                     psi_refine_var = refineformula[
-                        refine_var] + "assign wi%s = outsub%s;\n" % (refine_var, refine_var)
+                        refine_var_yvar] + "assign wi%s = outsub%s;\n" % (refine_var, refine_var_yvar)
                     skolemcontent = skolemcontent.replace(
                         psi_refine_var_old, psi_refine_var)
                     continue
 
                 psi_refine_var_old = [
-                    line for line in lines if "assign wi" + str(refine_var) in line][0]
+                    line for line in lines if "assign wi" + str(refine_var)+" " in line][0]
+
                 psi_refine_var = psi_refine_var_old.rstrip(
                     ';\n').lstrip("assign wi%s = " % (refine_var))
 
                 psi_refine_var = "wire beta%s_%s;\nassign beta%s_%s = %s;\nassign wi%s = (%s " \
-                    % (refine_var, refine_itr, refine_var, refine_itr, refineformula[refine_var], refine_var, psi_refine_var)
+                    % (refine_var, refine_itr, refine_var, refine_itr, refineformula[refine_var_yvar], refine_var, psi_refine_var)
+                
 
-                if sigma.modelyp[np.where(Yvar == refine_var)[0][0]] == 0:
+
+                if sigma.modelyp[np.where(Yvar == refine_var_yvar)[0][0]] == 0:
                     psi_refine_var += "| (beta%s_%s));\n" \
                         % (refine_var, refine_itr)
 
@@ -1522,18 +1857,15 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
                 print("problem !! refinemenet itr > %d" % (args.maxrefineitr))
                 print("not solved")
                 break
-    
     if args.logtime:
+    	write_to_logfile("total number of refinement: "+str(refine_itr))
     	write_to_logfile("total time : " + str(time.time() - start))
-    
     exists = os.path.isfile("strash.txt")
     if exists:
     	os.unlink("strash.txt")
-    
     exists = os.path.isfile("variable_mapping.txt")
     if exists:
     	os.unlink("variable_mapping.txt")
-    
     return
 
 
@@ -1545,50 +1877,32 @@ if __name__ == "__main__":
     parser.add_argument('--verb', type=int, help="0 ,1 ,2", dest='verbose')
     parser.add_argument(
         '--gini', type=float, help="minimum impurity drop, default = 0.005", default=0.005, dest='gini')
-    parser.add_argument(
-        '--varlist', type=str, help="list of existensially quantified variables, Y", dest='varlist')
     parser.add_argument('--weighted', type=int, default=1,
                         help="weighted sampling: 1; uniform sampling: 0; default 1", dest='weighted')
     parser.add_argument('--maxrefineitr', type=int, default=1000,
                         help="maximum allowed refinement iterations; default 1000", dest='maxrefineitr')
-    parser.add_argument('--selfsubthres', type=int, default=10,
+    parser.add_argument('--selfsubthres', type=int, default=30,
                         help="self substitution threshold", dest='selfsubthres')
     parser.add_argument('--adaptivesample', type=int, default=0,
                         help="required --weighted to 1: to enable/disable adaptive weighted sampling ", dest='adaptivesample')
     parser.add_argument('--showtrees', type=int, default=0,
                         help="To see the decision trees: 1; default 0", dest='showtrees')
-    parser.add_argument(
-        '--samples', type=int, help=" set 1 to use given samples to learn, default 0;\n if 0 : manthan will decide number of samples as per |Y| ", default=0, dest='samples')
+    parser.add_argument('--samples', action='store_true')
     parser.add_argument('--maxsamp', type=int, default=1000,
-                        help="samples used to learn: manthan will use this only if --samples is set to 1", dest='maxSamples')
+                        help="samples used to learn: manthan will use this only if --samples is used", dest='maxSamples')
     parser.add_argument('--logtime', type=int, default=1,
                         help="to log the time taken by individual module", dest='logtime')
-    parser.add_argument("--qdimacs",action='store_true')
-    parser.add_argument("--verilog",action='store_true')
+    parser.add_argument("--preprocess",action='store_true')
+    parser.add_argument("--unique", action='store_true')
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
-
     
-    if args.qdimacs:
-    	verilog, varlistfile = convert_verilog(args.input)
+    print("starting Manthan")
     
-    if args.verilog:
-    	verilog = args.input
-    	varlistfile = args.varlist
-
-    if args.qdimacs or args.verilog:
-    	print("starting Manthan")
-    else:
-    	print("If you are providing qdimacs file as input, please use --qdimacs flag\n")
-    	print("If you are providing verilog file and varlist of Y variable as inputs, please use --verilog flag\n")
-    	exit()
-
     manthan(
         samples=args.samples,
         maxSamples=args.maxSamples,
         seed=args.seed,
         verb=args.verbose,
-        varlistfile = varlistfile,
-        weighted=args.weighted,
-        verilog = verilog
+        weighted=args.weighted
         )
