@@ -32,7 +32,7 @@ python manthan.py  <inputfile qdimacs>
 ### Examples of use:
 
 ```
-python manthan.py --seed 10 --verb 1 --preprocess  <inputfile qdimacs>
+python manthan.py  --preprocess  <inputfile qdimacs>
 
 ```
 
@@ -48,7 +48,7 @@ To synthesise function using interpolant based technique:
 
 
 ```
-python manthan.py --seed 10 --verb 1 --preprocess --unique  <inputfile qdimacs>
+python manthan.py --preprocess --unique  <inputfile qdimacs>
 
 ```
 
