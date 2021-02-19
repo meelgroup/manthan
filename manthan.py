@@ -71,54 +71,6 @@ def write_to_logfile(text):
 
 
 
-def unique_dep(qdimacs_formula,Yvar_map,dg):
-    inputfile_name = args.input.split('/')[-1][:-8]+"_qdimacs.qdimacs"
-    f = open(inputfile_name,"w")
-    f.write(qdimacs_formula)
-    f.close()
-
-    cmd = "./dependencies/unique-dep %s > /dev/null 2>&1" % (inputfile_name)
-    print(cmd)
-    os.system(cmd)
-    found_neg = 0
-    unique_var = []
-    exists = os.path.isfile(inputfile_name + "_vardetails")
-    if exists:
-        with open(inputfile_name + "_vardetails", 'r') as f:
-            lines = f.readlines()
-        f.close()
-        count = 0
-        for line in lines:
-            
-            
-            if "unique : " in line:
-                unique = line.split(":")[1].strip(" ")
-                depends = unique.split("dependencies")[1]
-                check_var = unique.split("dependencies")[0]
-                if check_var != "":
-                    unique_variable = list(Yvar_map.keys())[list(Yvar_map.values()).index(int(check_var))]
-                    count += 1
-                    if unique_variable not in unique_var:
-                        unique_var.append(unique_variable)
-                    
-                    depends = depends.strip(" \n").strip(" ")
-                    if depends.strip("") != "":
-                    	depends = depends.split(" ")
-                    	for var in depends:
-	                        depends_var = list(Yvar_map.keys())[list(Yvar_map.values()).index(int(var))]
-	                        dg.add_edge(int(unique_variable),int(depends_var))
-
-        if args.verbose:
-            
-            print("preprocessing ...")
-            print("count unique defined var", len(unique_var),"Yvar",len(Yvar_map),count)
-            print("unique check done done")
-        os.unlink(inputfile_name + "_vardetails")
-    else:
-        print("preprocessing error .. contining ")
-        exit()
-    return  unique_var, dg
-
 
 def preprocess(verilogfile,orderfile,Yvar):
     
@@ -1122,10 +1074,8 @@ def unate_skolemfunction(Xvar, Yvar, pos_unate, neg_unate):
     os.system(cmd)
 
 def unate_unique_skolemfunction(Xvar, Yvar, pos_unate, neg_unate, unique_var,def_unique, Xvar_name,Yvar_name):
-    if args.qdimacs:
-        inputfile_name = args.input.split('/')[-1][:-8]
-    else:
-        inputfile_name = args.input.split('/')[-1][:-2]
+    
+    inputfile_name = args.input.split('/')[-1][:-8]
     candidateskf = {}
 
     skolemformula = tempfile.gettempdir() + \
@@ -1377,9 +1327,8 @@ def call_unique(qdimacs_list, Xvar_name, Yvar_name, dg, unates):
     start = time.time()
     defining_y_variables = []
     
-    if not args.dqbf:
-	    for j in Yvar:
-	    	defining_y_variables.append(int(Yvar_name[j]))
+    for j in Yvar:
+	    defining_y_variables.append(int(Yvar_name[j]))
 
 
     for i in range(len(Yvar)):
