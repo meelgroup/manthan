@@ -32,7 +32,7 @@ python manthan.py  <inputfile qdimacs>
 ### Examples of use:
 
 ```
-python manthan.py --seed 10 --verb 1 --preprocess  `qdimacs-benchmark`
+python manthan.py --seed 10 --verb 1 --preprocess  <inputfile qdimacs>
 
 ```
 To learn functions using decision trees. You can use `showtress 1 ` to dump the learned trees.
@@ -48,11 +48,11 @@ To synthesise function using interpolant based technique:
 
 
 ```
-python manthan.py --seed 10 --verb 1 --preprocess --unique  ``qdimacs-benchmark''
+python manthan.py --seed 10 --verb 1 --preprocess --unique  <inputfile qdimacs>
 
 ```
 
-The output F(X,\Psi(X)) would be stored as `benchmark-name_skolem.v`
+The output F(X,\Psi(X)) would be stored as `inputfile-name_skolem.v`
 
 ## Benchmarks
 We used matrix multiplication encoding discussed in polymath project to generate different benchmarks.
