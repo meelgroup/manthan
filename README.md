@@ -18,7 +18,7 @@ Manthan depends on:
 2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
 3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
 4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions. 
-5. [UNIQUE] (https://link.springer.com/chapter/10.1007/978-3-030-53288-8_24) to extract interpolant based definiations.
+5. [UNIQUE](https://github.com/perebor/unique) to extract interpolant based definiations.
 
 Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing.
 
@@ -32,12 +32,12 @@ python manthan.py  <inputfile qdimacs>
 ### Examples of use:
 
 ```
-python manthan.py --seed 10 --verb 1 --preprocess  ``qdimacs-benchmark"
+python manthan.py --seed 10 --verb 1 --preprocess  `qdimacs-benchmark`
 
 ```
-To learn functions using decision trees. You can use ``showtress 1" to dump the learned trees.
+To learn functions using decision trees. You can use `showtress 1 ` to dump the learned trees.
 
-```
+
 To see detailed list of available option:
 
 ```
@@ -48,14 +48,14 @@ To synthesise function using interpolant based technique:
 
 
 ```
-python manthan.py --seed 10 --verb 1 --preprocess --unique  ``qdimacs-benchmarks''
+python manthan.py --seed 10 --verb 1 --preprocess --unique  ``qdimacs-benchmark''
 
 ```
 
-The output F(X,\Psi(X)) would be stored as ``benchmark-name_skolem.v''
+The output F(X,\Psi(X)) would be stored as `benchmark-name_skolem.v`
 
 ## Benchmarks
-We used multiplication encoding discussed in polymath project to generate different benchmarks.
+We used matrix multiplication encoding discussed in polymath project to generate different benchmarks.
 
 ## Issues, questions, bugs, etc.
 Please click on "issues" at the top and [create a new issue](https://github.com/meelgroup/manthan/issues). All issues are responded to promptly.
