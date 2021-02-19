@@ -35,10 +35,10 @@ python manthan.py  <inputfile qdimacs>
 python manthan.py --seed 10 --verb 1 --preprocess  <inputfile qdimacs>
 
 ```
-To learn functions using decision trees. You can use `showtress 1 ` to dump the learned trees.
 
 
-To see detailed list of available option:
+
+ You can use `showtrees 1 ` to dump the learned trees, futhermore to see detailed list of available option:
 
 ```
 python manthan.py --help
