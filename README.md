@@ -32,13 +32,13 @@ python manthan.py  <inputfile qdimacs>
 ### Examples of use:
 
 ```
-python manthan.py --seed 10 --verb 1 --preprocess  <inputfile qdimacs>
+python manthan.py  --preprocess  <inputfile qdimacs>
 
 ```
 
 
 
- You can use `showtrees 1 ` to dump the learned trees, futhermore to see detailed list of available option:
+ You can use `showtrees 1 ` to dump the learned trees, futhermore to see detailed list of available options:
 
 ```
 python manthan.py --help
@@ -48,7 +48,7 @@ To synthesise function using interpolant based technique:
 
 
 ```
-python manthan.py --seed 10 --verb 1 --preprocess --unique  <inputfile qdimacs>
+python manthan.py --preprocess --unique  <inputfile qdimacs>
 
 ```
 
