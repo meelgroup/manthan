@@ -38,7 +38,7 @@ python manthan.py  --preprocess  <inputfile qdimacs>
 
 
 
- You can use `showtrees 1 ` to dump the learned trees, futhermore to see detailed list of available option:
+ You can use `showtrees 1 ` to dump the learned trees, futhermore to see detailed list of available options:
 
 ```
 python manthan.py --help
