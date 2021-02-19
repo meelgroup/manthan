@@ -36,6 +36,13 @@ python manthan.py  --preprocess  <inputfile qdimacs>
 
 ```
 
+To specify the required refine iteration:
+
+```
+
+python manthan.py --preprocess --refineitr <int> <inputfile qdimacs>
+
+```
 
 
  You can use `showtrees 1 ` to dump the learned trees, futhermore to see detailed list of available options:
@@ -52,7 +59,10 @@ python manthan.py --preprocess --unique  <inputfile qdimacs>
 
 ```
 
+
 The output F(X,\Psi(X)) would be stored as `inputfile-name_skolem.v`
+
+A detailed readme about output format and learned decision tree can be found at `detailed_readme.pdf`
 
 ## Benchmarks
 We used matrix multiplication encoding discussed in polymath project to generate different benchmarks.
