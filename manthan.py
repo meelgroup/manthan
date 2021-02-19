@@ -197,7 +197,7 @@ def get_sample_cms(allvar_map, cnf_content, no_samples):
 	return var_model
 
 
-def treepaths(root, is_leaves, children_left, children_right, data_feature_names, feature, values, dependson,Yvar_name,Xvar_name,leave_label,index,size):
+def treepaths(root, is_leaves, children_left, children_right, data_feature_names, feature, values, dependson,leave_label,index,size):
     if (is_leaves[root]):
     	temp = values[root]
     	temp = temp.ravel()
@@ -208,10 +208,10 @@ def treepaths(root, is_leaves, children_left, children_right, data_feature_names
 
     left_subtree, dependson = treepaths(
         children_left[root], is_leaves, children_left,
-        children_right, data_feature_names, feature, values, dependson,Yvar_name,Xvar_name,leave_label,index,size)
+        children_right, data_feature_names, feature, values, dependson,leave_label,index,size)
     right_subtree, dependson = treepaths(
         children_right[root], is_leaves, children_left,
-        children_right, data_feature_names, feature, values, dependson,Yvar_name,Xvar_name,leave_label,index,size)
+        children_right, data_feature_names, feature, values, dependson,leave_label,index,size)
 
     # conjunction of all the literal in a path where leaf node has label 1
     # Dependson is list of Y variables on which candidate SKF of y_i depends
@@ -220,25 +220,19 @@ def treepaths(root, is_leaves, children_left, children_right, data_feature_names
         if leaf != "val=0":
             dependson.append(data_feature_names[feature[root]])
             # the left part
-            if data_feature_names[feature[root]] in Yvar_name.keys():
-            	list_left.append("~i" + str(Yvar_name[data_feature_names[feature[root]]]) + ' & ' + leaf)
-            if data_feature_names[feature[root]] in Xvar_name.keys():
-            	list_left.append("~i" + str(Xvar_name[data_feature_names[feature[root]]]) + ' & ' + leaf)
+            list_left.append("~i" + str(data_feature_names[feature[root]]) + ' & ' + leaf)
     list_right = []
     for leaf in right_subtree:
         if leaf != "val=0":
             dependson.append(data_feature_names[feature[root]])
             # the right part
-            if data_feature_names[feature[root]] in Yvar_name.keys():
-            	list_left.append("i" + str(Yvar_name[data_feature_names[feature[root]]]) + ' & ' + leaf)
-            if data_feature_names[feature[root]] in Xvar_name.keys():
-            	list_left.append("i" + str(Xvar_name[data_feature_names[feature[root]]]) + ' & ' + leaf)
+            list_left.append("i" + str(data_feature_names[feature[root]]) + ' & ' + leaf)
             #list_right.append("i" + str(data_feature_names[feature[root]]) + ' & ' + leaf)
     dependson = list(set(dependson))
     return(list_left + list_right, dependson)
 
 
-def create_decision_tree(feat_name, feat_data, label, e_var,Xvar_name,Yvar_name):
+def create_decision_tree(feat_name, feat_data, label, e_var):
     clf = tree.DecisionTreeClassifier(
         criterion='gini',
         min_impurity_decrease=args.gini, random_state=args.seed)
@@ -293,7 +287,7 @@ def create_decision_tree(feat_name, feat_data, label, e_var,Xvar_name,Yvar_name)
     	else:
     		paths = ["0"] # Maximum label for class 0: tree no split
     else:
-    	paths, D = treepaths(0, is_leaves, children_left, children_right,feat_name, feature, values, D,Yvar_name,Xvar_name,leave_label,0,0)
+    	paths, D = treepaths(0, is_leaves, children_left, children_right , feat_name, feature, values, D, leave_label,0,0)
     psi_i = ''
     if len(paths) == 0:
     	paths.append('0')
@@ -327,6 +321,7 @@ def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, unique_var, dg, def_uni
 
     # For create decision tree, we need feature names, feature data and label data
     inputfile_name = args.input.split('/')[-1][:-8]
+    
     candidateskf = {}
     for i in Yvar:
         if i in neg_unate:
@@ -337,23 +332,24 @@ def learn_skf(samples, Xvar, Yvar, pos_unate, neg_unate, unique_var, dg, def_uni
             continue
         if i in unique_var:
             continue
-        feat_name = list(Xvar)
+        feat = list(Xvar)
+        feat_name = list(Xvar_name.values())
         hop_neighbour = Yvar
         dependson = list(nx.ancestors(dg,i))
         for j in hop_neighbour:
             if i != j:
                 if (j not in dependson):
-                    feat_name.append(j)
-        feat_data = samples[:,feat_name]
+                    feat.append(j)
+                    feat_name.append(Yvar_name[j])
+        feat_data = samples[:,feat]
         label = samples[:,i]
-        psi_i, D = create_decision_tree(feat_name, feat_data, label, i, Xvar_name, Yvar_name)
-        D = list(set(D) - set(Xvar))
+        psi_i, D = create_decision_tree(feat_name, feat_data, label, Yvar_name[i])
         candidateskf[i] = psi_i
         for j in D:
-            dg.add_edge(i, j)
-	
-
-    
+        	if j in list(Yvar_name.values()):
+        		temp = list(Yvar_name.keys())[list(Yvar_name.values()).index(j)]
+        		dg.add_edge(i, temp)
+   
 
     if args.verbose:
         print("generated candidateskf for all Y")
@@ -1470,7 +1466,7 @@ def sub_skolem(skolemformula, Xvar, Yvar, def_unique, Xvar_map, Yvar_map):
 
 
 
-def manthan(samples, maxSamples, seed, verb, weighted):
+def manthan():
 
     verilogfile, verilog_formula, qdimacs_formula, qdimacs_list, orderfile, Xvar_map, Yvar_map, dg = convert_verilog(args.input)
 
@@ -1727,8 +1723,7 @@ def manthan(samples, maxSamples, seed, verb, weighted):
 
             if args.verbose:
                 print("error formula is sat.. refining skolem functions..")
-                print(
-                    "calling MaxSAT to find candidate error skolem functions..")
+                print("calling MaxSAT to find candidate error skolem functions..")
 
 
             refine_itr = refine_itr + 1
@@ -1802,10 +1797,15 @@ def manthan(samples, maxSamples, seed, verb, weighted):
             f.write(skolemcontent)
             f.close()
 
-            if refine_itr == args.maxrefineitr:
-                print("problem !! refinemenet itr > %d" % (args.maxrefineitr))
-                print("not solved")
-                break
+            if refine_itr == args.refineitr:
+            	print("Did not construct correct Skolem function---stoping due to number of refinement reached %s" %(args.refineitr))
+            	print("consructing learned functions so far...")
+            	sub_skolem(skolemformula, Xvar, Yvar, def_unique, Xvar_map, Yvar_map)
+            	exists = os.path.isfile(skolemformula)
+            	if exists:
+            		os.system("cp " + skolemformula + " " + inputfile_name + "_skolem.v")
+            		print("Find skolem function at %s_skolem.v" %(inputfile_name))
+            	break
     if args.logtime:
     	write_to_logfile("total number of refinement: "+str(refine_itr))
     	write_to_logfile("total time : " + str(time.time() - start))
@@ -1822,20 +1822,20 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('--seed', type=int, default=10, dest='seed')
+    parser.add_argument('--seed', type=int, default=1, dest='seed')
     parser.add_argument('--verb', type=int, help="0 ,1 ,2", dest='verbose')
     parser.add_argument(
         '--gini', type=float, help="minimum impurity drop, default = 0.005", default=0.005, dest='gini')
     parser.add_argument('--weighted', type=int, default=1,
                         help="weighted sampling: 1; uniform sampling: 0; default 1", dest='weighted')
-    parser.add_argument('--maxrefineitr', type=int, default=1000,
-                        help="maximum allowed refinement iterations; default 1000", dest='maxrefineitr')
+    parser.add_argument('--refineitr', type=int, default=1000,
+                        help="maximum allowed refinement iterations; default 1000", dest='refineitr')
     parser.add_argument('--selfsubthres', type=int, default=30,
                         help="self substitution threshold", dest='selfsubthres')
     parser.add_argument('--adaptivesample', type=int, default=0,
                         help="required --weighted to 1: to enable/disable adaptive weighted sampling ", dest='adaptivesample')
-    parser.add_argument('--showtrees', type=int, default=0,
-                        help="To see the decision trees: 1; default 0", dest='showtrees')
+    parser.add_argument('--showtrees', action='store_true',
+                        help="To see the decision trees")
     parser.add_argument('--samples', action='store_true')
     parser.add_argument('--maxsamp', type=int, default=1000,
                         help="samples used to learn: manthan will use this only if --samples is used", dest='maxSamples')
@@ -1848,10 +1848,4 @@ if __name__ == "__main__":
     
     print("starting Manthan")
     
-    manthan(
-        samples=args.samples,
-        maxSamples=args.maxSamples,
-        seed=args.seed,
-        verb=args.verbose,
-        weighted=args.weighted
-        )
+    manthan()
