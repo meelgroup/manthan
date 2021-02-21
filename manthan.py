@@ -536,7 +536,7 @@ def create_error_formula(Xvar, Yvar, unique_var, verilog_formula):
             inputerrory += "i%s, " % (var)
             declarey += "input i%s ;\n" % (var)
             if var in unique_var:
-                inputskolem += "i%s, " % (var)
+                inputskolem += "ip%s, " % (var)
                 inputerroryp += "ip%s, " % (var)
                 declareyp += "input ip%s ;\n" %(var)
             else:    
