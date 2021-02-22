@@ -1443,7 +1443,6 @@ def sub_skolem(skolemformula, Xvar, Yvar, def_unique, Xvar_map, Yvar_map):
         if line.startswith("input"):
             if flag == 0:
                 skolemcontent += declare
-                skolemcontent += def_unique
                 flag = 1
             continue
         if line.startswith("output"):
@@ -1797,8 +1796,8 @@ def manthan():
             f.write(skolemcontent)
             f.close()
 
-            if refine_itr == args.refineitr:
-            	print("Did not construct correct Skolem function---stoping due to number of refinement reached %s" %(args.refineitr))
+            if refine_itr == args.repairitr:
+            	print("Did not construct correct Skolem function---stoping due to number of refinement reached %s" %(args.repairitr))
             	print("consructing learned functions so far...")
             	sub_skolem(skolemformula, Xvar, Yvar, def_unique, Xvar_map, Yvar_map)
             	exists = os.path.isfile(skolemformula)
@@ -1828,8 +1827,8 @@ if __name__ == "__main__":
         '--gini', type=float, help="minimum impurity drop, default = 0.005", default=0.005, dest='gini')
     parser.add_argument('--weighted', type=int, default=1,
                         help="weighted sampling: 1; uniform sampling: 0; default 1", dest='weighted')
-    parser.add_argument('--refineitr', type=int, default=1000,
-                        help="maximum allowed refinement iterations; default 1000", dest='refineitr')
+    parser.add_argument('--repairitr', type=int, default=1000,
+                        help="maximum allowed refinement iterations; default 1000", dest='repairitr')
     parser.add_argument('--selfsubthres', type=int, default=30,
                         help="self substitution threshold", dest='selfsubthres')
     parser.add_argument('--adaptivesample', type=int, default=0,
