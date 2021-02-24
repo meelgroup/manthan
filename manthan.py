@@ -1035,12 +1035,8 @@ def add_x_models(cnf_content, maxsat_cnf_content, maxsat_wt, Xvar_map, modelx):
 
 
 def unate_skolemfunction(Xvar, Yvar, pos_unate, neg_unate):
-    if args.qdimacs:
-    	inputfile_name = args.input.split('/')[-1][:-8]
-    else:
-    	inputfile_name = args.input.split('/')[-1][:-2]
+    inputfile_name = args.input.split('/')[-1][:-8]
     candidateskf = {}
-
     skolemformula = tempfile.gettempdir() + \
         '/' + inputfile_name + \
         "_skolem.v"  # F(X,Y')
