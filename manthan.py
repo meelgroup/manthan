@@ -234,15 +234,15 @@ def manthan():
             break
         if ret == 0:
             print("verification check UNSAT")
-            print("no more refinemened needed")
-            print("number of refinement need to converge", countRefine)
+            print("no more repair needed")
+            print("number of repairs needed to converge", countRefine)
             createSkolemfunction(inputfile_name, Xvar, Yvar)
             break
         if ret == 1:
             countRefine += 1
             print("verification check is SAT, we have counterexample to fix")
             if args.verbose:
-                print("number of refinement", countRefine)
+                print("number of repair", countRefine)
                 print("finding candidates to repair using maxsat")
 
             repaircnf, maxsatcnfRepair = addXvaluation(
