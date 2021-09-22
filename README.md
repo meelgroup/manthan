@@ -14,7 +14,7 @@ To install the required libraries, run:
 python -m pip install -r requirements.txt
 ```
 Manthan depends on: 
-1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc)  for MaxSAT queries
+1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
 2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
 3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
 4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
