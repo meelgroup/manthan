@@ -60,6 +60,10 @@ A simple invocation with benchmarks/max64.qdimacs
 ```
 python manthan.py --multiclass --preprocess --unique --lexmaxsat --verb 1 benchmarks/max64.qdimacs
 
+```
+
+```
+
 starting Manthan
 parsing
 count X variables 128
@@ -81,7 +85,7 @@ number of refinement need to converge 0
 you can also provide different option to consider for manthan:
 
 ```
-python manthan.py [options]  --qdimacs <inputfile qdimacs> 
+python manthan.py [options]  <inputfile qdimacs> 
 ```
 To see detailed list of available option:
 
