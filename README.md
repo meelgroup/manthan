@@ -78,8 +78,8 @@ generating weighted samples
 generated samples.. learning candidate functions
 generated candidate functions for all variables.
 verification check UNSAT
-no more refinemened needed
-number of refinement need to converge 0
+no more repair needed
+number of repairs needed to converge 0
 ```
 
 you can also provide different option to consider for manthan:
