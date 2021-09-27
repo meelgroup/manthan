@@ -66,15 +66,15 @@ def write_to_logfile(text):
 
 def preprocess(varlistfile,verilog,Xvar_tmp,Yvar_tmp):
     inputfile_name = verilog.split(".v")[0]
-    cmd = "./dependencies/preprocess -b %s -v %s > /dev/null 2>&1 " % (
+    cmd = "./dependencies/preprocess -b %s -v %s  > /dev/null 2>&1 " % (
         verilog, varlistfile)
     os.system(cmd)
     pos_unate = []
     neg_unate = []
     Xvar = []
     Yvar = []
-    Xvar_map = []
-    Yvar_map = []
+    Xvar_map = {}
+    Yvar_map = {}
     found_neg = 0
     exists = os.path.isfile(inputfile_name + "_vardetails")
     if exists:
@@ -1305,10 +1305,15 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
             verilog_formula += line
 
     f.close()
+    assert(len(Xvar_tmp) > 0)
+    assert(len(Yvar_tmp) > 0)
     if args.logtime:
     	write_to_logfile("file : " + str(args.input))
     start = time.time()
     pos_unate, neg_unate, Xvar, Yvar, Xvar_map, Yvar_map = preprocess(varlistfile,verilog,Xvar_tmp,Yvar_tmp)
+
+    assert(len(Xvar) > 0)
+    assert(len(Yvar) > 0)
     
     if args.logtime:
     	write_to_logfile("preprocesing time : " + str(time.time() - start))
