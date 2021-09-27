@@ -155,8 +155,8 @@ def preprocess(varlistfile,verilog,Xvar_tmp,Yvar_tmp):
             allvar_map = line.strip(" \n").split(" ")
         os.unlink(inputfile_name + "_mapping.txt")
         allvar_map = np.array(allvar_map).astype(np.int)
-        Xvar_map = dict(zip(Xvar_tmp, allvar_map[Xvar]))
-        Yvar_map = dict(zip(Yvar_tmp, allvar_map[Yvar]))
+        Xvar_map = dict(zip(Xvar_tmp, allvar_map[Xvar_tmp]))
+        Yvar_map = dict(zip(Yvar_tmp, allvar_map[Yvar_tmp]))
         Xvar = np.sort(np.array(Xvar_tmp))
         Yvar = np.sort(np.array(Yvar_tmp))
 
@@ -1232,6 +1232,51 @@ def convert_verilog(input):
 	return inputfile_name+".v" , inputfile_name+"_var.txt"
 
 
+def PreprocessVerilog(verilog, varlist):
+    with open(verilog, "r") as f:
+        lines = f.readlines()
+    f.close()
+
+    content = ""
+    flag = 1
+
+    for line in lines:
+        line = line.strip(" ").strip("\n")
+
+        if line.startswith("input"):
+            content += "\n"
+            flag = 0
+
+        if line.startswith("output"):
+            flag = 0
+
+        if line.startswith("//"):
+            continue
+
+        if (line.startswith("module")) or (flag ==1):
+            content += line.strip("\n")
+            continue
+
+        content += line+"\n"
+
+    with open(verilog, "w") as f:
+        f.write(content)
+    f.close()
+
+
+    with open(varlist,"r") as f:
+        lines = f.readlines()
+    f.close()
+
+    content = ''
+
+    for line in lines:
+        content += line.strip("\n").strip(" ")+"\n"
+
+    with open(varlist, "w") as f:
+        f.write(content)
+    f.close()
+
 
 def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
     inputfile_name = verilog.split('/')[-1][:-2]
@@ -1270,8 +1315,8 @@ def manthan(samples, maxSamples, seed, verb, varlistfile, weighted,verilog):
 
     # if all Y variables are unate
     if len(pos_unate) + len(neg_unate) == len(Yvar):
-        print(len(pos_unate) + len(neg_unate))
         print("positive unate", len(pos_unate))
+        print("negative unate", len(neg_unate))
         print("all Y variables are unates")
         print("Solved !! done !")
         unate_skolemfunction(Xvar, Yvar, pos_unate, neg_unate)
@@ -1573,8 +1618,9 @@ if __name__ == "__main__":
     	verilog, varlistfile = convert_verilog(args.input)
     
     if args.verilog:
-    	verilog = args.input
-    	varlistfile = args.varlist
+        verilog = args.input
+        varlistfile = args.varlist
+        PreprocessVerilog(verilog,varlistfile)
 
     if args.qdimacs or args.verilog:
     	print("starting Manthan")
