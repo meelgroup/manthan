@@ -223,9 +223,13 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
             depends_on_yvar.append(yvar)
             dependent = dependent + depends_on_yvar
         Yfeatname = list(set(Yvar)-set(dependent))
-        featname= Xvar + Yfeatname
-        Samples_Y = samples[:,(np.array(Yfeatname)-1)]
-        featuredata = np.concatenate((samples_X,Samples_Y),axis=1)
+        if len(Yfeatname) > 0:
+            featname= Xvar + Yfeatname
+            Samples_Y = samples[:,(np.array(Yfeatname)-1)]
+            featuredata = np.concatenate((samples_X,Samples_Y),axis=1)
+        else:
+            featname = Xvar
+            featuredata = samples_X
         label = samples[:,(np.array(Yset)-1)]
         labeldata = binary_to_int(label)
         functions, D_set = createDecisionTree(featname, featuredata, labeldata, Yset, args, Xvar, Yvar)

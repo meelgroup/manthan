@@ -362,6 +362,9 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                 if y not in allowed_Y:
                     continue
 
+                if y == repairvar:
+                    continue
+        
                 if modelyp[y_index] == 0:
                     betaformula += "~o%s & " %(y)
                 else:
@@ -369,6 +372,9 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
             
             repairfunctions[repairvar] = betaformula.strip("& ")
             assert(repairfunctions[repairvar] != "")
+        
+    if args.verbose == 2:
+        print("repaired functions", repairfunctions)
     return 0, repairfunctions
 
 def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar):
