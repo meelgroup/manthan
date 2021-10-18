@@ -99,7 +99,7 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 	if len(np.where(models == "0")[0]) > 0:
 		index = np.where(models == "0")[0][0]
 		var_model = np.reshape(models, (-1, index+1)).astype(np.int)
-		var_model = var_model > 1
+		var_model = var_model > 0
 		var_model = np.delete(var_model, index, axis=1)
 		var_model = var_model.astype(np.int)
 	return var_model
