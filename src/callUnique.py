@@ -96,7 +96,7 @@ def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 
 						UniqueDef += "assign w%s = %s" %(yvar, clauseString)
 				else:
-					print(yvar,clause)
+					#print(yvar,clause)
 					if clause > 0:
 						UniqueDef += "assign w%s = 1'b1;\n" %(abs(clause))
 					else:
