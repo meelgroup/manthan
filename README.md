@@ -6,7 +6,7 @@ To read more about Manthan, have a look at [CAV-20 paper](https://priyanka-golia
 
 ## Requirements to run
 
-* Python 2.7+
+* Python 3+
 
 To install the required libraries, run:
 
