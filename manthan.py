@@ -287,7 +287,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--seed', type=int, default=10, dest='seed')
-    parser.add_argument('--verb', type=int, help="0 ,1 ,2", dest='verbose')
+    parser.add_argument('--verb', type=int, help="0 ,1 ,2", default=1, dest='verbose')
     parser.add_argument(
         '--gini', type=float, help="minimum impurity drop, default = 0.005", default=0.005, dest='gini')
     parser.add_argument('--weightedsampling', type=int, default=1,
@@ -302,14 +302,14 @@ if __name__ == "__main__":
                         help="To see the decision trees: 1; default 0", dest='showtrees')
     parser.add_argument('--maxsamples', type=int,
                         help="samples used to learn", dest='maxsamples')
-    parser.add_argument("--preprocess", action='store_true')
+    parser.add_argument("--preprocess", type=int, help="0 ,1 ", default=1, dest='preprocess')
     parser.add_argument("--multiclass", action='store_true')
     parser.add_argument("--weightedmaxsat", action='store_true')
     parser.add_argument("--lexmaxsat", action='store_true')
     parser.add_argument("--hop", type=int, default=3, dest='hop')
     parser.add_argument("--clustersize", type=int,
                         default=8, dest='clustersize')
-    parser.add_argument("--unique", action='store_true')
+    parser.add_argument("--unique", type=int, help="0 ,1 ", default=1, dest='unique')
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
     print("starting Manthan")
