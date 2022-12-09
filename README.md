@@ -1,3 +1,6 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
 ## Manthan: A Data-Driven Approach for Boolean Functional Synthesis
 Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi such that \exists Y F(X, Y) = F(X,\Psi(X)). Manthan works at the intersection of machine learning, constrained sampling, and automated reasoning. 
 
@@ -50,7 +53,7 @@ cp ../unique/build/interpolatingsolver/src/itp.cpython-38-x86_64-linux-gnu.so it
 ## How to Use
 
 ```bash
-python manthan.py --preprocess --unique --multiclass --lexmaxsat <qdimacs input> 
+python manthan.py  <qdimacs input> 
 ```
 
 ## To test:
@@ -58,7 +61,7 @@ python manthan.py --preprocess --unique --multiclass --lexmaxsat <qdimacs input>
 A simple invocation with benchmarks/max64.qdimacs
 
 ```
-python manthan.py --multiclass --preprocess --unique --lexmaxsat --verb 1 benchmarks/max64.qdimacs
+python manthan.py  benchmarks/max64.qdimacs
 
 ```
 
