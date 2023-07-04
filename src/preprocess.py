@@ -36,6 +36,12 @@ def parse(inputfile):
 		lines = f.readlines()
 	f.close()
 
+	'''
+	Xvar is universally quantified variables
+	Yvar is existentially quantified variables
+	
+	'''
+
 	Xvar = []
 	Yvar = []
 
@@ -61,6 +67,7 @@ def parse(inputfile):
 
 	if (len(Xvar) == 0) or (len(Yvar) == 0) or (len(qdimacs_list) == 0):
 		print("problem with the files, can not synthesis Skolem functions")
+		exit()
 	
 	
 	Xvar = list(map(int, list(Xvar)))
@@ -84,6 +91,11 @@ def convertcnf(inputfile, cnffile_name):
 
 
 def preprocess(cnffile_name):
+
+	'''
+	Preprocess calls Cryptominisat Based framework to find 
+	positive and negative unates.
+	'''
 
 	cmd = "./dependencies/preprocess %s " % (cnffile_name)
 	with Popen(cmd, shell=True, stdout=PIPE, preexec_fn=os.setsid) as process:

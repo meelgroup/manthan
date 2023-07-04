@@ -47,7 +47,7 @@ from collections import OrderedDict
 
 from src.convert_verilog import convert_verilog
 from src.preprocess import *
-from src.callUnique import unique_function
+from src.callUnique import find_unique_function
 from src.createSkolem import *
 from src.generateSamples import *
 from src.candidateSkolem import *
@@ -66,10 +66,12 @@ def manthan():
     Xvar, Yvar, qdimacs_list = parse(args.input)
 
     if args.verbose:
-        print("count X variables", len(Xvar))
-        print("count Y variables", len(Yvar))
+        print("count X (universally qunatified variables) variables", len(Xvar))
+        print("count Y (existentially qunatified variables) variables", len(Yvar))
 
-    inputfile_name = args.input.split('/')[-1][:-8]
+    
+    
+    inputfile_name = args.input.split('/')[-1][:-8]  
     cnffile_name = tempfile.gettempdir()+"/"+inputfile_name+".cnf"
 
     cnfcontent = convertcnf(args.input, cnffile_name)
@@ -77,15 +79,21 @@ def manthan():
 
     if args.preprocess:
         print("preprocessing: finding unates (constant functions)")
-        start_t = time.time()
+        start_time_preprocess = time.time()
+        
+        '''
+        We find constants functions only if the existentially quantified variables are less then 20000
+        else it takes way much time to find the constant functions.
+        '''
+        
         if len(Yvar) < 20000:
             PosUnate, NegUnate = preprocess(cnffile_name)
         else:
             print("too many Y variables, let us proceed with Unique extraction\n")
             PosUnate = []
             NegUnate = []
-        end_t = time.time()
-        logtime(inputfile_name, "preprocessing time:"+str(end_t-start_t))
+        end_time_preprocess = time.time()
+        logtime(inputfile_name, "preprocessing time:"+str(end_time_preprocess-start_time_preprocess))
 
         if args.verbose:
             print("count of positive unates", len(PosUnate))
@@ -96,6 +104,12 @@ def manthan():
 
         Unates = PosUnate + NegUnate
 
+        '''
+        Adding unates in the specification as constants.
+        This might help samplers to produce good data
+
+        '''
+        
         for yvar in PosUnate:
             qdimacs_list.append([yvar])
             cnfcontent += "%s 0\n" % (yvar)
@@ -114,51 +128,68 @@ def manthan():
         print(PosUnate)
         print(NegUnate)
         print("all Y variables are unates and have constant functions")
+        
+        '''
+        Generating verilog files to output Skolem functions.
+        '''
+        
         skolemfunction_preprocess(
             Xvar, Yvar, PosUnate, NegUnate, [], '', inputfile_name)
+        
         end_time = time.time()
+        print("Manthan has synthesized Skolem functions")
+        print("Total time taken", str(end_time-start_time))
         logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
         exit()
 
+    
+    '''
+        We create a DAG to handle dependencies among existentially quantified variables
+        if y_i depends on y_j, there is a edge from y_i to y_j
+    '''
+    
     dg = nx.DiGraph()  # dag to handle dependencies
 
     if args.unique:
         print("finding uniquely defined functions")
-        start_t = time.time()
-        UniqueVars, UniqueDef = unique_function(
+        start_time_unique = time.time()
+        UniqueVars, UniqueDef = find_unique_function(
             qdimacs_list, Xvar, Yvar, dg, Unates)
-        end_t = time.time()
-        logtime(inputfile_name, "unique function finding:"+str(end_t-start_t))
+        
+        end_time_unique = time.time()
+        
+        logtime(inputfile_name, "unique function finding:"+str(end_time_unique-start_time_unique))
 
         if args.verbose:
             print("count of uniquely defined variables", len(UniqueVars))
+            
             if args.verbose >= 2:
                 print("uniquely defined variables", UniqueVars)
     else:
+        
         UniqueVars = []
         UniqueDef = ''
         print("finding unique function is disabled. To find unique functions please use -- unique")
 
     if len(Unates) + len(UniqueVars) == len(Yvar):
+
         print("all Y variables are either unate or unique")
         print("found functions for all Y variables")
-        if args.preprocess:
-            skolemfunction_preprocess(
-                Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, inputfile_name)
-        else:
-            skolemfunction_preprocess(
-                Xvar, Yvar, [], [], UniqueVars, UniqueDef, inputfile_name)
+
+        skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, inputfile_name)
+        
         end_time = time.time()
         logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
         exit()
 
-    # we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
-    print("parsing and converting to verilog")
-    verilogformula, dg, ng = convert_verilog(args.input, args.multiclass, dg)
+    
 
-    start_t = time.time()
-
+    '''
+    deciding the number of samples to be generated
+    '''
+    start_time_datagen = time.time()
     sampling_cnf = cnfcontent
+
     if not args.maxsamples:
         if len(Xvar) > 4000:
             num_samples = 1000
@@ -169,26 +200,43 @@ def manthan():
     else:
         num_samples = args.maxsamples
 
-    if args.weighted:
+    '''
+    We can either choose uniform sampler or weighted sampler.
+    In case of weighted sampling, we need to find adaptive weights for each positive literals
+    including X and Y.
+    '''
+
+    if args.adaptivesample:
+
+        '''
+        sampling_weights_y_1 is to bias outputs towards 1
+        sampling_weights_y_o is to bias outputs towards 0
+
+        '''
+
         sampling_weights_y_1 = ''
         sampling_weights_y_0 = ''
         for xvar in Xvar:
             sampling_cnf += "w %s 0.5\n" % (xvar)
         for yvar in Yvar:
+            
+            '''
+            uniquely defined variables are now treated as "inputs"
+            '''
             if yvar in UniqueVars:
                 sampling_cnf += "w %s 0.5\n" % (yvar)
                 continue
+            
             if (yvar in PosUnate) or (yvar in NegUnate):
                 continue
 
             sampling_weights_y_1 += "w %s 0.9\n" % (yvar)
             sampling_weights_y_0 += "w %s 0.1\n" % (yvar)
 
-        if args.adaptivesample:
-            weighted_sampling_cnf = computeBias(
-                Xvar, Yvar, sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, Unates + UniqueVars, args)
-        else:
-            weighted_sampling_cnf = sampling_cnf + sampling_weights_y_1
+        
+        weighted_sampling_cnf = computeBias(
+            Xvar, Yvar, sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, Unates + UniqueVars, args)
+        
 
         print("generating weighted samples")
         samples = generatesample(
@@ -198,49 +246,95 @@ def manthan():
         samples = generatesample(
             args, num_samples, sampling_cnf, inputfile_name, 0)
 
-    end_t = time.time()
-    logtime(inputfile_name, "generating samples:"+str(end_t-start_t))
+    end_time_datagen = time.time()
+    logtime(inputfile_name, "generating samples:"+str(end_time_datagen-start_time_datagen))
 
-    print("generated samples.. learning candidate functions")
-    start_t = time.time()
+    
+    print("generated samples.. learning candidate functions via decision learning")
+
+    '''
+    we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
+    ng is used only if we are doing multiclassification. It has an edge only if y_i and y_j share a clause
+    this is used to cluster the variables for which functions could be learned together.
+    '''
+    
+    verilogformula, dg, ng = convert_verilog(args.input, args.multiclass, dg)
+
+
+    start_time_learn = time.time()
 
     candidateSkf, dg = learnCandidate(
         Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args)
 
-    end_t = time.time()
-    logtime(inputfile_name, "candidate learning:"+str(end_t-start_t))
+    end_time_learn = time.time()
+    
+    logtime(inputfile_name, "candidate learning:"+str(end_time_learn-start_time_learn))
+
+    '''
+    YvarOrder is a total order of Y variables that represents interdependecies among Y. 
+    '''
 
     YvarOrder = np.array(list(nx.topological_sort(dg)))
 
     assert(len(Yvar) == len(YvarOrder))
 
+    '''
+    createSkolem here represents candidate Skolem functions for each Y variables
+    in a verilog format.
+    '''
     createSkolem(candidateSkf, Xvar, Yvar, UniqueVars,
                  UniqueDef, inputfile_name)
 
     error_content = createErrorFormula(Xvar, Yvar, UniqueVars, verilogformula)
 
+    
+    '''
+    We use maxsat to identify the candidates to repair. We are converting specification as a hard constraint for maxsat.
+    '''
     maxsatWt, maxsatcnf, cnfcontent = maxsatContent(
         cnfcontent, (len(Xvar)+len(Yvar)), (len(PosUnate)+len(NegUnate)))
 
     countRefine = 0
 
-    start_t = time.time()
+    start_time_repair = time.time()
 
     while True:
+        
+        '''
+        adding Y' <-> f(X) term in the error formula
+        '''
+
         addSkolem(error_content, inputfile_name)
+
+        '''
+        sigma [0]: valuation for X
+        sigma [1]: valuation for Y
+        sigma [2]: valuation for Y' where Y' <-> f(X)
+
+        '''
+        
         check, sigma, ret = verify(Xvar, Yvar, inputfile_name)
+        
         if check == 0:
             print("error --- ABC network read fail")
             break
+        
         if ret == 0:
             print("verification check UNSAT")
-            print("no more repair needed")
-            print("number of repairs needed to converge", countRefine)
+            
+            if args.verbose:
+                print("no more repair needed")
+                print("number of repairs needed to converge", countRefine)
+            
             createSkolemfunction(inputfile_name, Xvar, Yvar)
             break
+        
         if ret == 1:
-            countRefine += 1
+
+            countRefine += 1 #update the number of repair itr
+
             print("verification check is SAT, we have counterexample to fix")
+            
             if args.verbose:
                 print("number of repair", countRefine)
                 print("finding candidates to repair using maxsat")
@@ -253,32 +347,54 @@ def manthan():
 
             assert(len(ind) > 0)
 
-            if args.verbose == 1:
+            
+            if args.verbose:
                 print("number of candidates undergoing repair iterations", len(ind))
-            if args.verbose == 2:
+            
+            if args.verbose >= 2:
                 print("number of candidates undergoing repair iterations", len(ind))
                 print("variables undergoing refinement", ind)
 
             lexflag, repairfunctions = repair(
                 repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, args.lexmaxsat)
+            
+            '''
+
+            if we encounter too many repair candidates while repair the previous identifed candidates ind, 
+            we call lexmaxsat to identify nicer candidates to repair in accordance with the dependencies.
+            
+            '''
 
             if lexflag:
                 print("calling rc2 to find another set of candidates to repair")
+                
                 ind = callRC2(maxsatcnfRepair,
                               sigma[2], UniqueVars, Unates, Yvar, YvarOrder)
+                
                 assert(len(ind) > 0)
+                
                 if args.verbose == 1:
                     print("number of candidates undergoing repair iterations", len(ind))
                 lexflag, repairfunctions = repair(
                     repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, 0)
+            
+            '''
+            update the repair candidates in the candidate Skolem 
+            
+            '''
+            
             updateSkolem(repairfunctions, countRefine,
                          sigma[2], inputfile_name, Yvar)
+        
         if countRefine > args.maxrepairitr:
             print("number of maximum allowed repair iteration reached")
             print("could not synthesize functions")
+            
             break
+    
     end_time = time.time()
-    logtime(inputfile_name, "repair time:"+str(end_time-start_t))
+    
+    logtime(inputfile_name, "repair time:"+str(end_time-start_time_repair))
     logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
 
 
@@ -294,8 +410,7 @@ if __name__ == "__main__":
                         help="weighted sampling: 1; uniform sampling: 0; default 1", dest='weighted')
     parser.add_argument('--maxrepairitr', type=int, default=5000,
                         help="maximum allowed repair iterations; default 1000", dest='maxrepairitr')
-    parser.add_argument('--selfsubthres', type=int, default=30,
-                        help="self substitution threshold", dest='selfsubthres')
+
     parser.add_argument('--adaptivesample', type=int, default=1,
                         help="required --weighted to 1: to enable/disable adaptive weighted sampling ", dest='adaptivesample')
     parser.add_argument('--showtrees', type=int, default=0,
@@ -304,7 +419,6 @@ if __name__ == "__main__":
                         help="samples used to learn", dest='maxsamples')
     parser.add_argument("--preprocess", type=int, help="0 ,1 ", default=1, dest='preprocess')
     parser.add_argument("--multiclass", action='store_true')
-    parser.add_argument("--weightedmaxsat", action='store_true')
     parser.add_argument("--lexmaxsat", action='store_true')
     parser.add_argument("--hop", type=int, default=3, dest='hop')
     parser.add_argument("--clustersize", type=int,

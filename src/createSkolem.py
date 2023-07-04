@@ -26,7 +26,19 @@ import tempfile
 import os
 import numpy as np
 
-def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef, inputfile_name):
+def skolemfunction_preprocess(Xvar,Yvar, PosUnate, NegUnate, UniqueVar, UniqueDef, inputfile_name):
+	
+	'''
+	Write the Skolem functions in the verilog format.
+	
+	Assuming y_i is positive unate: assign o_i = 1 
+	Assuming y_i is uniquely defined:  
+		assign w_i = unique_def of y_i
+		assign o_i = w_i
+
+	'''
+	
+	
 	declare = 'module SkolemFormula ('
 	declarevar = ''
 	assign = ''
@@ -40,7 +52,7 @@ def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef,
 		declare += "o%s, " %(var)
 		declarevar += "output o%s;\n" %(var)
 		if var in PosUnate:
-			assign += "o%s = 1'b1;\n" %(var)
+			assign += "assign o%s = 1'b1;\n" %(var)
 		if var in NegUnate:
 			assign += "assign o%s = 1'b0;\n" %(var)
 		if var in UniqueVar:
@@ -50,14 +62,12 @@ def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef,
 	declare = declare.strip(", ")+");\n"
 	skolemformula = declare + declarevar + wire + UniqueDef + assign + "endmodule\n"
 
-	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
+	skolemformula = inputfile_name + "_skolem.v"
 
 	with open(skolemformula,"w") as f:
 		f.write(skolemformula)
 	f.close()
-	cmd = "./dependencies/file_write_aig %s %s   > /dev/null 2>&1 " % (skolemformula, skolemformula.split("_skolem.v")[0]+"_skolem.aig")
-	os.system(cmd)
-	os.system("cp %s %s" %(skolemformula.split("_skolem.v")[0]+"_skolem.aig", inputfile_name + "_skolem.aig"))
+	
 
 def createSkolemfunction(inputfile_name, Xvar,Yvar):
 	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
