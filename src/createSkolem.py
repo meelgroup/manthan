@@ -26,7 +26,7 @@ import tempfile
 import os
 import numpy as np
 
-def skolemfunction_preprocess(Xvar,Yvar, PosUnate, NegUnate, UniqueVar, UniqueDef, inputfile_name):
+def skolemfunction_preprocess(inputfile_name, Xvar,Yvar, PosUnate, NegUnate, UniqueVar = [], UniqueDef = ''):
 	
 	'''
 	Write the Skolem functions in the verilog format.
@@ -62,9 +62,9 @@ def skolemfunction_preprocess(Xvar,Yvar, PosUnate, NegUnate, UniqueVar, UniqueDe
 	declare = declare.strip(", ")+");\n"
 	skolemformula = declare + declarevar + wire + UniqueDef + assign + "endmodule\n"
 
-	skolemformula = inputfile_name + "_skolem.v"
+	skolemfile_name = inputfile_name + "_skolem.v"
 
-	with open(skolemformula,"w") as f:
+	with open(skolemfile_name,"w") as f:
 		f.write(skolemformula)
 	f.close()
 	
