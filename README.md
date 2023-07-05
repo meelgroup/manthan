@@ -27,6 +27,14 @@ Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sum
 
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
 
+In addition if the compiled binaries do not work on the system, do following:
+
+```
+git submodule update --init --recursive
+
+```
+This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file for instructions on how to compile these dependencies. After compilation, you have two options: you can either keep all the compiled binaries in the dependencies folder, or you can update the corresponding path in Manthan.
+
 ## Install
 
 To install Unique: Make sure you have python-sat installed.
