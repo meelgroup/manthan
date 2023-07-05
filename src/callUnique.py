@@ -25,7 +25,7 @@ THE SOFTWARE.
 from src.DefinabilityChecker import DefinabilityChecker
 import networkx as nx
 
-def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
+def find_unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 
 	offset = 5*(len(Yvar)+len(Xvar))+100
 	UniqueChecker = DefinabilityChecker(qdimacs_list,Yvar)
