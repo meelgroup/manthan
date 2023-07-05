@@ -39,11 +39,16 @@ def parse(inputfile):
 	'''
 	Xvar is universally quantified variables
 	Yvar is existentially quantified variables
+
+	For DQBF 
+	H{} presents Henkin Dependencies
+	H[y_i] = [x_1, \ldots,x_a] where x_1,\ldots x_a \subseteq X
 	
 	'''
 
 	Xvar = []
 	Yvar = []
+	Hvar = [] # for DQBF: it presents variables with explict dependencies.
 
 	qdimacs_list = []
 	for line in lines:
@@ -59,6 +64,7 @@ def parse(inputfile):
 		if line.startswith("e"):
 			Yvar += line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
 			continue
+
 		clause = line.strip(" ").strip("\n").strip(" ").split(" ")[:-1]
 
 		if len(clause) > 0:

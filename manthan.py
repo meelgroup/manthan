@@ -125,16 +125,14 @@ def manthan():
         print("preprocessing is disabled. To do preprocessing, please use --preprocess")
 
     if len(Unates) == len(Yvar):
-        print(PosUnate)
-        print(NegUnate)
         print("all Y variables are unates and have constant functions")
         
         '''
         Generating verilog files to output Skolem functions.
         '''
         
-        skolemfunction_preprocess(
-            Xvar, Yvar, PosUnate, NegUnate, [], '', inputfile_name)
+        skolemfunction_preprocess(inputfile_name,
+            Xvar, Yvar, PosUnate, NegUnate)
         
         end_time = time.time()
         print("Manthan has synthesized Skolem functions")
@@ -176,7 +174,7 @@ def manthan():
         print("all Y variables are either unate or unique")
         print("found functions for all Y variables")
 
-        skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, inputfile_name)
+        skolemfunction_preprocess(inputfile_name, Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef)
         
         end_time = time.time()
         logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
@@ -420,11 +418,15 @@ if __name__ == "__main__":
     parser.add_argument("--preprocess", type=int, help="0 ,1 ", default=1, dest='preprocess')
     parser.add_argument("--multiclass", action='store_true')
     parser.add_argument("--lexmaxsat", action='store_true')
+    parser.add_argument("--henkin", action='store_true')
     parser.add_argument("--hop", type=int, default=3, dest='hop')
     parser.add_argument("--clustersize", type=int,
                         default=8, dest='clustersize')
     parser.add_argument("--unique", type=int, help="0 ,1 ", default=1, dest='unique')
     parser.add_argument("input", help="input file")
+
+
     args = parser.parse_args()
     print("starting Manthan")
+    
     manthan()
