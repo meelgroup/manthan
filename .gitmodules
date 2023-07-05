@@ -1,0 +1,3 @@
+[submodule "dependencies/build_dependencies/manthan-preprocess"]
+	path = dependencies/build_dependencies/manthan-preprocess
+	url = https://github.com/priyanka-golia/manthan-preprocess
