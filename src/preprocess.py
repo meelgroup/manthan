@@ -30,9 +30,10 @@ from subprocess import Popen, PIPE, check_output
 import signal
 import os
 import numpy as np
+import networkx as nx
 
-def parse(inputfile):
-	with open(inputfile) as f:
+def parse(args):
+	with open(args.input) as f:
 		lines = f.readlines()
 	f.close()
 
@@ -48,21 +49,32 @@ def parse(inputfile):
 
 	Xvar = []
 	Yvar = []
-	Hvar = [] # for DQBF: it presents variables with explict dependencies.
-
+	HenkinDep = {} # for DQBF: it presents variables with explict dependencies.
 	qdimacs_list = []
+
 	for line in lines:
 		if line.startswith("c"):
 			continue
 		if (line == "") or (line == "\n"):
 			continue
+		
 		if line.startswith("p"):
 			continue
+		
 		if line.startswith("a"):
 			Xvar += line.strip("a").strip("\n").strip(" ").split(" ")[:-1]
+			
 			continue
+		
 		if line.startswith("e"):
 			Yvar += line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
+			continue
+
+		if line.startswith("d"):
+			YDep = line.strip("d").strip("\n").strip(" ").split(" ")[:-1]
+			dvar = int(YDep[0])
+			Yvar.append(dvar)
+			HenkinDep[dvar] = list(map(int, list(YDep[1:])))
 			continue
 
 		clause = line.strip(" ").strip("\n").strip(" ").split(" ")[:-1]
@@ -76,10 +88,31 @@ def parse(inputfile):
 		exit()
 	
 	
-	Xvar = list(map(int, list(Xvar)))
+	
 	Yvar = list(map(int, list(Yvar)))
+	Xvar = list(map(int, list(Xvar)))
+	dg = nx.DiGraph()  # dag to handle dependencies
 
-	return Xvar, Yvar, qdimacs_list
+	for yvar in Yvar:
+		dg.add_node(yvar)
+
+	if args.henkin:
+
+		for yvar_i in Yvar:
+			for yvar_j in Yvar:
+
+				if yvar_j not in list(HenkinDep.keys()):
+					HenkinDep[yvar_j] = Xvar
+
+				if (yvar_i != yvar_j) and (set(HenkinDep[yvar_j]).issubset(set(HenkinDep[yvar_i]))):
+					
+					if not dg.has_edge(yvar_j,yvar_i):
+						dg.add_edge(yvar_i, yvar_j)
+		
+		return Xvar, Yvar, HenkinDep, qdimacs_list, dg
+	
+	else:
+		return Xvar, Yvar, qdimacs_list, dg
 
 
 def convertcnf(inputfile, cnffile_name):

@@ -63,7 +63,19 @@ def logtime(inputfile, text):
 def manthan():
     print("parsing")
     start_time = time.time()
-    Xvar, Yvar, qdimacs_list = parse(args.input)
+
+    if args.henkin:
+        Xvar, Yvar, HenkinDep, qdimacs_list, dg = parse(args)
+    
+    else:
+        Xvar, Yvar, qdimacs_list, dg = parse(args)
+
+    '''
+        We create a DAG to handle dependencies among existentially quantified variables
+        if y_i depends on y_j, there is a edge from y_i to y_j
+    '''
+    
+    
 
     if args.verbose:
         print("count X (universally qunatified variables) variables", len(Xvar))
@@ -77,7 +89,7 @@ def manthan():
     cnfcontent = convertcnf(args.input, cnffile_name)
     cnfcontent = cnfcontent.strip("\n")+"\n"
 
-    if args.preprocess:
+    if (args.preprocess) and (not (args.henkin)):
         print("preprocessing: finding unates (constant functions)")
         start_time_preprocess = time.time()
         
@@ -92,6 +104,7 @@ def manthan():
             print("too many Y variables, let us proceed with Unique extraction\n")
             PosUnate = []
             NegUnate = []
+            
         end_time_preprocess = time.time()
         logtime(inputfile_name, "preprocessing time:"+str(end_time_preprocess-start_time_preprocess))
 
@@ -141,18 +154,18 @@ def manthan():
         exit()
 
     
-    '''
-        We create a DAG to handle dependencies among existentially quantified variables
-        if y_i depends on y_j, there is a edge from y_i to y_j
-    '''
     
-    dg = nx.DiGraph()  # dag to handle dependencies
 
     if args.unique:
         print("finding uniquely defined functions")
         start_time_unique = time.time()
-        UniqueVars, UniqueDef = find_unique_function(
-            qdimacs_list, Xvar, Yvar, dg, Unates)
+
+        if args.henkin:
+            UniqueVars, UniqueDef, dg = find_unique_function(args, 
+                qdimacs_list, Xvar, Yvar, dg, Unates, HenkinDep)
+        else:
+            UniqueVars, UniqueDef, dg = find_unique_function(args, 
+                qdimacs_list, Xvar, Yvar, dg, Unates)
         
         end_time_unique = time.time()
         

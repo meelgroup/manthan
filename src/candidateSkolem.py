@@ -36,7 +36,9 @@ def treepaths(root, is_leaves, children_left, children_right, data_feature_names
         if not args.multiclass:
             temp = values[root]
             temp = temp.ravel()
-            if(temp[1] < temp[0]):
+            if len(temp) == 1:
+                return(['1'], dependson)
+            if temp[1] < temp[0]:
                 return(['val=0'], dependson)
             else:
                 return(['1'], dependson)
