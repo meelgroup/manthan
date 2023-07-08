@@ -91,6 +91,7 @@ def parse(args):
 	
 	Yvar = list(map(int, list(Yvar)))
 	Xvar = list(map(int, list(Xvar)))
+	
 	dg = nx.DiGraph()  # dag to handle dependencies
 
 	for yvar in Yvar:
@@ -115,17 +116,34 @@ def parse(args):
 		return Xvar, Yvar, qdimacs_list, dg
 
 
-def convertcnf(inputfile, cnffile_name):
-	with open(inputfile,"r") as f:
+def convertcnf(args, cnffile_name, Yvar = []):
+
+
+	with open(args.input,"r") as f:
 		cnfcontent = f.read()
 	f.close()
 
 	cnfcontent = cnfcontent.replace("a ", "c ret ")
-	cnfcontent = cnfcontent.replace("e ", "c ind ")
+
+	if args.henkin:
+		dvar_str = "c ind "
+		for yvar in Yvar:
+			dvar_str += str(yvar)+" "
+		dvar_str += "0\n"
+
+		cnfcontent = cnfcontent.replace("e ", "c e")
+		cnfcontent = cnfcontent.replace("d ", "c d")
+		cnfcontent = cnfcontent.replace("c ret", dvar_str+"c ret")
+		
+
+	else:
+
+		cnfcontent = cnfcontent.replace("e ", "c ind ")
 
 	with open(cnffile_name,"w") as f:
 		f.write(cnfcontent)
 	f.close()
+
 	return cnfcontent
 
 

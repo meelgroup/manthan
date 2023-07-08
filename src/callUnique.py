@@ -51,19 +51,40 @@ def find_unique_function(args, qdimacs_list, Xvar, Yvar, dg, Unates, HenkinDep =
 
 			Ydependent = list(nx.ancestors(dg,yvar))
 			Ydependent.append(yvar)
-			definingYvar = list(set(Yvar) - set(Ydependent))
-
+			'''
+			There could be two ways to deciding depended variables at this stage, 
+			find dependencies on the fly or use a predefined Yorder.
+			for our set of benchmarks, later one performed better.
+			'''
+			#definingYvar = list(set(Yvar) - set(Ydependent))
+			definingYvar = Yvar[:itr]
+			defination = UniqueChecker.checkDefinability( Xvar + definingYvar, int(yvar), offset)
+			
 		else:
 			definingYvar = list(nx.descendants(dg,yvar))
 			if yvar in definingYvar:
 				definingYvar.remove(yvar)
+			defination = UniqueChecker.checkDefinability( HenkinDep[yvar] + definingYvar, int(yvar), offset)
+			
 			
 		itr += 1
 
 		countoffset = 0
 
-		defination = UniqueChecker.checkDefinability( Xvar + definingYvar, int(yvar), offset)
+		
 		if defination[0] == True:  #yvar is uniquely defined. 
+
+			'''
+			Defination is a list of lists that represents the defination of yvar
+			Each individual list represents a conjuction, where last literals is defined as the conjuction 
+			of all the literals before.
+
+			Example [2,3,8] corresponds to 8 = 2 & 3
+			
+			Defination might introduce new variables in between, which will considered as wires 
+			in the verilog format and they have exact definiation listed.
+			'''
+			
 			UniqueVars.append(yvar)
 
 			for lists in defination[1]:
