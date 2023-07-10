@@ -23,7 +23,7 @@ Manthan depends on:
 4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
 5. [UNIQUE](https://github.com/perebor/unique) to extract the unique functions.
 
-Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.
+Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  In Manthan repo, you will find 64-bit x86 Linux compiled binaries for required dependencies.
 
 
 ### To install Unique
