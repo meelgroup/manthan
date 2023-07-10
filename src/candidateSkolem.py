@@ -29,14 +29,22 @@ import networkx as nx
 from collections import OrderedDict
 from numpy import count_nonzero
 import collections
+import copy
 
 
-def treepaths(root, is_leaves, children_left, children_right, data_feature_names, feature, values, dependson, leave_label, Xvar, Yvar, index, size,args):
+def treepaths(root, is_leaves, children_left, children_right, data_feature_names, 
+                feature, values, dependson, leave_label, Xvar, Yvar, index, size,args):
     if (is_leaves[root]):
         if not args.multiclass:
             temp = values[root]
             temp = temp.ravel()
-            if(temp[1] < temp[0]):
+            if len(temp) == 1:
+                if leave_label[0] == 1:
+                    return(['1'], dependson)
+                else:
+                    return(['val=0'], dependson)
+
+            if temp[1] < temp[0]:
                 return(['val=0'], dependson)
             else:
                 return(['1'], dependson)
@@ -78,6 +86,7 @@ def treepaths(root, is_leaves, children_left, children_right, data_feature_names
             else:
                 list_left.append("i"+str(data_feature_names[feature[root]]) + ' & ' + leaf)
     dependson = list(set(dependson))
+
     return(list_left + list_right, dependson)
 
 def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar):
@@ -131,26 +140,26 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
     for i in range(len(yvar)):
         D = []
         paths, D = treepaths( 0, is_leaves, children_left, children_right, featname, feature, values, D, leave_label, Xvar, Yvar, i, len(yvar),args)
+    
+       
+
         psi_i = ''
 
         if is_leaves[0]:
-            if len(yvar) == 1:
-                len_one = count_nonzero(labeldata)
-                if len_one >= int(len(labeldata)/2):
-                    paths = ["1"]
-                else:
-                    paths = ["0"]
+            if "val=0" in paths:
+                paths = ["0"]
             else:
-                if "val=0" in paths:
-                    paths = ["0"]
-                else:
-                    paths = ["1"]  
+                paths = ["1"]  
+               
         if len(paths) == 0:
             paths.append("0")
             D = []
 
         for path in paths:
+        
             psi_i += "( "+ path + " ) | " 
+        
+        
         D_dict[yvar[i]] = D
         psi_dict[yvar[i]] = psi_i.strip("| ")
     
@@ -158,44 +167,38 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
          
 
 def binary_to_int(lst):
+
 	lst = np.array(lst)
 	# filling the begining with zeros to form bytes
 	diff = 8 - lst.shape[1] % 8
 	if diff > 0 and diff != 8:
 		lst = np.c_[np.zeros((lst.shape[0],diff),int),lst]
 	label = np.packbits(lst,axis=1)
+
 	return label
 
-def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args):
-    
-    candidateSkf = {}
-    samples_X = samples[:, (np.array(Xvar)-1)]
+def createCluster(args, Yvar, SkolemKnown, ng):
+
     disjointSet = []
     clusterY = []
 
-    for var in PosUnate:
-        candidateSkf[var] = " 1 "
-        if (args.multiclass) and (var in list(ng.nodes)):
-            ng.remove_node(var)
-    
-    for var in NegUnate:
-        candidateSkf[var] = " 0 "
-        if (args.multiclass) and (var in list(ng.nodes)):
-            ng.remove_node(var)
-        
-    for var in UniqueVars:
-        if (args.multiclass) and (var in list(ng.nodes)):
-            ng.remove_node(var)
     
     for var in Yvar:
-        if (var in UniqueVars) or (var in PosUnate) or (var in NegUnate):
+
+        if var in SkolemKnown:
             continue
-        if args. multiclass:
+        
+        if (args. multiclass) and not (args.henkin):
+
             if var in list(ng.nodes):
+
                 Yset = []
                 hoppingDistance = args.hop
+
                 while (hoppingDistance > 0):
+
                     hop_neighbour = list(nx.single_source_shortest_path_length(ng,var,cutoff = hoppingDistance))
+
                     if len(hop_neighbour) < args.clustersize:
                         break
                     else:
@@ -206,32 +209,84 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
                     hop_neighbour = [var]
                 
                 for var2 in hop_neighbour:
+
                     ng.remove_node(var2)
                     Yset.append(var2)
-                    clusterY.append(var2)
-                disjointSet.append(Yset)
+                    clusterY.append(var2) # list of all variables cluster so far.
+
+                disjointSet.append(Yset) # list of lists
             else:
                 if var not in clusterY:
                     disjointSet.append([var])
         else:
             disjointSet.append([var])
     
+    return disjointSet
+
+def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args, HenkinDep = {}):
+    
+    candidateSkf = {}  # represents y_i and its corresponding learned candidate via decision tree.
+
+    
+
+    SkolemKnown = PosUnate + NegUnate + UniqueVars
+
+    for var in SkolemKnown:
+
+        if (args.multiclass) and (var in list(ng.nodes)):
+            ng.remove_node(var)
+        
+        for var in PosUnate:
+            candidateSkf[var] = " 1 "
+        
+        for var in NegUnate:
+            candidateSkf[var] = " 0 "
+        
+
+    disjointSet = createCluster(args, Yvar, SkolemKnown, ng)
+    
     for Yset in disjointSet:
         dependent = []
         for yvar in Yset:
-            depends_on_yvar = list(nx.ancestors(dg,yvar))
-            depends_on_yvar.append(yvar)
-            dependent = dependent + depends_on_yvar
-        Yfeatname = list(set(Yvar)-set(dependent))
-        if len(Yfeatname) > 0:
-            featname= Xvar + Yfeatname
-            Samples_Y = samples[:,(np.array(Yfeatname)-1)]
-            featuredata = np.concatenate((samples_X,Samples_Y),axis=1)
+
+            if not args.henkin:
+                depends_on_yvar = list(nx.ancestors(dg,yvar))
+                depends_on_yvar.append(yvar)
+                dependent = dependent + depends_on_yvar
+            else:
+                yvar_depends_on = list(nx.descendants(dg,yvar))
+                if yvar in list(yvar_depends_on):
+                    yvar_depends_on.remove(yvar)
+
+        if not args.henkin:
+
+            Yfeatname = list(set(Yvar)-set(dependent))
+            featname = Xvar.copy()
+            samples_X = samples[:, (np.array(Xvar)-1)]
         else:
-            featname = Xvar
+
+            Yfeatname = yvar_depends_on
+            featname = HenkinDep[Yset[0]]
+            samples_X = samples[:, (np.array(HenkinDep[Yset[0]])-1)]
+            
+
+        if len(Yfeatname) > 0:
+
+            featname += Yfeatname
+            Samples_Y = samples[:,(np.array(Yfeatname)-1)]
+            featuredata = np.concatenate((samples_X, Samples_Y),axis=1)
+
+        else:
+
             featuredata = samples_X
+
         label = samples[:,(np.array(Yset)-1)]
         labeldata = binary_to_int(label)
+
+        assert(len(featname) == len(featuredata[0]))
+        assert(len(Yset) == len(labeldata[0]))
+
+
         functions, D_set = createDecisionTree(featname, featuredata, labeldata, Yset, args, Xvar, Yvar)
 
         for var in functions.keys():

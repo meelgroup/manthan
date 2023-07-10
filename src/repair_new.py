@@ -22,13 +22,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 '''
 
-from enum import unique
 import numpy as np
 import os
 import tempfile
 from dependencies.rc2 import RC2Stratified
 from pysat.formula import WCNF
-import networkx as nx
 
 
 def maxsatContent(cnfcontent,n, u):
@@ -127,15 +125,15 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder):
 
 
 
-def callMaxsat(maxsatcnf, modelyp, SkolemKnown, Yvar, YvarOrder, inputfile_name):
-
+def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfile_name, flag):
     itr = 0
     for var in Yvar:
-        
-
-        if var not in SkolemKnown:
-        
-            weight = 1
+        if (var not in Unates) and (var not in UniqueVars):
+            if flag:
+                yindex = np.where(var == YvarOrder)[0][0]
+                weight = len(Yvar) - yindex
+            else:
+                weight = 1
             
             if modelyp[itr] == 0:
                 maxsatcnf += "%s -%s 0\n" %(weight, var )
@@ -173,14 +171,11 @@ def callMaxsat(maxsatcnf, modelyp, SkolemKnown, Yvar, YvarOrder, inputfile_name)
 
     # to add variables in indlist according to Y order.
     YvarOrder_ind = []
-
     for i in indlist:
         yindex = np.where(i == YvarOrder)[0][0]
         YvarOrder_ind.append(yindex)
-
     indlist = []
     YvarOrder_ind.sort(reverse=True)
-    
     for i in YvarOrder_ind:
         indlist.append(YvarOrder[i])
     indlist = np.array(indlist)
@@ -188,7 +183,6 @@ def callMaxsat(maxsatcnf, modelyp, SkolemKnown, Yvar, YvarOrder, inputfile_name)
 
 
 def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
-
     cmd = "./dependencies/picosat -s %s -V %s %s > %s " %(args.seed, unsatcorefile, cnffile, satfile)
     os.system(cmd)
     exists = os.path.isfile(unsatcorefile)
@@ -211,20 +205,16 @@ def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
         os.unlink(satfile)
         return 0, [], []
 
-def findUnsatCore(repair_Yvar_constraint, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name, args):
-
+def findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name, args):
     lines = repaircnf.split("\n")
-
     for line in lines:
         if line.startswith('p cnf'):
             numVar = int(line.split()[2])
             numCls = int(line.split()[3])
             str_tmp = "p cnf " + str(numVar) + " " + str(numCls)
             break
-
     repaircnf = repaircnf.replace(str_tmp, "p cnf " + str(numVar) + " " + str(numCls + Count_Yvar  + len(Xvar)))
-    repaircnf += repair_Yvar_constraint
-
+    repaircnf += repairYvar
     cnffile = tempfile.gettempdir() + '/' + inputfile_name+"_unsat.cnf"
 
     with open(cnffile,"w") as f:
@@ -234,13 +224,9 @@ def findUnsatCore(repair_Yvar_constraint, repaircnf, Xvar, Yvar, Count_Yvar, inp
     unsatcorefile = tempfile.gettempdir() + '/' + inputfile_name + "_unsatcore.txt"
     satfile = tempfile.gettempdir() + '/' + inputfile_name + "_sat.txt"
     exists = os.path.isfile(unsatcorefile)
-
     if exists:
         os.remove(unsatcorefile)
-        
     ret, clistx, clisty = findUNSATCorePicosat(cnffile, unsatcorefile, satfile, Xvar,Yvar, args)
-
-    
 
     if ret:
         return (ret, [], clistx, clisty)
@@ -272,105 +258,71 @@ def findUnsatCore(repair_Yvar_constraint, repaircnf, Xvar, Yvar, Count_Yvar, inp
         os.unlink(satfile)
         return ret, model, [], []   
 
-def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigma, inputfile_name, args, HenkinDep = {}):
 
+def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, flagRC2):
     modelyp = sigma[2]
     modelx = sigma[0]
 
     itr = 0
-
     repaired = []
     repairfunctions = {}
     ind_org = ind.copy()
-
-    satvar = []  # if G_k formal is SAT, need to find another set of variables.
-
+    satvar = []
     while itr < len(ind):
-
         repairvar = ind[itr]
         itr += 1
         
-        if (repairvar in SkolemKnown) or (repairvar in satvar):
+        if (repairvar in UniqueVars) or (repairvar in Unates) or (repairvar in satvar):
             continue
 
 
-        repair_Yvar_constraint = ''
-        count_Yvar = 0  # it counts the number of times (Y <-> \sigma[Y']) is added part wrong unique variables
-        allowed_Y = []  # list of all y_j variables on which y_i (repairvar) could be depended.
+        repairYvar = ''
+        count_Yvar = 0
+        allowed_Y = []
 
-        if not args.henkin: 
+        repairvar_index = np.where(YvarOrder == repairvar)[0][0]
 
-            '''
-            YvarOrder: Y_{i+1} to |Y| on which y_i could be depended.
-            '''
+        for jindex in range(repairvar_index,len(Yvar)):  
+            yjvar = YvarOrder[jindex]
+            allowed_Y.append(yjvar)
+            yj_index = np.where(np.array(Yvar) == yjvar)[0][0]
             
-            repairvar_index = np.where(YvarOrder == repairvar)[0][0]
-            
-            for yj_index in range(repairvar_index,len(Yvar)):
-                yj_var = YvarOrder[yj_index]
-                allowed_Y.append(yj_var)
-        
-        if args.henkin:
-
-            allowed_Y = list(nx.descendants(dg,repairvar))
-        
-        
-        for yj_var in allowed_Y:
-
-            yj_index = np.where(np.array(Yvar) == yj_var)[0][0]
-            
-            if yj_var in SkolemKnown:
+            if (yjvar in UniqueVars) or (yjvar in Unates):
                 continue
 
-            if yj_var in repaired:
+            if yjvar in repaired:
                 if modelyp[yj_index] == 0:
-                    repair_Yvar_constraint += "%s 0\n" %(yj_var)
+                    repairYvar += "%s 0\n" %(yjvar)
                 else:
-                    repair_Yvar_constraint += "-%s 0\n" %(yj_var)
+                    repairYvar += "-%s 0\n" %(yjvar)
             else:
                 if modelyp[yj_index] == 0:
-                    repair_Yvar_constraint += "-%s 0\n" %(yj_var)
+                    repairYvar += "-%s 0\n" %(yjvar)
                 else:
-                    repair_Yvar_constraint += "%s 0\n" %(yj_var)
-            count_Yvar += 1  
+                    repairYvar += "%s 0\n" %(yjvar)
+            count_Yvar += 1
         
         if args.verbose:
             print("repairing %s" %(repairvar))
         
-        if not args.henkin:
-            ret, model, clistx, clisty = findUnsatCore(repair_Yvar_constraint, repaircnf, 
-                                                            Xvar, Yvar, count_Yvar, inputfile_name, args)
-        else:
-            ret, model, clistx, clisty = findUnsatCore(repair_Yvar_constraint, repaircnf, HenkinDep[repairvar], 
-                                                            Yvar, count_Yvar, inputfile_name, args)
+        ret, model, clistx, clisty = findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, count_Yvar, inputfile_name, args)
 
         if ret == 0:
-            '''
-            G_k is SAT, find another set of candidates to repair
-            '''
             
             satvar.append(repairvar)
-
             if (repairvar not in ind_org) and (len(repaired) > 0):
                 continue
-            
             if len(ind) > (len(ind_org) * 50) and flagRC2:
                 print("too many new repair candidate added.. calling rc2")
                 return 1, repairfunctions
-            
-            
             
             model = np.array(model)
             diff = np.bitwise_xor(modelyp, model)
             index = np.where(diff == 1)[0]
             
-            
             for yk in index:
-
                 l = itr
-
-                if (Yvar[yk] not in ind) and (Yvar[yk] not in SkolemKnown):
-
+                if (Yvar[yk] not in ind) and (Yvar[yk] not in Unates) and (Yvar[yk] not in UniqueVars):
                     flag = 0
                     yk_index = np.where(YvarOrder == Yvar[yk])[0][0]
                     while (l < len(ind)):
@@ -384,15 +336,8 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
                     if flag == 0:
                         ind = np.append(ind, Yvar[yk]).astype(np.int)   
         else:
-
-            '''
-             G_k is UNSAT, construct Beta formula from unsat core.
-            '''
-
             repaired.append(repairvar)
-
-            if args.verbose:
-                print("gk formula is UNSAT\ncreating beta formula")
+            
             
             betaformula = ''
             for x in clistx:
@@ -430,13 +375,10 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
     return 0, repairfunctions
 
 def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar):
-    
     with open(tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v","r") as f:
         lines = f.readlines()
     f.close()
-    
     skolemcontent = "".join(lines)
-    
     for yvar in list(repairfunctions.keys()):
         oldfunction = [line for line in lines if "assign w" + str(yvar)+" " in line][0]
         oldfunctionR = oldfunction.rstrip(";\n").lstrip("assign w%s = " %(yvar))
@@ -444,21 +386,11 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar):
         
         yindex = np.where(np.array(Yvar) == yvar)[0][0]
 
-        '''
-        if repair is to move from 0 to 1
-            F(X) = F(X) \lor repair
-        
-        if repair is to move from 1 to 0
-            F(X) = F(X) \land \lnot repair
-        
-        '''
-
         if modelyp[yindex] == 0:
             newfunction = "assign w%s = (( %s ) | ( beta%s_%s) );\n" %(yvar, oldfunctionR, yvar, countRefine)
         else:
             newfunction = "assign w%s = (( %s ) & ~(beta%s_%s) );\n" %(yvar, oldfunctionR, yvar, countRefine)
         skolemcontent = skolemcontent.replace(oldfunction, repairformula + newfunction)
-    
     with open(tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v","w") as f:
         f.write(skolemcontent)
     f.close()

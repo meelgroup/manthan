@@ -26,23 +26,73 @@ THE SOFTWARE.
 import networkx as nx
 
 
-def convert_verilog(input,cluster,dg):
-	ng = nx.Graph() # used only if args.multiclass
+def convert_verilog(args, Xvar, Yvar, dg):
 
-	with open(input, 'r') as f:
-		lines = f.readlines()
-	f.close()
-	itr = 1
+	'''
+	Converts qdimacs or dqimacs to verilog format.
+
+	From
+
+	a 1 3 0
+    e 2 4 0
+	1 2 0
+	3 4 0
+	4 5 0
+
+	to
+
+	module FORMULA(1, 3, 2, 4, out);
+	input 1;
+	input 3;
+	input 2;
+	input 4;
+
+	wire t_1;
+	assign t_1 = 1 & 2;
+
+	wire t_2;
+	assign t_2 = 3 & 4;
+
+	wire t_3;
+	assign t_3 = 4 & 5;
+
+	assign out = t_1 & t_2 & t_3;
+
+	endmodule
+
+	'''
+
 	declare = 'module FORMULA( '
 	declare_input = ''
 	declare_wire = ''
 	assign_wire = ''
-	tmp_array = []
+
+	
+	for xvar in Xvar:
+		declare += "%s," %(xvar)
+		declare_input += "input %s;\n" %(xvar)
+	
+	for yvar in Yvar:
+		declare += "%s," %(yvar)
+		declare_input += "input %s;\n" %(yvar)
+
+
+
+
+	with open(args.input, 'r') as f:
+		lines = f.readlines()
+	f.close()
+
+	itr = 1
+	
 
 	for line in lines:
+
 		line = line.strip(" ")
+
 		if (line == "") or (line == "\n"):
 			continue
+
 		if line.startswith("c "):
 			continue
 
@@ -51,20 +101,12 @@ def convert_verilog(input,cluster,dg):
 
 
 		if line.startswith("a"):
-			a_variables = line.strip("a").strip("\n").strip(" ").split(" ")[:-1]
-			for avar in a_variables:
-				declare += "%s," %(avar)
-				declare_input += "input %s;\n" %(avar)
 			continue
 
 		if line.startswith("e"):
-			e_variables = line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
-			for evar in e_variables:
-				tmp_array.append(int(evar))
-				declare += "%s," %(evar)
-				declare_input += "input %s;\n" %(evar)
-				if int(evar) not in list(dg.nodes):
-					dg.add_node(int(evar))
+			continue
+
+		if line.startswith("d "):
 			continue
 
 		declare_wire += "wire t_%s;\n" %(itr)
@@ -80,21 +122,28 @@ def convert_verilog(input,cluster,dg):
 
 		assign_wire = assign_wire.strip("| ")+";\n"
 		
-		### if args.multiclass, then add an edge between variables of the clause ###
+		'''
+		In multiclassification, in order to cluster variable, we need to create primal graph
+		in which if y_i and y_j share a clause
+		then there is an edge between them. 
+		
+		'''
+		ng = nx.Graph()
 
-		if cluster:
-			for literal1 in clause_variable:
-				literal1 = abs(int(literal1))
-				if literal1 in tmp_array:
-					if literal1 not in list(ng.nodes):
-						ng.add_node(literal1)
-					for literal2 in clause_variable:
-						literal2 = abs(int(literal2))
-						if (literal1 != abs(literal2)) and (literal2 in tmp_array):
-							if literal2 not in list(ng.nodes):
-								ng.add_node(literal2)
-							if not ng.has_edge(literal1, literal2):
-								ng.add_edge(literal1,literal2)
+		if args.multiclass:
+			 # used only if args.multiclass
+			for lit_1 in clause_variable:
+				lit_1 = abs(int(lit_1))
+				if lit_1 in Yvar:
+					if lit_1 not in list(ng.nodes):
+						ng.add_node(lit_1)
+					for lit_2 in clause_variable:
+						lit_2 = abs(int(lit_2))
+						if (lit_1 != abs(lit_2)) and (lit_2 in Yvar):
+							if lit_2 not in list(ng.nodes):
+								ng.add_node(lit_2)
+							if not ng.has_edge(lit_1, lit_2):
+								ng.add_edge(lit_1,lit_2)
 
 
 
