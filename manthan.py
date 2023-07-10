@@ -86,7 +86,12 @@ def manthan():
     inputfile_name = args.input.split('/')[-1][:-8]  
     cnffile_name = tempfile.gettempdir()+"/"+inputfile_name+".cnf"
 
-    cnfcontent = convertcnf(args.input, cnffile_name)
+    if not args.henkin:
+        cnfcontent = convertcnf(args, cnffile_name)
+    else:
+        cnfcontent = convertcnf(args, cnffile_name, Yvar)
+
+    
     cnfcontent = cnfcontent.strip("\n")+"\n"
 
     if (args.preprocess) and (not (args.henkin)):
@@ -199,7 +204,7 @@ def manthan():
     deciding the number of samples to be generated
     '''
     start_time_datagen = time.time()
-    sampling_cnf = cnfcontent
+    
 
     if not args.maxsamples:
         if len(Xvar) > 4000:
@@ -216,6 +221,8 @@ def manthan():
     In case of weighted sampling, we need to find adaptive weights for each positive literals
     including X and Y.
     '''
+
+    sampling_cnf = cnfcontent
 
     if args.adaptivesample:
 
@@ -246,7 +253,8 @@ def manthan():
 
         
         weighted_sampling_cnf = computeBias(
-            Xvar, Yvar, sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, Unates + UniqueVars, args)
+            Xvar, Yvar, sampling_cnf, sampling_weights_y_1, 
+            sampling_weights_y_0, inputfile_name, Unates + UniqueVars, args)
         
 
         print("generating weighted samples")
@@ -269,13 +277,20 @@ def manthan():
     this is used to cluster the variables for which functions could be learned together.
     '''
     
-    verilogformula, dg, ng = convert_verilog(args.input, args.multiclass, dg)
+    verilogformula, dg, ng = convert_verilog(args, Xvar, Yvar, dg)
 
 
     start_time_learn = time.time()
 
-    candidateSkf, dg = learnCandidate(
-        Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args)
+
+    if not args.henkin:
+        candidateSkf, dg = learnCandidate(
+            Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args)
+    else:
+        candidateSkf, dg = learnCandidate(
+            Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args, HenkinDep)
+    
+    
 
     end_time_learn = time.time()
     
@@ -290,13 +305,19 @@ def manthan():
     assert(len(Yvar) == len(YvarOrder))
 
     '''
+
     createSkolem here represents candidate Skolem functions for each Y variables
     in a verilog format.
+
     '''
     createSkolem(candidateSkf, Xvar, Yvar, UniqueVars,
                  UniqueDef, inputfile_name)
 
-    error_content = createErrorFormula(Xvar, Yvar, UniqueVars, verilogformula)
+   
+
+    error_content = createErrorFormula(Xvar, Yvar,  verilogformula)
+
+
 
     
     '''
@@ -352,9 +373,12 @@ def manthan():
 
             repaircnf, maxsatcnfRepair = addXvaluation(
                 cnfcontent, maxsatWt, maxsatcnf, sigma[0], Xvar)
+            
+            
 
             ind = callMaxsat(
-                maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, inputfile_name, args.weightedmaxsat)
+                maxsatcnfRepair, sigma[2], UniqueVars + Unates, Yvar, YvarOrder, inputfile_name)
+
 
             assert(len(ind) > 0)
 
@@ -366,8 +390,14 @@ def manthan():
                 print("number of candidates undergoing repair iterations", len(ind))
                 print("variables undergoing refinement", ind)
 
-            lexflag, repairfunctions = repair(
-                repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, args.lexmaxsat)
+            if not args.henkin:
+                lexflag, repairfunctions = repair(
+                    args.lexmaxsat, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
+                    UniqueVars + Unates, sigma, inputfile_name, args)
+            else:
+                lexflag, repairfunctions = repair(
+                    args.lexmaxsat, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
+                    UniqueVars + Unates, sigma, inputfile_name, args,  HenkinDep)
             
             '''
 
@@ -386,12 +416,19 @@ def manthan():
                 
                 if args.verbose == 1:
                     print("number of candidates undergoing repair iterations", len(ind))
-                lexflag, repairfunctions = repair(
-                    repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, 0)
+                
+                
+                if not args.henkin:
+                    lexflag, repairfunctions = repair(
+                        args.lexmaxsat, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
+                        UniqueVars + Unates, sigma, inputfile_name, args)
+                else:
+                    lexflag, repairfunctions = repair(
+                        args.lexmaxsat, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
+                        UniqueVars + Unates, sigma, inputfile_name, args, HenkinDep)
             
             '''
             update the repair candidates in the candidate Skolem 
-            
             '''
             
             updateSkolem(repairfunctions, countRefine,
@@ -417,15 +454,14 @@ if __name__ == "__main__":
     parser.add_argument('--verb', type=int, help="0 ,1 ,2", default=1, dest='verbose')
     parser.add_argument(
         '--gini', type=float, help="minimum impurity drop, default = 0.005", default=0.005, dest='gini')
-    parser.add_argument('--weightedsampling', type=int, default=1,
-                        help="weighted sampling: 1; uniform sampling: 0; default 1", dest='weighted')
+    
     parser.add_argument('--maxrepairitr', type=int, default=5000,
                         help="maximum allowed repair iterations; default 1000", dest='maxrepairitr')
 
     parser.add_argument('--adaptivesample', type=int, default=1,
                         help="required --weighted to 1: to enable/disable adaptive weighted sampling ", dest='adaptivesample')
-    parser.add_argument('--showtrees', type=int, default=0,
-                        help="To see the decision trees: 1; default 0", dest='showtrees')
+    parser.add_argument('--showtrees', action='store_true',
+                        help="To see the decision trees")
     parser.add_argument('--maxsamples', type=int,
                         help="samples used to learn", dest='maxsamples')
     parser.add_argument("--preprocess", type=int, help="0 ,1 ", default=1, dest='preprocess')

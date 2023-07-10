@@ -70,6 +70,7 @@ def skolemfunction_preprocess(inputfile_name, Xvar,Yvar, PosUnate, NegUnate, Uni
 	
 
 def createSkolemfunction(inputfile_name, Xvar,Yvar):
+	
 	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
 	
 	content = ''
@@ -106,20 +107,59 @@ def createSkolemfunction(inputfile_name, Xvar,Yvar):
 			line = line.replace('& o%s' %(var), "")
 			line = line.replace("o","w")
 		content += line
-	with open(skolemformula,"w") as f:
+	
+	skolemfile_name = inputfile_name + "_skolem.v"
+	
+	with open(skolemfile_name,"w") as f:
 		f.write(declare + declare_input + content + assign + "endmodule\n")
 	f.close()
 
-	cmd = "./dependencies/file_write_aig %s %s  > /dev/null 2>&1  " % (skolemformula, skolemformula.split("_skolem.v")[0]+"_skolem.aig")
-	os.system(cmd)
-	os.system("cp %s %s" %(skolemformula.split("_skolem.v")[0]+"_skolem.aig", inputfile_name + "_skolem.aig"))
 	os.unlink(skolemformula)
-	os.unlink("strash.txt")
 
 
 
 
-def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
+def createErrorFormula(Xvar, Yvar,  verilog_formula):
+
+	'''
+	
+	Creating E(X,Y,Y') = \varphi(X,Y) \land \lnot \varphi(X,Y') \land (Y' <-> F(X))
+	
+	inputerrorx is for X 
+	inputerrory is for Y
+	inputerroryp is for Y'
+
+	module Main(all inputs)
+	declare inputs for X, Y, Y'
+
+	Something like this, where |X| = 1 , and |Y| = 4
+	
+	
+	module MAIN (2, 1, 3, 4, 5, ip1, ip3, ip4, ip5, out );
+	input 2 ;
+	input 1 ;
+	input 3 ;
+	input 4 ;
+	input 5 ;
+	input ip1 ;
+	input ip3 ;
+	input ip4 ;
+	input ip5 ;
+	output out;
+	wire out1;
+	wire out2;
+	wire out3;
+	FORMULA F1 (2, 1, 3, 4, 5, out1 );
+	SKOLEMFORMULA F2 (2, ip1, ip3, ip4, ip5, out2 );
+	FORMULA F2 (2, ip1, ip3, ip4, ip5, out3 );
+	assign out = ( out1 & out2 & ~(out3) );
+	endmodule
+
+
+	'''
+
+
+	
 	inputformula = '('
 	inputskolem = '('
 	inputerrorx = 'module MAIN ('
@@ -128,64 +168,82 @@ def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
 	declarex = ''
 	declarey = ''
 	declareyp = ''
+
 	for var in Xvar:
+
 		inputformula += "%s, " % (var)
 		inputskolem += "%s, " % (var)
 		inputerrorx += "%s, " % (var)
 		declarex += "input %s ;\n" % (var)
+	
 	for var in Yvar:
+
 		inputformula += "%s, " % (var)
 		inputerrory += "%s, " % (var)
 		declarey += "input %s ;\n" % (var) 
 		inputerroryp += "ip%s, " % (var)
 		declareyp += "input ip%s ;\n" % (var)
-		if var in UniqueVars:
-			inputskolem += "%s, " %(var)
-		else:
-			inputskolem += "ip%s, " %(var)
+		inputskolem += "ip%s, " %(var)
+		
 	inputformula += "out1 );\n"
 	inputformula_sk = inputskolem + "out3 );\n"
 	inputskolem += "out2 );\n"
+	
 	inputerrorx = inputerrorx + inputerrory + inputerroryp + "out );\n"
+	
 	declare = declarex + declarey + declareyp + 'output out;\n' + \
 		"wire out1;\n" + "wire out2;\n" + "wire out3;\n"
+	
 	formula_call = "FORMULA F1 " + inputformula
 	skolem_call = "SKOLEMFORMULA F2 " + inputskolem
 	formulask_call = "FORMULA F2 " + inputformula_sk
+	
 	error_content = inputerrorx + declare + \
 		formula_call + skolem_call + formulask_call
+	
 	error_content += "assign out = ( out1 & out2 & ~(out3) );\n" + \
 		"endmodule\n"
+	
 	error_content += verilog_formula
+	
+	
 	return error_content
 
-
 def addSkolem(error_content,inputfile_name):
+
 	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
+	
 	with open(skolemformula, 'r') as f:
 		skolemcontent = f.read()
 	f.close()
+	
 	errorformula = tempfile.gettempdir() + '/' + inputfile_name + "_errorformula.v"
-	f = open(errorformula, "w")
-	f.write(error_content)
-	f.write(skolemcontent)
+
+	with open(errorformula, "w") as f:
+		f.write(error_content + skolemcontent)
 	f.close()
 
 def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name):
-	tempOutputFile = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"  # F(X,Y')
+
+	tempOutputFile = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"  
+	
 	inputstr = 'module SKOLEMFORMULA ('
 	declarestr = ''
 	assignstr = ''
 	wirestr = 'wire zero;\nwire one;\n'
 	wirestr += "assign zero = 0;\nassign one = 1;\n"
 	outstr = ''
+	
 	itr = 1
 	wtlist = []
 	
 	for var in Xvar:
+
 		declarestr += "input i%s;\n" % (var)
 		inputstr += "i%s, " % (var)
+
 	for var in Yvar:
+
 		flag = 0
 		declarestr += "input o%s;\n" % (var)
 		inputstr += "o%s, " % (var)
@@ -203,21 +261,30 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 			wtlist.append(itr)
 			outstr = ''
 		itr += 1
+
 	if(flag == 0):
+
 		outstr = outstr.strip("& ")
 		wirestr += "wire wt%s;\n" % (itr)
 		assignstr += "assign wt%s = %s;\n" % (itr, outstr)
 		wtlist.append(itr)
+
 	assignstr += "assign out = "
+
 	for i in wtlist:
+
 		assignstr += "wt%s & " % (i)
+
 	assignstr = assignstr.strip("& ") + ";\n"
 	inputstr += " out );\n"
 	declarestr += "output out ;\n"
-	f = open(tempOutputFile, "w")
-	f.write(inputstr + declarestr + wirestr)
-	f.write(UniqueDef.strip("\n")+"\n")
-	f.write(assignstr + "endmodule")
+
+	
+	with open(tempOutputFile, "w") as f:
+		f.write(inputstr + declarestr + wirestr)
+		f.write(UniqueDef.strip("\n")+"\n")
+		f.write(assignstr + "endmodule")
+		
 	f.close()
 
 

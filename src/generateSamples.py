@@ -29,6 +29,9 @@ import os
 
 
 def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, SkolemKnown, args):
+
+	
+	
 	samples_biased_one = generatesample( args, 500, sampling_cnf + sampling_weights_y_1, inputfile_name, 1)
 	samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name, 1)
 
@@ -62,6 +65,7 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 
 
 def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
+	
 	tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + "_sample.cnf"
 	with open (tempcnffile,"w") as f:
 		f.write(sampling_cnf)
@@ -91,15 +95,20 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 	f.close()
 	os.unlink(tempoutputfile)
 	os.unlink(tempcnffile)
+	
 	content = content.replace("SAT\n","").replace("\n"," ").strip(" \n").strip(" ")
 	models = content.split(" ")
 	models = np.array(models)
+	
 	if models[len(models)-1] != "0":
 		models = np.delete(models, len(models) - 1, axis=0)
+	
 	if len(np.where(models == "0")[0]) > 0:
+		
 		index = np.where(models == "0")[0][0]
 		var_model = np.reshape(models, (-1, index+1)).astype(np.int_)
 		var_model = var_model > 0
 		var_model = np.delete(var_model, index, axis=1)
 		var_model = var_model.astype(np.int_)
+	
 	return var_model
