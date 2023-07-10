@@ -45,7 +45,7 @@ import pydotplus
 from collections import OrderedDict
 
 
-from src.convert_verilog import convert_verilog
+from src.convertVerilog import convert_verilog
 from src.preprocess import *
 from src.callUnique import find_unique_function
 from src.createSkolem import *
