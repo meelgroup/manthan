@@ -2,7 +2,7 @@
 
 
 ## Manthan: A Data-Driven Approach for Boolean Functional Synthesis
-Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi such that \exists Y F(X, Y) = F(X,\Psi(X)). Manthan works at the intersection of machine learning, constrained sampling, and automated reasoning. 
+Manthan takes in a \varphi(X,Y) formula as input and returns Boolean function F(X) such that \exists Y \varphi(X, Y) = \varphi(X, F(X)). Manthan works at the intersection of machine learning, constrained sampling, and automated reasoning. 
 
 To read more about Manthan, have a look at [CAV-20 paper](https://priyanka-golia.github.io/publication/cav20-manthan/cav20-manthan.pdf) and [ICCAD-21 paper](https://arxiv.org/pdf/2108.05717.pdf). You can also refer to the related [slides](https://www.comp.nus.edu.sg/~meel/Slides/manthan.pdf) and the talk [video](https://www.youtube.com/watch?v=dXWWiKfY6cI&t=2s).
 
@@ -25,21 +25,13 @@ Manthan depends on:
 
 Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.
 
-In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
 
-In addition if the compiled binaries do not work on the system, do following:
-
-```
-git submodule update --init --recursive
+### To install Unique
 
 ```
-This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file for instructions on how to compile these dependencies. After compilation, you have two options: you can either keep all the compiled binaries in the dependencies folder, or you can update the corresponding path in Manthan.
-
-## Install
-
-To install Unique: Make sure you have python-sat installed.
-
-```
+sudo apt-get install build-essential cmake
+pip install python-sat
+pip install pybind11[global]
 git clone https://github.com/perebor/unique.git
 cd unique
 git checkout 1902a5aa9573722cf473c7e8b5f49dedf9a4646d
@@ -51,13 +43,31 @@ cmake .. && make
 
 ```
 
+## Install
+
 Now, clone Manthan
 
 ```
 git clone https://github.com/meelgroup/manthan
 cd manthan
-cp ../unique/build/interpolatingsolver/src/itp.cpython-38-x86_64-linux-gnu.so itp.so
 ```
+
+Copy `itp` in `manthan` dir from `Unique` to run:
+
+```
+cp ../unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
+```
+
+In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
+In addition if the compiled binaries in `dependencies` do not work on the system, do following:
+
+```
+git submodule update --init --recursive
+
+```
+This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file for instructions on how to compile these dependencies. After compilation, you have two options: you can either keep all the compiled binaries in the dependencies folder, or you can update the corresponding path in Manthan.
+
+
 ## How to Use
 
 ```bash
