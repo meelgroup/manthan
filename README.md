@@ -6,8 +6,16 @@ Manthan takes in a \varphi(X,Y) formula as input and returns Boolean function F(
 
 To read more about Manthan, have a look at [CAV-20 paper](https://priyanka-golia.github.io/publication/cav20-manthan/cav20-manthan.pdf) and [ICCAD-21 paper](https://arxiv.org/pdf/2108.05717.pdf). You can also refer to the related [slides](https://www.comp.nus.edu.sg/~meel/Slides/manthan.pdf) and the talk [video](https://www.youtube.com/watch?v=dXWWiKfY6cI&t=2s).
 
+## Install
 
-## Requirements to run
+Clone Manthan
+
+```
+git clone https://github.com/meelgroup/manthan
+cd manthan
+```
+
+### Requirements to run
 
 * Python 3+
 
@@ -23,10 +31,7 @@ Manthan depends on:
 4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
 5. [UNIQUE](https://github.com/perebor/unique) to extract the unique functions.
 
-Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  In Manthan repo, you will find 64-bit x86 Linux compiled binaries for required dependencies.
-
-
-### To install Unique
+#### To install Unique
 
 ```
 sudo apt-get install build-essential cmake
@@ -40,23 +45,18 @@ git submodule update
 mkdir build
 cd build
 cmake .. && make
+cd ../..
 
-```
-
-## Install
-
-Now, clone Manthan
-
-```
-git clone https://github.com/meelgroup/manthan
-cd manthan
 ```
 
 Copy `itp` in `manthan` dir from `Unique` to run:
 
 ```
-cp ../unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
+cp /unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
 ```
+
+
+Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
 
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
 In addition if the compiled binaries in `dependencies` do not work on the system, do following:
