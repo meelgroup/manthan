@@ -2,4 +2,3 @@ numpy==1.22.0
 scikit-learn==0.20.4
 networkx==2.2
 pydotplus
-python-sat
