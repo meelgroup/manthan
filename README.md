@@ -22,7 +22,7 @@ cd manthan
 To install the required libraries, run:
 
 ```
-python -m pip install -r requirements.txt
+sudo python -m pip install -r requirements.txt
 ```
 Manthan depends on: 
 1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
