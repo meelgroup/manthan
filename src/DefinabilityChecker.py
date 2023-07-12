@@ -6,7 +6,7 @@ Created on Wed Aug 26 22:55:21 2020
 @author: fs
 """
 
-from pysat.solvers import Cadical
+from pysat.solvers import Cadical103 as Cadical
 import logging
 import src.InterpolatingSolver as InterpolatingSolver
 import src.Utils as Utils
