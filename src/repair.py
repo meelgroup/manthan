@@ -334,7 +334,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
                     repair_Yvar_constraint += "%s 0\n" %(yj_var)
             count_Yvar += 1  
         
-        if args.verbose:
+        if args.verbose > 1:
             print("repairing %s" %(repairvar))
         
         if not args.henkin:
@@ -391,7 +391,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
 
             repaired.append(repairvar)
 
-            if args.verbose:
+            if args.verbose > 1:
                 print("gk formula is UNSAT\ncreating beta formula")
             
             betaformula = ''

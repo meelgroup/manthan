@@ -111,7 +111,9 @@ def manthan():
             NegUnate = []
             
         end_time_preprocess = time.time()
-        logtime(inputfile_name, "preprocessing time:"+str(end_time_preprocess-start_time_preprocess))
+        
+        if args.logtime:
+            logtime(inputfile_name, "preprocessing time:"+str(end_time_preprocess-start_time_preprocess))
 
         if args.verbose:
             print("count of positive unates", len(PosUnate))
@@ -155,7 +157,9 @@ def manthan():
         end_time = time.time()
         print("Manthan has synthesized Skolem functions")
         print("Total time taken", str(end_time-start_time))
-        logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
+        
+        if args.logtime:
+            logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
         exit()
 
     
@@ -173,8 +177,10 @@ def manthan():
                 qdimacs_list, Xvar, Yvar, dg, Unates)
         
         end_time_unique = time.time()
-        
-        logtime(inputfile_name, "unique function finding:"+str(end_time_unique-start_time_unique))
+
+
+        if args.logtime:
+            logtime(inputfile_name, "unique function finding:"+str(end_time_unique-start_time_unique))
 
         if args.verbose:
             print("count of uniquely defined variables", len(UniqueVars))
@@ -195,7 +201,9 @@ def manthan():
         skolemfunction_preprocess(inputfile_name, Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef)
         
         end_time = time.time()
-        logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
+
+        if args.logtime:
+            logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
         exit()
 
     
@@ -266,7 +274,9 @@ def manthan():
             args, num_samples, sampling_cnf, inputfile_name, 0)
 
     end_time_datagen = time.time()
-    logtime(inputfile_name, "generating samples:"+str(end_time_datagen-start_time_datagen))
+
+    if args.logtime:
+        logtime(inputfile_name, "generating samples:"+str(end_time_datagen-start_time_datagen))
 
     
     print("generated samples.. learning candidate functions via decision learning")
@@ -293,8 +303,9 @@ def manthan():
     
 
     end_time_learn = time.time()
-    
-    logtime(inputfile_name, "candidate learning:"+str(end_time_learn-start_time_learn))
+
+    if args.logtime:
+        logtime(inputfile_name, "candidate learning:"+str(end_time_learn-start_time_learn))
 
     '''
     YvarOrder is a total order of Y variables that represents interdependecies among Y. 
@@ -365,9 +376,10 @@ def manthan():
 
             countRefine += 1 #update the number of repair itr
 
-            print("verification check is SAT, we have counterexample to fix")
             
-            if args.verbose:
+            
+            if args.verbose > 1:
+                print("verification check is SAT, we have counterexample to fix")
                 print("number of repair", countRefine)
                 print("finding candidates to repair using maxsat")
 
@@ -383,7 +395,7 @@ def manthan():
             assert(len(ind) > 0)
 
             
-            if args.verbose:
+            if args.verbose > 1:
                 print("number of candidates undergoing repair iterations", len(ind))
             
             if args.verbose >= 2:
@@ -414,7 +426,7 @@ def manthan():
                 
                 assert(len(ind) > 0)
                 
-                if args.verbose == 1:
+                if args.verbose > 1:
                     print("number of candidates undergoing repair iterations", len(ind))
                 
                 
@@ -442,8 +454,9 @@ def manthan():
     
     end_time = time.time()
     
-    logtime(inputfile_name, "repair time:"+str(end_time-start_time_repair))
-    logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
+    if args.logtime:
+        logtime(inputfile_name, "repair time:"+str(end_time-start_time_repair))
+        logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
 
 
 if __name__ == "__main__":
@@ -468,6 +481,7 @@ if __name__ == "__main__":
     parser.add_argument("--multiclass", action='store_true')
     parser.add_argument("--lexmaxsat", action='store_true')
     parser.add_argument("--henkin", action='store_true')
+    parser.add_argument("--logtime", action='store_true')
     parser.add_argument("--hop", type=int, default=3, dest='hop')
     parser.add_argument("--clustersize", type=int,
                         default=8, dest='clustersize')

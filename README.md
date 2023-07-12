@@ -82,34 +82,66 @@ This will retrieve all the dependencies located in the `dependencies/build_depen
 python manthan.py  <qdimacs input> 
 ```
 
-## To test:
+#### A simple invocation 
 
-A simple invocation with benchmarks/max64.qdimacs
+Let us consider a simple `benchmarks/test.qdimacs` instance.
 
-```
-python manthan.py  benchmarks/max64.qdimacs
 
 ```
+p cnf 4 4
+a 2 3 0
+e 1 4 0
+-1 2 0
+-1 3 0
+1 2 3 0
+4 0
+```
+
+We need to find Skolem function corresponding to existentially quantified variables 1 and 4.
+
+```
+python manthan.py  benchmarks/test.qdimacs
 
 ```
 
+```
 starting Manthan
 parsing
-count X variables 128
-count Y variables 290
+count X (universally qunatified variables) variables 2
+count Y (existentially qunatified variables) variables 2
 preprocessing: finding unates (constant functions)
-count of positive unates 7
-count of negative unates 5
+count of positive unates 1
+count of negative unates 0
 finding uniquely defined functions
-count of uniquely defined variables 277
-parsing and converting to verilog
+count of uniquely defined variables 0
 generating weighted samples
-generated samples.. learning candidate functions
+generated samples.. learning candidate functions via decision learning
 generated candidate functions for all variables.
 verification check UNSAT
 no more repair needed
 number of repairs needed to converge 0
 ```
+
+Manthan will store Skolem functions in a verilog file `test_skolem.v`. 
+
+```
+module SkolemFormula (i2, i3, o1, o4);
+input i2, i3;
+output o1, o4;
+wire zero, one;
+assign zero = 0;
+assign one = 1;
+wire w1;
+wire w4;
+wire wt3;
+assign w1 = (( i2 & i3 & one ));
+assign w4 = ( one );
+assign wt3 = (~(w1 ^ o1)) & (~(w4 ^ o4));
+assign o1 = w1;
+assign o4 = w4;
+endmodule
+```
+In this, `i2` and `i3` represent universally quantified variables `2` and `3`, and `o1` and `o4` defines existentially quantified variables `1` and `4`. Skolem function corresponding to `1` is `2 & 3` whereas Skolem function corresponding to `4` is constant one.
 
 you can also provide different option to consider for manthan:
 
