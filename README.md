@@ -24,14 +24,12 @@ To install the required libraries, run:
 ```
 sudo python -m pip install -r requirements.txt
 ```
-Manthan depends on: 
-1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
-2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
-3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
-4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
-5. [UNIQUE](https://github.com/perebor/unique) to extract the unique functions.
+
+
 
 #### To install Unique
+
+Manthan usage [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. 
 
 ```
 sudo apt-get install build-essential cmake
@@ -44,7 +42,7 @@ git submodule init
 git submodule update
 mkdir build
 cd build
-cmake .. && make
+cmake .. && make -j4
 cd ../..
 
 ```
@@ -52,11 +50,19 @@ cd ../..
 Copy `itp` in `manthan` dir from `Unique` to run:
 
 ```
-cp /unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
+cp unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
 ```
 
 
 Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
+
+#### Additional Dependencies
+
+Manthan depends on: 
+1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
+2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
+3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
+4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
 
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
 In addition if the compiled binaries in `dependencies` do not work on the system, do following:
