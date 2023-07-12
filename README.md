@@ -54,7 +54,7 @@ cp unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
 ```
 
 
-Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
+
 
 #### Additional Dependencies
 
@@ -63,6 +63,8 @@ Manthan depends on:
 2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
 3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
 4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
+
+Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
 
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
 In addition if the compiled binaries in `dependencies` do not work on the system, do following:
