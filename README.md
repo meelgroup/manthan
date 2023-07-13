@@ -54,7 +54,7 @@ cd ../..
 
 ```
 
-`manthan` need to import `unique` via  a library, do the following:
+Manthan need to import `unique` via  a library, do the following:
 
 ```
 cp unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
