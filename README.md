@@ -17,13 +17,19 @@ cd manthan
 
 ### Requirements to run
 
-* Python 3+
+* Python 3.7+
 
-To install the required libraries, run:
+To install the required libraries, run the following:
+
+```
+python -m pip install -r requirements.txt
+```
+You might need to give `root` permission. In that case, run:
 
 ```
 sudo python -m pip install -r requirements.txt
 ```
+
 
 
 
@@ -35,7 +41,7 @@ Manthan usage [UNIQUE](https://github.com/perebor/unique) to extract the unique 
 sudo apt-get install build-essential cmake
 sudo apt-get install libboost-program-options-dev
 pip install python-sat==0.1.8.dev8
-pip install pybind11[global]
+pip install "pybind11[global]"
 git clone https://github.com/perebor/unique.git
 cd unique
 git checkout 1902a5aa9573722cf473c7e8b5f49dedf9a4646d
@@ -48,7 +54,7 @@ cd ../..
 
 ```
 
-Copy `itp` in `manthan` dir from `Unique` to run:
+`manthan` need to import `unique` via  a library, do the following:
 
 ```
 cp unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
@@ -68,7 +74,7 @@ Manthan depends on:
 Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
 
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
-In addition if the compiled binaries in `dependencies` do not work on the system, do following:
+In addition, if the compiled binaries in `dependencies` do not work on the system, do the following:
 
 ```
 git submodule update --init --recursive
