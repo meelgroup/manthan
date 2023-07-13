@@ -382,7 +382,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
                             break
                         l = l + 1
                     if flag == 0:
-                        ind = np.append(ind, Yvar[yk]).astype(np.int)   
+                        ind = np.append(ind, Yvar[yk]).astype(np.int_)   
         else:
 
             '''
