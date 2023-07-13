@@ -89,9 +89,9 @@ This will retrieve all the dependencies located in the `dependencies/build_depen
 python manthan.py  <qdimacs input> 
 ```
 
-#### A simple invocation 
+#### A sample invocation 
 
-Let us consider a simple `benchmarks/test.qdimacs` instance.
+Let us consider  `benchmarks/test.qdimacs`:
 
 
 ```
