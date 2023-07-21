@@ -29,6 +29,7 @@ import math
 import random
 import argparse
 import copy
+from tabnanny import verbose
 import tempfile
 import numpy as np
 from numpy import count_nonzero
@@ -78,6 +79,10 @@ def manthan():
     if args.verbose:
         print(" c count X (universally quantified variables) variables", len(Xvar))
         print(" c count Y (existentially quantified variables) variables", len(Yvar))
+    
+    if args.verbose >= 2:
+        print(" c  X (universally quantified variables) variables", (Xvar))
+        print(" c  Y (existentially quantified variables) variables",(Yvar))
 
     inputfile_name = args.input.split('/')[-1][:-8]
 
@@ -262,6 +267,11 @@ def manthan():
 
         if args.verbose >= 2:
             print(" c computing adaptive bias for Y variables")
+            print("sampling_weights_y_1 %s" %(sampling_weights_y_1))
+            print("sampling_weights_y_0 %s" %(sampling_weights_y_0))
+            print("sampling cnf", sampling_cnf)
+            print("inputfile_name", inputfile_name)
+
 
         weighted_sampling_cnf = computeBias(
             Xvar, Yvar, sampling_cnf, sampling_weights_y_1,
@@ -324,6 +334,9 @@ def manthan():
     '''
     createSkolem(candidateSkf, Xvar, Yvar, UniqueVars,
                  UniqueDef, inputfile_name)
+    
+    if args.verbose >=2:
+        print("learned candidate functions", candidateSkf)
 
     error_content = createErrorFormula(Xvar, Yvar,  verilogformula)
 
@@ -364,6 +377,8 @@ def manthan():
             if args.verbose:
                 print(" c no more repair needed")
                 print(" c number of repairs needed to converge", countRefine)
+            
+            
 
             createSkolemfunction(inputfile_name, Xvar, Yvar)
 
@@ -382,12 +397,18 @@ def manthan():
                 print(" c verification check is SAT, we have counterexample to fix")
                 print(" c number of repair", countRefine)
                 print(" c finding candidates to repair using maxsat")
+            
+            if args.verbose >=2:
+                print("counter example to repair", sigma)
 
             repaircnf, maxsatcnfRepair = addXvaluation(
                 cnfcontent, maxsatWt, maxsatcnf, sigma[0], Xvar)
 
             ind = callMaxsat(
                 maxsatcnfRepair, sigma[2], UniqueVars + Unates, Yvar, YvarOrder, inputfile_name)
+            
+            if args.verbose >= 2:
+                print("candidates to repair", ind)
 
             assert (len(ind) > 0)
 
