@@ -335,7 +335,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             count_Yvar += 1  
         
         if args.verbose > 1:
-            print("repairing %s" %(repairvar))
+            print(" c repairing %s" %(repairvar))
         
         if not args.henkin:
             ret, model, clistx, clisty = findUnsatCore(repair_Yvar_constraint, repaircnf, 
@@ -355,7 +355,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
                 continue
             
             if len(ind) > (len(ind_org) * 50) and flagRC2:
-                print("too many new repair candidate added.. calling rc2")
+                print(" c too many new repair candidate added.. calling rc2")
                 return 1, repairfunctions
             
             
@@ -392,7 +392,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             repaired.append(repairvar)
 
             if args.verbose > 1:
-                print("gk formula is UNSAT\ncreating beta formula")
+                print(" c gk formula is UNSAT\ncreating beta formula")
             
             betaformula = ''
             for x in clistx:
@@ -426,7 +426,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             assert(repairfunctions[repairvar] != "")
         
     if args.verbose == 2:
-        print("repaired functions", repairfunctions)
+        print(" c repaired functions", repairfunctions)
     return 0, repairfunctions
 
 def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar):

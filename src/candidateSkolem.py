@@ -299,9 +299,9 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
                 dg.add_edge(var, jvar)
 
     if args.verbose:
-        print("generated candidate functions for all variables.")
+        print(" c generated candidate functions for all variables.")
 
     if args.verbose == 2:
-        print("candidate functions are", candidateSkf)
+        print(" c candidate functions are", candidateSkf)
 
     return candidateSkf, dg    

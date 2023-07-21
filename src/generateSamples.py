@@ -65,19 +65,27 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 
 
 def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
+
 	
 	tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + "_sample.cnf"
+
+
+	assert(sampling_cnf!="")
+
 	with open (tempcnffile,"w") as f:
 		f.write(sampling_cnf)
 	f.close()
 
+
+
 	tempoutputfile = tempfile.gettempdir() + '/' + inputfile_name + "_.txt"
+	
 
 	if weighted:
 		cmd = "./dependencies/cryptominisat5 -n1 --sls 0 --comps 0"
 		cmd += " --restart luby  --nobansol --maple 0 --presimp 0"
 		cmd += " --polar weight --freq 0.9999 --verb 0 --scc 0"
-		cmd += " --random %s --maxsol %s > /dev/null 2>&1" % (args.seed, int(num_samples))
+		cmd += " --random %s --maxsol %s  > /dev/null 2>&1" % (args.seed, int(num_samples))
 		cmd += " %s" % (tempcnffile)
 		cmd += " --dumpresult %s " % (tempoutputfile)
 	else:
@@ -88,13 +96,21 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		cmd += " %s" % (tempcnffile)
 		cmd += " --dumpresult %s > /dev/null 2>&1" % (tempoutputfile)
 	
+	
 	os.system(cmd)
 
-	with open(tempoutputfile,"r") as f:
-		content = f.read()
-	f.close()
-	os.unlink(tempoutputfile)
-	os.unlink(tempcnffile)
+	if os.path.exists(tempoutputfile):
+
+		with open(tempoutputfile,"r") as f:
+			content = f.read()
+		f.close()
+		os.unlink(tempoutputfile)
+		os.unlink(tempcnffile)
+	
+	else:
+
+		print(" c some issue while generating samples..please check your sampler")
+		exit()
 	
 	content = content.replace("SAT\n","").replace("\n"," ").strip(" \n").strip(" ")
 	models = content.split(" ")
@@ -102,6 +118,9 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 	
 	if models[len(models)-1] != "0":
 		models = np.delete(models, len(models) - 1, axis=0)
+
+	assert(len(models) > 0)
+
 	
 	if len(np.where(models == "0")[0]) > 0:
 		
@@ -110,5 +129,6 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		var_model = var_model > 0
 		var_model = np.delete(var_model, index, axis=1)
 		var_model = var_model.astype(np.int_)
+	
 	
 	return var_model
