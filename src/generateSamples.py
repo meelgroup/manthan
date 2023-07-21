@@ -35,6 +35,11 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 	samples_biased_one = generatesample( args, 500, sampling_cnf + sampling_weights_y_1, inputfile_name, 1)
 	samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name, 1)
 
+	if args.verbose >=2:
+		print("generated samples to predict bias for Y")
+		print("biased towards one", len(samples_biased_one))
+		print("biased towards zero", len(samples_biased_zero))
+
 	bias = ""
 
 	for yvar in Yvar:
@@ -57,6 +62,9 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 				p = 0.99
 			bias += "w %s %s\n" %(yvar,p)
 	
+	if args.verbose >= 2:
+		print("bias computing", bias)
+	
 	return sampling_cnf + bias
 		
 
@@ -65,19 +73,27 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 
 
 def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
+
 	
 	tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + "_sample.cnf"
+
+
+	assert(sampling_cnf!="")
+
 	with open (tempcnffile,"w") as f:
 		f.write(sampling_cnf)
 	f.close()
 
+
+
 	tempoutputfile = tempfile.gettempdir() + '/' + inputfile_name + "_.txt"
 
+	
 	if weighted:
 		cmd = "./dependencies/cryptominisat5 -n1 --sls 0 --comps 0"
 		cmd += " --restart luby  --nobansol --maple 0 --presimp 0"
 		cmd += " --polar weight --freq 0.9999 --verb 0 --scc 0"
-		cmd += " --random %s --maxsol %s > /dev/null 2>&1" % (args.seed, int(num_samples))
+		cmd += " --random %s --maxsol %s  " % (args.seed, int(num_samples))
 		cmd += " %s" % (tempcnffile)
 		cmd += " --dumpresult %s " % (tempoutputfile)
 	else:
@@ -86,15 +102,31 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		cmd += " --scc 1 -n1 --presimp 0 --polar rnd --freq 0.9999"
 		cmd += " --random %s --maxsol %s" % (args.seed, int(num_samples))
 		cmd += " %s" % (tempcnffile)
-		cmd += " --dumpresult %s > /dev/null 2>&1" % (tempoutputfile)
+		cmd += " --dumpresult %s " % (tempoutputfile)
+	
+
+	if args.verbose >= 2:
+		print("cmsgen cmd", cmd)
+		print("tempcnffile", tempcnffile)
+		print("tempoutputfile", tempoutputfile)
+		print("sampling cnf", sampling_cnf)
+	else:
+		cmd += "> /dev/null 2>&1"
 	
 	os.system(cmd)
 
-	with open(tempoutputfile,"r") as f:
-		content = f.read()
-	f.close()
-	os.unlink(tempoutputfile)
-	os.unlink(tempcnffile)
+	if os.path.exists(tempoutputfile):
+
+		with open(tempoutputfile,"r") as f:
+			content = f.read()
+		f.close()
+		os.unlink(tempoutputfile)
+		os.unlink(tempcnffile)
+	
+	else:
+
+		print(" c some issue while generating samples..please check your sampler")
+		exit()
 	
 	content = content.replace("SAT\n","").replace("\n"," ").strip(" \n").strip(" ")
 	models = content.split(" ")
@@ -102,6 +134,9 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 	
 	if models[len(models)-1] != "0":
 		models = np.delete(models, len(models) - 1, axis=0)
+
+	assert(len(models) > 0)
+
 	
 	if len(np.where(models == "0")[0]) > 0:
 		
@@ -110,5 +145,8 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		var_model = var_model > 0
 		var_model = np.delete(var_model, index, axis=1)
 		var_model = var_model.astype(np.int_)
+	
+	if args.verbose >= 2:
+		print("var_models first row", var_model[0])
 	
 	return var_model

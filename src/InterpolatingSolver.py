@@ -9,6 +9,7 @@ Created on Wed Jun  3 21:35:13 2020
 import itp
 import src.Utils as Utils
 
+
 TRIBOOL_FALSE = 0
 TRIBOOL_TRUE = 1
 TRIBOOL_INDETERMINATE = 2

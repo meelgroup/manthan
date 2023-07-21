@@ -190,6 +190,10 @@ def callMaxsat(maxsatcnf, modelyp, SkolemKnown, Yvar, YvarOrder, inputfile_name)
 def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
 
     cmd = "./dependencies/picosat -s %s -V %s %s > %s " %(args.seed, unsatcorefile, cnffile, satfile)
+
+    if args.verbose >= 2:
+        print("picosat cmd", cmd)
+
     os.system(cmd)
     exists = os.path.isfile(unsatcorefile)
     if exists:
@@ -206,8 +210,16 @@ def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
                 clisty.append(v)
         os.unlink(unsatcorefile)
         os.unlink(cnffile)
+
+        if args.verbose >= 2:
+            print("clistx", clistx)
+            print("clisty", clisty)
+
         return 1, clistx, clisty
     else:
+        if args.verbose >= 2:
+            print("picosat returns sat for", cnffile)
+            
         os.unlink(satfile)
         return 0, [], []
 
@@ -335,7 +347,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             count_Yvar += 1  
         
         if args.verbose > 1:
-            print("repairing %s" %(repairvar))
+            print(" c repairing %s" %(repairvar))
         
         if not args.henkin:
             ret, model, clistx, clisty = findUnsatCore(repair_Yvar_constraint, repaircnf, 
@@ -355,7 +367,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
                 continue
             
             if len(ind) > (len(ind_org) * 50) and flagRC2:
-                print("too many new repair candidate added.. calling rc2")
+                print(" c too many new repair candidate added.. calling rc2")
                 return 1, repairfunctions
             
             
@@ -392,7 +404,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             repaired.append(repairvar)
 
             if args.verbose > 1:
-                print("gk formula is UNSAT\ncreating beta formula")
+                print(" c gk formula is UNSAT\ncreating beta formula")
             
             betaformula = ''
             for x in clistx:
@@ -426,7 +438,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             assert(repairfunctions[repairvar] != "")
         
     if args.verbose == 2:
-        print("repaired functions", repairfunctions)
+        print(" c repaired functions", repairfunctions)
     return 0, repairfunctions
 
 def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar):
