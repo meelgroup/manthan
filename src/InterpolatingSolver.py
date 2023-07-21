@@ -6,26 +6,6 @@ Created on Wed Jun  3 21:35:13 2020
 @author: fs
 """
 
-import sys, os, fnmatch
-
-
-def find(pattern, path):
-    result = []
-    for root, dirs, files in os.walk(path):
-        
-        for name in files:
-            if fnmatch.fnmatch(name, pattern):
-                result.append(os.path.join(root))
-    return result
-
-result = find("itp*.so", os.getcwd()+"/unique") # Assuming Unique dir is inside Manthan dir, else update the path to unique dir here.
-
-if len(result) == 0:
-  print("could not find itp.so, either unique did not install properly or unique directory path in InterpolatingSolver.py is not updated")
-  exit()
-
-sys.path.append(result[0])
-
 import itp
 import src.Utils as Utils
 
