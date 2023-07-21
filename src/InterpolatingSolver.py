@@ -20,6 +20,9 @@ def find(pattern, path):
 
 result = find("itp*.so", os.getcwd()+"/unique") # Assuming Unique dir is inside Manthan dir, else update the path to unique dir here.
 
+if len(result) == 0:
+  print("could not find itp.so, either unique did not install properly or unique directory path in InterpolatingSolver.py is not updated")
+  exit()
 
 sys.path.append(result[0])
 
