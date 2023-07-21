@@ -38,10 +38,10 @@ sudo python -m pip install -r requirements.txt
 Manthan usage [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. 
 
 ```
-sudo apt-get install build-essential cmake
-sudo apt-get install libboost-program-options-dev
-pip install python-sat==0.1.8.dev8
-pip install "pybind11[global]"
+apt-get install build-essential cmake
+apt-get install libboost-program-options-dev
+python -m pip install python-sat==0.1.8
+python -m pip install "pybind11[global]"
 git clone https://github.com/perebor/unique.git
 cd unique
 git checkout 1902a5aa9573722cf473c7e8b5f49dedf9a4646d
