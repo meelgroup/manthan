@@ -36,9 +36,9 @@ def computeBias(Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, i
 	samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name)
 
 	if args.verbose >=2:
-		print("generated samples to predict bias for Y")
-		print("biased towards one", len(samples_biased_one))
-		print("biased towards zero", len(samples_biased_zero))
+		print(" c generated samples to predict bias for Y")
+		print(" c biased towards one", len(samples_biased_one))
+		print(" c biased towards zero", len(samples_biased_zero))
 
 	bias = ""
 
@@ -63,7 +63,7 @@ def computeBias(Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, i
 			bias += "w %s %s\n" %(yvar,p)
 	
 	if args.verbose >= 2:
-		print("bias computing", bias)
+		print(" c bias computing", bias)
 	
 	return sampling_cnf + bias
 		
@@ -94,34 +94,45 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name):
 	
 
 	if args.verbose >= 2:
-		print("cmsgen cmd", cmd)
-		print("tempcnffile", tempcnffile)
-		print("tempoutputfile", tempoutputfile)
-		print("sampling cnf", sampling_cnf)
+		print(" c cmsgen cmd", cmd)
+		print(" c tempcnffile", tempcnffile)
+		print(" c tempoutputfile", tempoutputfile)
+		print(" c sampling cnf", sampling_cnf)
 	else:
 		cmd += "> /dev/null 2>&1"
 	
 	
 	os.system(cmd)
-	print("finished executing\n")
 
-	
-	with open(tempoutputfile,"r") as f:
-		content = f.read()
-	
-	os.unlink(tempoutputfile)
-	os.unlink(tempcnffile)
-	
-	
+	if args.verbose >= 2:
+		print(" c generated samples at %s", tempoutputfile)
+
+	if os.path.exists(tempoutputfile):
+
+		with open(tempoutputfile,"r") as f:
+			content = f.read()
+
+		os.unlink(tempoutputfile)
+		os.unlink(tempcnffile)
+
+	else:
+
+		print(" c some issue while generating samples..please check your sampler")
+		exit()
+
 	
 	content = content.replace("SAT\n","").replace("\n"," ").strip(" \n").strip(" ")
 	models = content.split(" ")
 	models = np.array(models)
+
+	if args.verbose >= 2:
+		print(" c models", models)
 	
 	if models[len(models)-1] != "0":
 		models = np.delete(models, len(models) - 1, axis=0)
 
 	assert(len(models) > 0)
+
 
 	
 	if len(np.where(models == "0")[0]) > 0:
@@ -132,7 +143,7 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name):
 		var_model = np.delete(var_model, index, axis=1)
 		var_model = var_model.astype(np.int_)
 	
-	if args.verbose >= 2:
-		print("var_models first row", var_model[0])
+		if args.verbose >= 2:
+			print("c var_models first row", var_model[0])
 	
 	return var_model

@@ -267,10 +267,10 @@ def manthan():
 
         if args.verbose >= 2:
             print(" c computing adaptive bias for Y variables")
-            print("sampling_weights_y_1 %s" %(sampling_weights_y_1))
-            print("sampling_weights_y_0 %s" %(sampling_weights_y_0))
-            print("sampling cnf", sampling_cnf)
-            print("inputfile_name", inputfile_name)
+            print(" c sampling_weights_y_1 %s" %(sampling_weights_y_1))
+            print(" c sampling_weights_y_0 %s" %(sampling_weights_y_0))
+            print(" c sampling cnf", sampling_cnf)
+            print(" c inputfile_name", inputfile_name)
 
 
         weighted_sampling_cnf = computeBias(
@@ -336,7 +336,7 @@ def manthan():
                  UniqueDef, inputfile_name)
     
     if args.verbose >=2:
-        print("learned candidate functions", candidateSkf)
+        print("c learned candidate functions", candidateSkf)
 
     error_content = createErrorFormula(Xvar, Yvar,  verilogformula)
 
