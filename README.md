@@ -70,6 +70,7 @@ Manthan depends on:
 2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
 3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
 4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
+5. [CMSGEN](https://github.com/meelgroup/cmsgen) to sample satisfying assignments.
 
 Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
 
@@ -80,7 +81,16 @@ In addition, if the compiled binaries in `dependencies` do not work on the syste
 git submodule update --init --recursive
 
 ```
-This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file for instructions on how to compile these dependencies. After compilation, you have two options: you can either keep all the compiled binaries in the dependencies folder, or you can update the corresponding path in Manthan.
+This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file for instructions on how to compile these dependencies. After compilation, do the following:
+
+```
+cd dependencies
+chmod +x mv_dependencies.sh
+./mv_dependencies
+```
+This will copy the compiled binaries to the `dependencies` folder.
+
+
 
 
 ## How to Use
