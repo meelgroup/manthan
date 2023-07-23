@@ -103,19 +103,16 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name):
 	
 	
 	os.system(cmd)
+	print("finished executing\n")
 
-	if os.path.exists(tempoutputfile):
-
-		with open(tempoutputfile,"r") as f:
-			content = f.read()
-		f.close()
-		os.unlink(tempoutputfile)
-		os.unlink(tempcnffile)
 	
-	else:
-
-		print(" c some issue while generating samples..please check your sampler")
-		exit()
+	with open(tempoutputfile,"r") as f:
+		content = f.read()
+	
+	os.unlink(tempoutputfile)
+	os.unlink(tempcnffile)
+	
+	
 	
 	content = content.replace("SAT\n","").replace("\n"," ").strip(" \n").strip(" ")
 	models = content.split(" ")
