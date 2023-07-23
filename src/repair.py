@@ -257,7 +257,7 @@ def findUnsatCore(repair_Yvar_constraint, repaircnf, Xvar, Yvar, Count_Yvar, inp
     if ret:
         return (ret, [], clistx, clisty)
     else:
-        os.system("./dependencies/cryptominisat5 --random %s --maxsol %s %s --dumpresult %s > /dev/null 2>&1" % (args.seed, 1, cnffile,satfile))
+        os.system("./dependencies/cmsgen --seed %s --samples %s %s --samplefile %s > /dev/null 2>&1" % (args.seed, 1, cnffile,satfile))
         with open(satfile,"r") as f:
             lines = f.readlines()
         f.close()
