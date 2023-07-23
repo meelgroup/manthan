@@ -274,18 +274,18 @@ def manthan():
 
 
         weighted_sampling_cnf = computeBias(
-            Xvar, Yvar, sampling_cnf, sampling_weights_y_1,
+            Yvar, sampling_cnf, sampling_weights_y_1,
             sampling_weights_y_0, inputfile_name, Unates + UniqueVars, args)
 
         if args.verbose >= 2:
             print(" c generating samples..")
 
         samples = generatesample(
-            args, num_samples, weighted_sampling_cnf, inputfile_name, 1)
+            args, num_samples, weighted_sampling_cnf, inputfile_name)
     else:
         print(" c generating uniform samples")
         samples = generatesample(
-            args, num_samples, sampling_cnf, inputfile_name, 0)
+            args, num_samples, sampling_cnf, inputfile_name)
 
     end_time_datagen = time.time()
 
