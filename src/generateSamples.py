@@ -28,12 +28,12 @@ from numpy import count_nonzero
 import os
 
 
-def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, SkolemKnown, args):
+def computeBias(Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, SkolemKnown, args):
 
 	
 	
-	samples_biased_one = generatesample( args, 500, sampling_cnf + sampling_weights_y_1, inputfile_name, 1)
-	samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name, 1)
+	samples_biased_one = generatesample( args, 500, sampling_cnf + sampling_weights_y_1, inputfile_name)
+	samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name)
 
 	if args.verbose >=2:
 		print("generated samples to predict bias for Y")
@@ -72,7 +72,7 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 
 
 
-def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
+def generatesample(args, num_samples, sampling_cnf, inputfile_name):
 
 	
 	tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + "_sample.cnf"
@@ -88,21 +88,9 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 
 	tempoutputfile = tempfile.gettempdir() + '/' + inputfile_name + "_.txt"
 
-	
-	if weighted:
-		cmd = "./dependencies/cryptominisat5 -n1 --sls 0 --comps 0"
-		cmd += " --restart luby  --nobansol --maple 0 --presimp 0"
-		cmd += " --polar weight --freq 0.9999 --verb 0 --scc 0"
-		cmd += " --random %s --maxsol %s  " % (args.seed, int(num_samples))
-		cmd += " %s" % (tempcnffile)
-		cmd += " --dumpresult %s " % (tempoutputfile)
-	else:
-		cmd = "./dependencies/cryptominisat5 --restart luby"
-		cmd += " --maple 0 --verb 0 --nobansol"
-		cmd += " --scc 1 -n1 --presimp 0 --polar rnd --freq 0.9999"
-		cmd += " --random %s --maxsol %s" % (args.seed, int(num_samples))
-		cmd += " %s" % (tempcnffile)
-		cmd += " --dumpresult %s " % (tempoutputfile)
+
+	cmd =  "./dependencies/cmsgen %s --samplefile %s " %(tempcnffile, tempoutputfile)
+	cmd += "--seed %s --samples %s " %(args.seed, int(num_samples))
 	
 
 	if args.verbose >= 2:
@@ -112,6 +100,7 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		print("sampling cnf", sampling_cnf)
 	else:
 		cmd += "> /dev/null 2>&1"
+	
 	
 	os.system(cmd)
 
