@@ -40,7 +40,7 @@ Manthan usage [UNIQUE](https://github.com/perebor/unique) to extract the unique 
 ```
 apt-get install build-essential cmake
 apt-get install libboost-program-options-dev
-python -m pip install python-sat==0.1.8
+python -m pip install python-sat==0.1.8.dev8
 python -m pip install "pybind11[global]"
 git clone https://github.com/perebor/unique.git
 cd unique
