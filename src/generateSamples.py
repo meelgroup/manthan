@@ -131,14 +131,27 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name):
 	if models[len(models)-1] != "0":
 		models = np.delete(models, len(models) - 1, axis=0)
 
+	if args.verbose >= 2:
+		print(" c models after delete", models)
+
 	assert(len(models) > 0)
+
+	if args.verbose >= 2:
+		print("c check for np.where", np.where(models == "0"))
 
 
 	
 	if len(np.where(models == "0")[0]) > 0:
+
+		if args.verbose >= 2:
+			print("c was able to go inside where condition")
 		
 		index = np.where(models == "0")[0][0]
 		var_model = np.reshape(models, (-1, index+1)).astype(np.int_)
+
+		if args.verbose >= 2:
+			print("c was able to go reshape")
+
 		var_model = var_model > 0
 		var_model = np.delete(var_model, index, axis=1)
 		var_model = var_model.astype(np.int_)
