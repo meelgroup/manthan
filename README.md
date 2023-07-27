@@ -66,7 +66,7 @@ cp unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
 #### Additional Dependencies
 
 Manthan depends on: 
-1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
+1. [Open-WBO](https://github.com/sat-group/open-wbo) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
 2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
 3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
 4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
@@ -81,12 +81,12 @@ In addition, if the compiled binaries in `dependencies` do not work on the syste
 git submodule update --init --recursive
 
 ```
-This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file for instructions on how to compile these dependencies. After compilation, do the following:
+This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file (or INSTALL file in case of open-wbo) for instructions on how to compile these dependencies. After compilation, do the following:
 
 ```
 cd dependencies
 chmod +x mv_dependencies.sh
-./mv_dependencies
+./mv_dependencies.sh
 ```
 This will copy the compiled binaries to the `dependencies` folder.
 
