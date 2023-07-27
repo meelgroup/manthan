@@ -43,9 +43,15 @@ if test -f "$wbo"; then
     echo "c $wbo exists."
     echo "c coping it to dependencies folder"
     cp  $wbo .
-else 
-    echo "WARNING! could not found $wbo"
-    echo "WARNING! check open-wbo install and follow readme in build_dependencies/open-wbo"
+else
+    if  test -f "$wbo"*; then
+    	echo "c $wbo exists."
+    	echo "c coping it to dependencies folder"
+    	cp  $wbo* open-wbo
+    else
+    	echo "WARNING! could not found $wbo"
+    	echo "WARNING! check open-wbo install and follow INSTALL in build_dependencies/open-wbo"
+    fi
 fi
 
 cmsgen=build_dependencies/cmsgen/build/cmsgen
