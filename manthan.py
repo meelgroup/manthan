@@ -532,11 +532,11 @@ if __name__ == "__main__":
     if not config.has_section('Dependencies-Path'):
         print(" c Did not install dependencies from source code, using precomplied binaries")
         config.add_section('Dependencies-Path') 
-        config.set('Dependencies-Path', 'openwbo_path','./dependencies/open-wbo')
-        config.set('Dependencies-Path', 'cmsgen_path','./dependencies/cmsgen')
-        config.set('Dependencies-Path', 'picosat_path','./dependencies/picosat')
-        config.set('Dependencies-Path', 'preprocess_path','./dependencies/preprocess')
-        config.set('Dependencies-Path', 'file_generation_cex_path','./dependencies/file_generation_cex')
+        config.set('Dependencies-Path', 'openwbo_path','./dependencies/static_bin/open-wbo')
+        config.set('Dependencies-Path', 'cmsgen_path','./dependencies/static_bin/cmsgen')
+        config.set('Dependencies-Path', 'picosat_path','./dependencies/static_bin/picosat')
+        config.set('Dependencies-Path', 'preprocess_path','./dependencies/static_bin/preprocess')
+        config.set('Dependencies-Path', 'file_generation_cex_path','./dependencies/static_bin/file_generation_cex')
     
     else:
     

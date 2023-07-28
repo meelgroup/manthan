@@ -1,17 +1,17 @@
 [submodule "dependencies/build_dependencies/abc"]
-	path = dependencies/build_dependencies/abc
+	path = dependencies/abc
 	url = https://github.com/priyanka-golia/abc.git
 [submodule "dependencies/build_dependencies/open-wbo"]
-	path = dependencies/build_dependencies/open-wbo
+	path = dependencies/open-wbo
 	url = https://github.com/sat-group/open-wbo.git
 [submodule "dependencies/build_dependencies/manthan-preprocess"]
-	path = dependencies/build_dependencies/manthan-preprocess
+	path = dependencies/manthan-preprocess
 	url = https://github.com/priyanka-golia/manthan-preprocess
 [submodule "dependencies/build_dependencies/picosat"]
-	path = dependencies/build_dependencies/picosat
+	path = dependencies/picosat
 	url = https://github.com/priyanka-golia/picosat.git
 [submodule "dependencies/build_dependencies/cmsgen"]
-	path = dependencies/build_dependencies/cmsgen
+	path = dependencies/cmsgen
 	url = https://github.com/meelgroup/cmsgen.git
 [submodule "unique"]
 	path = dependencies/unique
