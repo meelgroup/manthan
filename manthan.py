@@ -518,7 +518,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print("configuring dependency paths")
+    print(" c configuring dependency paths")
     '''
     Paths of dependencies are set.
     if installed by source then their corresponding 
@@ -554,6 +554,15 @@ if __name__ == "__main__":
 
         if not config.has_option('Dependencies-Path', 'file_generation_cex_path'):
             config.set('Dependencies-Path', 'file_generation_cex_path','./dependencies/file_generation_cex')
+        
+    if args.verbose >= 2:
+        print(" c printing dependencies path")
+        print(" c preprocess path: %s" %(config['Dependencies-Path']['preprocess_path']))
+        print(" c cmsgen path: %s" %(config['Dependencies-Path']['cmsgen_path']))
+        print(" c open-wbo path: %s" %(config['Dependencies-Path']['openwbo_path']))
+        print(" c abc cex path: %s" %(config['Dependencies-Path']['file_generation_cex_path']))
+        print(" c picosat path: %s" %(config['Dependencies-Path']['picosat_path']))
+
 
     
     print(" c starting Manthan")
