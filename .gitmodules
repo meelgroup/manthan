@@ -13,3 +13,6 @@
 [submodule "dependencies/build_dependencies/cmsgen"]
 	path = dependencies/build_dependencies/cmsgen
 	url = https://github.com/meelgroup/cmsgen.git
+[submodule "unique"]
+	path = unique
+	url = https://github.com/fslivovsky/unique
