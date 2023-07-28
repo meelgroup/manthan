@@ -33,35 +33,22 @@ sudo python -m pip install -r requirements.txt
 
 
 
-#### To install Unique
+#### To install dependencies
 
-Manthan usage [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. 
+
 
 ```
 apt-get install build-essential cmake
-apt-get install libboost-program-options-dev
-python -m pip install python-sat==0.1.8.dev8
-python -m pip install "pybind11[global]"
-git clone https://github.com/perebor/unique.git
-cd unique
-git checkout 1902a5aa9573722cf473c7e8b5f49dedf9a4646d
-git submodule init
-git submodule update
-mkdir build
-cd build
-cmake .. && make -j4
-cd ../..
-
+apt-get install libboost-program-options-dev libreadline-dev libgmp-dev
 ```
 
-Manthan need to import `unique` via  a library, do the following:
+Manthan usage [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. To configure Unique, do the following:
 
 ```
-cp unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
+git submodule update --init --recursive
+chmod +x configure_unique.sh
+./configure_unique.sh
 ```
-
-
-
 
 #### Additional Dependencies
 
@@ -75,23 +62,14 @@ Manthan depends on:
 Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
 
 In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
+
 In addition, if the compiled binaries in `dependencies` do not work on the system, do the following:
 
 ```
-git submodule update --init --recursive
+chmod +x configure_dependencies.sh
+./configure_dependencies.sh
 
 ```
-This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file (or INSTALL file in case of open-wbo) for instructions on how to compile these dependencies. After compilation, do the following:
-
-```
-cd dependencies
-chmod +x mv_dependencies.sh
-./mv_dependencies.sh
-```
-This will copy the compiled binaries to the `dependencies` folder.
-
-
-
 
 ## How to Use
 
