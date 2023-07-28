@@ -13,6 +13,7 @@ Clone Manthan
 ```
 git clone https://github.com/meelgroup/manthan
 cd manthan
+git submodule update --init --recursive
 ```
 
 ### Requirements to run
@@ -30,45 +31,30 @@ You might need to give `root` permission. In that case, run:
 sudo python -m pip install -r requirements.txt
 ```
 
-
-
-
 #### To install dependencies
 
+Manthan depends on: 
+1. [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. 
+2. [Open-WBO](https://github.com/sat-group/open-wbo) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
+3. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
+4. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
+5. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
+6. [CMSGEN](https://github.com/meelgroup/cmsgen) to sample satisfying assignments.
 
-
+To install dependencies, first do the following:
 ```
 apt-get install build-essential cmake
 apt-get install libboost-program-options-dev libreadline-dev libgmp-dev
 ```
-
-Manthan usage [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. To configure Unique, do the following:
-
+Now, let us build all dependencies:
 ```
-git submodule update --init --recursive
-chmod +x configure_unique.sh
-./configure_unique.sh
+chmod +x configure_dependencies.sh
+./configure_dependencies.sh --all yes
 ```
-
-#### Additional Dependencies
-
-Manthan depends on: 
-1. [Open-WBO](https://github.com/sat-group/open-wbo) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
-2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
-3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
-4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
-5. [CMSGEN](https://github.com/meelgroup/cmsgen) to sample satisfying assignments.
-
-Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
-
-In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
-
-In addition, if the compiled binaries in `dependencies` do not work on the system, do the following:
-
+In `dependencies\static_bin` directory, you can find 64-bit x86 Linux pre-compiled binaries for the required dependencies. If you like to proceed with pre-complied binaries instead of building them from the source, do not use ``all`` option in `./configure_dependencies.sh`. Do the following:
 ```
 chmod +x configure_dependencies.sh
 ./configure_dependencies.sh
-
 ```
 
 ## How to Use
