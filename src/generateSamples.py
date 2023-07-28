@@ -28,12 +28,12 @@ from numpy import count_nonzero
 import os
 
 
-def computeBias(Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, SkolemKnown, args):
+def computeBias(args, config, Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, SkolemKnown):
 
 	
 	
-	samples_biased_one = generatesample( args, 500, sampling_cnf + sampling_weights_y_1, inputfile_name)
-	samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name)
+	samples_biased_one = generatesample( args, config, 500, sampling_cnf + sampling_weights_y_1, inputfile_name)
+	samples_biased_zero = generatesample( args, config, 500, sampling_cnf + sampling_weights_y_0, inputfile_name)
 
 	if args.verbose >=2:
 		print(" c generated samples to predict bias for Y")
@@ -72,7 +72,7 @@ def computeBias(Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, i
 
 
 
-def generatesample(args, num_samples, sampling_cnf, inputfile_name):
+def generatesample(args, config, num_samples, sampling_cnf, inputfile_name):
 
 	
 	tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + "_sample.cnf"
@@ -88,8 +88,10 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name):
 
 	tempoutputfile = tempfile.gettempdir() + '/' + inputfile_name + "_.txt"
 
+	cmsgen = config['Dependencies-Path']['cmsgen_path']
 
-	cmd =  "./dependencies/cmsgen %s --samplefile %s " %(tempcnffile, tempoutputfile)
+
+	cmd =  "%s %s --samplefile %s " %(cmsgen,tempcnffile, tempoutputfile)
 	cmd += "--seed %s --samples %s " %(args.seed, int(num_samples))
 	
 
