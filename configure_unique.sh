@@ -11,7 +11,6 @@ cmake .. && echo "c cmake to unique succeeded" || exit
 make -j8 && echo "c make to unique succeeded" || exit
 if test -f "interpolatingsolver/src/itp."*; then
     echo "c found itp module"
-    echo "c copying itp to manthan dir"
     cp "interpolatingsolver/src/itp."* ../../itp.so
 else
     echo "c could not found itp module"
