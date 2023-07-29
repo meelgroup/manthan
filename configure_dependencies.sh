@@ -48,9 +48,9 @@ cmake .. && echo "c cmake to unique succeeded" || exit
 make -j8 && echo "c make to unique succeeded" || exit
 if test -f "interpolatingsolver/src/itp."*; then
     echo "c found itp module"
-    Diritp=$(realpath interpolatingsolver/src/)
+    Diritp=$(realpath interpolatingsolver/src)
     export PYTHONPATH="${PYTHONPATH}:${Diritp}"
-    echo "PYTHONPATH=${Diritp}:$PYTHONPATH" >> ~/.bashrc
+    echo "export PYTHONPATH=${Diritp}:$PYTHONPATH" >> ~/.bashrc
     source ~/.bashrc
 else
     echo "c could not found itp module"
