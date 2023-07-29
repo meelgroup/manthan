@@ -55,6 +55,7 @@ In `dependencies\static_bin` directory, you can find 64-bit x86 Linux pre-compil
 ```
 chmod +x configure_dependencies.sh
 ./configure_dependencies.sh
+source ~/.bashrc
 ```
 
 ## How to Use
