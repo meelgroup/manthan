@@ -7,12 +7,23 @@ pararser() {
     openwbo=${openwbo:-"$CurrDir/open-wbo"}
     picosat=${picosat:-"$CurrDir/picosat"}
     all=${all:-"no"}
-
     # Assign the values given by the user
     while [ $# -gt 0 ]; do
         if [[ $1 == *"--"* ]]; then
             param="${1/--/}"
-            declare -g $param="$2"
+            if [ "$param" = "all" ]; then
+                declare -g $param="yes"
+                if [ -z "$2" ]; then
+                    echo "c setting building all dependencies on"
+                else
+                    if [[ $2 != *"--"* ]]; then
+                        echo "WARNING! \"all\" does not take any parameter. Considering it on."
+                        echo "c setting building all dependencies on"
+                    fi
+                fi
+            else   
+                declare -g $param="$2"
+            fi
         fi
         shift
     done
@@ -37,12 +48,15 @@ cmake .. && echo "c cmake to unique succeeded" || exit
 make -j8 && echo "c make to unique succeeded" || exit
 if test -f "interpolatingsolver/src/itp."*; then
     echo "c found itp module"
-    cp "interpolatingsolver/src/itp."* ${Diritp}
+    Diritp=$(realpath interpolatingsolver/src/)
+    export PYTHONPATH="${PYTHONPATH}:${Diritp}"
+    echo "PYTHONPATH=${Diritp}:$PYTHONPATH" >> ~/.bashrc
+    source ~/.bashrc
 else
     echo "c could not found itp module"
     echo "c check if pyblind[global] is installed properly"
     echo "c check cmake log to see if pyblind is found or not"
-    echo "c you might need to export pyblind[global] path and re run ./install_unique.sh"
+    echo "c you might need to export pyblind[global] path and re run ./configure_dependencies.sh"
     exit
 fi
 
@@ -110,8 +124,7 @@ if [ "$all" = "yes" ]; then
             if  test -f "$wbo"*; then
                 echo "c $wbo exists."
                 echo "c coping it to dependencies folder"
-                mv  $wbo* open-wbo
-                openwbo_path=$(realpath $wbo)
+                openwbo_path=$(realpath $wbo*)
                 echo "openwbo_path = " $openwbo_path >> $CFG_FILE
             else
                 echo "Error! could not found $wbo"
