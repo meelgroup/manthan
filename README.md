@@ -50,13 +50,11 @@ Now, let us build all dependencies:
 ```
 chmod +x configure_dependencies.sh
 ./configure_dependencies.sh --all
-source ~/.bashrc
 ```
 In `dependencies\static_bin` directory, you can find 64-bit x86 Linux pre-compiled binaries for the required dependencies. If you like to proceed with pre-complied binaries instead of building them from the source, do not use ``all`` option in `./configure_dependencies.sh`. Do the following:
 ```
 chmod +x configure_dependencies.sh
 ./configure_dependencies.sh
-source ~/.bashrc
 ```
 
 ## How to Use
