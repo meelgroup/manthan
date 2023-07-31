@@ -48,10 +48,11 @@ cmake .. && echo "c cmake to unique succeeded" || exit
 make -j8 && echo "c make to unique succeeded" || exit
 if test -f "interpolatingsolver/src/itp."*; then
     echo "c found itp module"
-    Diritp=$(realpath interpolatingsolver/src)
+    Diritp=$(realpath interpolatingsolver/src/)
     export PYTHONPATH="${PYTHONPATH}:${Diritp}"
-    echo "export PYTHONPATH=${Diritp}:$PYTHONPATH" >> ~/.bashrc
-    source ~/.bashrc
+    echo "[ITP-Path]" >> $CFG_FILE
+    echo "itp_path = "${Diritp} >> $CFG_FILE
+
 else
     echo "c could not found itp module"
     echo "c check if pyblind[global] is installed properly"

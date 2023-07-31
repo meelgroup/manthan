@@ -41,7 +41,6 @@ import networkx as nx
 import pydotplus
 import configparser
 
-from src.DefinabilityChecker import DefinabilityChecker
 from dependencies.rc2 import RC2Stratified
 
 
@@ -50,7 +49,7 @@ from pysat.formula import WCNF
 from collections import OrderedDict
 from src.convertVerilog import convert_verilog
 from src.preprocess import *
-from src.callUnique import find_unique_function
+
 from src.createSkolem import *
 from src.generateSamples import *
 from src.candidateSkolem import *
@@ -529,6 +528,15 @@ if __name__ == "__main__":
     configFilePath = "manthan_dependencies.cfg"
     config.read(configFilePath)
 
+    if config.has_option('ITP-Path','itp_path'):
+        sys.path.append(config['ITP-Path']['itp_path'])
+        from src.callUnique import find_unique_function
+    else:
+        print("c could not find itp module")
+        print("c check unique installation")
+        print("c check if pythonblind[global] is installed and found in cmake of unique")
+        exit()
+
     if not config.has_section('Dependencies-Path'):
         print(" c Did not install dependencies from source code, using precomplied binaries")
         config.add_section('Dependencies-Path') 
@@ -541,19 +549,19 @@ if __name__ == "__main__":
     else:
     
         if not config.has_option('Dependencies-Path', 'openwbo_path'):
-            config.set('Dependencies-Path', 'openwbo_path','./dependencies/open-wbo')
+            config.set('Dependencies-Path', 'openwbo_path','./dependencies/static_bin/open-wbo')
 
         if not config.has_option('Dependencies-Path', 'cmsgen_path'):
-            config.set('Dependencies-Path', 'cmsgen_path','./dependencies/cmsgen')
+            config.set('Dependencies-Path', 'cmsgen_path','./dependencies/static_bin/cmsgen')
         
         if not config.has_option('Dependencies-Path', 'picosat_path'):
-            config.set('Dependencies-Path', 'picosat_path','./dependencies/picosat')
+            config.set('Dependencies-Path', 'picosat_path','./dependencies/static_bin/picosat')
         
         if not config.has_option('Dependencies-Path', 'preprocess_path'):
-            config.set('Dependencies-Path', 'preprocess_path','./dependencies/preprocess')
+            config.set('Dependencies-Path', 'preprocess_path','./dependencies/static_bin/preprocess')
 
         if not config.has_option('Dependencies-Path', 'file_generation_cex_path'):
-            config.set('Dependencies-Path', 'file_generation_cex_path','./dependencies/file_generation_cex')
+            config.set('Dependencies-Path', 'file_generation_cex_path','./dependencies/static_bin/file_generation_cex')
         
     if args.verbose >= 2:
         print(" c printing dependencies path")
