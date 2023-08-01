@@ -38,17 +38,18 @@ import collections
 import subprocess as subprocess
 import time
 import networkx as nx
-from src.DefinabilityChecker import DefinabilityChecker
-from dependencies.rc2 import RC2Stratified
-from pysat.formula import WCNF
 import pydotplus
+import configparser
+
+from dependencies.rc2 import RC2Stratified
+
+
+from pysat.formula import WCNF
 
 from collections import OrderedDict
-
-
 from src.convertVerilog import convert_verilog
 from src.preprocess import *
-from src.callUnique import find_unique_function
+
 from src.createSkolem import *
 from src.generateSamples import *
 from src.candidateSkolem import *
@@ -105,7 +106,7 @@ def manthan():
         '''
 
         if len(Yvar) < 20000:
-            PosUnate, NegUnate = preprocess(cnffile_name)
+            PosUnate, NegUnate = preprocess(cnffile_name,args,config)
         else:
             print(" c too many Y variables, let us proceed with Unique extraction\n")
             PosUnate = []
@@ -274,18 +275,18 @@ def manthan():
 
 
         weighted_sampling_cnf = computeBias(
-            Yvar, sampling_cnf, sampling_weights_y_1,
-            sampling_weights_y_0, inputfile_name, Unates + UniqueVars, args)
+            args, config, Yvar, sampling_cnf, sampling_weights_y_1,
+            sampling_weights_y_0, inputfile_name, Unates + UniqueVars)
 
         if args.verbose >= 2:
             print(" c generating samples..")
 
         samples = generatesample(
-            args, num_samples, weighted_sampling_cnf, inputfile_name)
+            args, config, num_samples, weighted_sampling_cnf, inputfile_name)
     else:
         print(" c generating uniform samples")
         samples = generatesample(
-            args, num_samples, sampling_cnf, inputfile_name)
+            args, config, num_samples, sampling_cnf, inputfile_name)
 
     end_time_datagen = time.time()
 
@@ -365,7 +366,7 @@ def manthan():
 
         '''
 
-        check, sigma, ret = verify(Xvar, Yvar, inputfile_name)
+        check, sigma, ret = verify(args, config, Xvar, Yvar, inputfile_name)
 
         if check == 0:
             print(" c error --- ABC network read fail")
@@ -405,7 +406,7 @@ def manthan():
                 cnfcontent, maxsatWt, maxsatcnf, sigma[0], Xvar)
 
             ind = callMaxsat(
-                maxsatcnfRepair, sigma[2], UniqueVars + Unates, Yvar, YvarOrder, inputfile_name)
+                args, config, maxsatcnfRepair, sigma[2], UniqueVars + Unates, Yvar, YvarOrder, inputfile_name)
             
             if args.verbose >= 2:
                 print("candidates to repair", ind)
@@ -421,12 +422,12 @@ def manthan():
 
             if not args.henkin:
                 lexflag, repairfunctions = repair(
-                    args.lexmaxsat, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
-                    UniqueVars + Unates, sigma, inputfile_name, args)
+                    args, config, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
+                    UniqueVars + Unates, sigma, inputfile_name)
             else:
                 lexflag, repairfunctions = repair(
-                    args.lexmaxsat, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
-                    UniqueVars + Unates, sigma, inputfile_name, args,  HenkinDep)
+                    args, config, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
+                    UniqueVars + Unates, sigma, inputfile_name, HenkinDep)
 
             '''
 
@@ -435,7 +436,7 @@ def manthan():
             
             '''
 
-            if lexflag:
+            if lexflag and args.lexmaxsat:
                 print(" c calling rc2 to find another set of candidates to repair")
 
                 ind = callRC2(maxsatcnfRepair,
@@ -449,11 +450,11 @@ def manthan():
 
                 if not args.henkin:
                     lexflag, repairfunctions = repair(
-                        args.lexmaxsat, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
+                        args, config, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
                         UniqueVars + Unates, sigma, inputfile_name, args)
                 else:
                     lexflag, repairfunctions = repair(
-                        args.lexmaxsat, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
+                        args, config, repaircnf, ind, Xvar, Yvar, YvarOrder, dg,
                         UniqueVars + Unates, sigma, inputfile_name, args, HenkinDep)
 
             '''
@@ -515,6 +516,62 @@ if __name__ == "__main__":
     parser.add_argument("input", help="input file")
 
     args = parser.parse_args()
-    print(" c starting Manthan")
 
+    print(" c configuring dependency paths")
+    '''
+    Paths of dependencies are set.
+    if installed by source then their corresponding 
+    paths are read by "manthan_dependencies.cfg"
+    else default is dependencies folder.
+    '''
+    config = configparser.ConfigParser()
+    configFilePath = "manthan_dependencies.cfg"
+    config.read(configFilePath)
+
+    if config.has_option('ITP-Path','itp_path'):
+        sys.path.append(config['ITP-Path']['itp_path'])
+        from src.callUnique import find_unique_function
+    else:
+        print("c could not find itp module")
+        print("c check unique installation")
+        print("c check if pythonblind[global] is installed and found in cmake of unique")
+        exit()
+
+    if not config.has_section('Dependencies-Path'):
+        print(" c Did not install dependencies from source code, using precomplied binaries")
+        config.add_section('Dependencies-Path') 
+        config.set('Dependencies-Path', 'openwbo_path','./dependencies/static_bin/open-wbo')
+        config.set('Dependencies-Path', 'cmsgen_path','./dependencies/static_bin/cmsgen')
+        config.set('Dependencies-Path', 'picosat_path','./dependencies/static_bin/picosat')
+        config.set('Dependencies-Path', 'preprocess_path','./dependencies/static_bin/preprocess')
+        config.set('Dependencies-Path', 'file_generation_cex_path','./dependencies/static_bin/file_generation_cex')
+    
+    else:
+    
+        if not config.has_option('Dependencies-Path', 'openwbo_path'):
+            config.set('Dependencies-Path', 'openwbo_path','./dependencies/static_bin/open-wbo')
+
+        if not config.has_option('Dependencies-Path', 'cmsgen_path'):
+            config.set('Dependencies-Path', 'cmsgen_path','./dependencies/static_bin/cmsgen')
+        
+        if not config.has_option('Dependencies-Path', 'picosat_path'):
+            config.set('Dependencies-Path', 'picosat_path','./dependencies/static_bin/picosat')
+        
+        if not config.has_option('Dependencies-Path', 'preprocess_path'):
+            config.set('Dependencies-Path', 'preprocess_path','./dependencies/static_bin/preprocess')
+
+        if not config.has_option('Dependencies-Path', 'file_generation_cex_path'):
+            config.set('Dependencies-Path', 'file_generation_cex_path','./dependencies/static_bin/file_generation_cex')
+        
+    if args.verbose >= 2:
+        print(" c printing dependencies path")
+        print(" c preprocess path: %s" %(config['Dependencies-Path']['preprocess_path']))
+        print(" c cmsgen path: %s" %(config['Dependencies-Path']['cmsgen_path']))
+        print(" c open-wbo path: %s" %(config['Dependencies-Path']['openwbo_path']))
+        print(" c abc cex path: %s" %(config['Dependencies-Path']['file_generation_cex_path']))
+        print(" c picosat path: %s" %(config['Dependencies-Path']['picosat_path']))
+
+
+    
+    print(" c starting Manthan")
     manthan()

@@ -147,14 +147,18 @@ def convertcnf(args, cnffile_name, Yvar = []):
 	return cnfcontent
 
 
-def preprocess(cnffile_name):
+def preprocess(cnffile_name,args,config):
 
 	'''
 	Preprocess calls Cryptominisat Based framework to find 
 	positive and negative unates.
 	'''
+	preprocess = config['Dependencies-Path']['preprocess_path']
+	cmd = "%s %s " % (preprocess, cnffile_name)
 
-	cmd = "./dependencies/preprocess %s " % (cnffile_name)
+	if args.verbose >= 2:
+		print("c preprocess cmd", cmd)
+		
 	with Popen(cmd, shell=True, stdout=PIPE, preexec_fn=os.setsid) as process:
 		try:
 			output = process.communicate(timeout=500)[0]

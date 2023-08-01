@@ -13,6 +13,7 @@ Clone Manthan
 ```
 git clone https://github.com/meelgroup/manthan
 cd manthan
+git submodule update --init --recursive
 ```
 
 ### Requirements to run
@@ -30,68 +31,31 @@ You might need to give `root` permission. In that case, run:
 sudo python -m pip install -r requirements.txt
 ```
 
-
-
-
-#### To install Unique
-
-Manthan usage [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. 
-
-```
-apt-get install build-essential cmake
-apt-get install libboost-program-options-dev
-python -m pip install python-sat==0.1.8.dev8
-python -m pip install "pybind11[global]"
-git clone https://github.com/perebor/unique.git
-cd unique
-git checkout 1902a5aa9573722cf473c7e8b5f49dedf9a4646d
-git submodule init
-git submodule update
-mkdir build
-cd build
-cmake .. && make -j4
-cd ../..
-
-```
-
-Manthan need to import `unique` via  a library, do the following:
-
-```
-cp unique/build/interpolatingsolver/src/itp.*-linux-gnu.so itp.so
-```
-
-
-
-
-#### Additional Dependencies
+#### To install dependencies
 
 Manthan depends on: 
-1. [Open-WBO](https://github.com/sat-group/open-wbo) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
-2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
-3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
-4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
-5. [CMSGEN](https://github.com/meelgroup/cmsgen) to sample satisfying assignments.
+1. [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. 
+2. [Open-WBO](https://github.com/sat-group/open-wbo) and [RC2](https://pysathq.github.io/docs/html/api/examples/rc2.html)  for MaxSAT queries
+3. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
+4. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
+5. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
+6. [CMSGEN](https://github.com/meelgroup/cmsgen) to sample satisfying assignments.
 
-Manthan employs the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.  
-
-In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
-In addition, if the compiled binaries in `dependencies` do not work on the system, do the following:
-
+To install dependencies, first do the following:
 ```
-git submodule update --init --recursive
-
+apt-get install build-essential cmake
+apt-get install libboost-program-options-dev libreadline-dev libgmp-dev
 ```
-This will retrieve all the dependencies located in the `dependencies/build_dependencies` folder. Please refer to each individual README file (or INSTALL file in case of open-wbo) for instructions on how to compile these dependencies. After compilation, do the following:
-
+Now, let us build all dependencies:
 ```
-cd dependencies
-chmod +x mv_dependencies.sh
-./mv_dependencies.sh
+chmod +x configure_dependencies.sh
+./configure_dependencies.sh --all
 ```
-This will copy the compiled binaries to the `dependencies` folder.
-
-
-
+In `dependencies\static_bin` directory, you can find 64-bit x86 Linux pre-compiled binaries for the required dependencies. If you like to proceed with pre-complied binaries instead of building them from the source, do not use ``all`` option in `./configure_dependencies.sh`. Do the following:
+```
+chmod +x configure_dependencies.sh
+./configure_dependencies.sh
+```
 
 ## How to Use
 

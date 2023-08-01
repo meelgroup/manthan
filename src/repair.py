@@ -127,7 +127,7 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder):
 
 
 
-def callMaxsat(maxsatcnf, modelyp, SkolemKnown, Yvar, YvarOrder, inputfile_name):
+def callMaxsat(args, config, maxsatcnf, modelyp, SkolemKnown, Yvar, YvarOrder, inputfile_name):
 
     itr = 0
     for var in Yvar:
@@ -151,9 +151,18 @@ def callMaxsat(maxsatcnf, modelyp, SkolemKnown, Yvar, YvarOrder, inputfile_name)
         f.write(maxsatcnf)
     f.close()
 
-    cmd = "./dependencies/open-wbo %s -print-unsat-soft=%s  > /dev/null 2>&1 " % (maxsatformula, outputfile)
+    openwbo = config["Dependencies-Path"]["openwbo_path"]
+
+    cmd = "%s %s -print-unsat-soft=%s " % (openwbo, maxsatformula, outputfile)
+    
+    if args.verbose >=2 :
+        print("open-wbo commond", cmd)
+    else:
+        cmd += "> /dev/null 2>&1"
     
     os.system(cmd)
+
+    
 
     with open(outputfile, 'r') as f:
         lines = f.readlines()
@@ -187,9 +196,10 @@ def callMaxsat(maxsatcnf, modelyp, SkolemKnown, Yvar, YvarOrder, inputfile_name)
     return indlist
 
 
-def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
+def findUNSATCorePicosat(args, config, cnffile,unsatcorefile, satfile, Xvar,Yvar):
 
-    cmd = "./dependencies/picosat -s %s -V %s %s > %s " %(args.seed, unsatcorefile, cnffile, satfile)
+    picosat = config['Dependencies-Path']['picosat_path']
+    cmd = "%s -s %s -V %s %s > %s " %(picosat, args.seed, unsatcorefile, cnffile, satfile)
 
     if args.verbose >= 2:
         print("picosat cmd", cmd)
@@ -223,7 +233,7 @@ def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
         os.unlink(satfile)
         return 0, [], []
 
-def findUnsatCore(repair_Yvar_constraint, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name, args):
+def findUnsatCore(args, config, repair_Yvar_constraint, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name):
 
     lines = repaircnf.split("\n")
 
@@ -250,14 +260,21 @@ def findUnsatCore(repair_Yvar_constraint, repaircnf, Xvar, Yvar, Count_Yvar, inp
     if exists:
         os.remove(unsatcorefile)
         
-    ret, clistx, clisty = findUNSATCorePicosat(cnffile, unsatcorefile, satfile, Xvar,Yvar, args)
+    ret, clistx, clisty = findUNSATCorePicosat(args, config, cnffile, unsatcorefile, satfile, Xvar,Yvar)
 
     
 
     if ret:
         return (ret, [], clistx, clisty)
     else:
-        os.system("./dependencies/cmsgen --seed %s --samples %s %s --samplefile %s > /dev/null 2>&1" % (args.seed, 1, cnffile,satfile))
+        cmsgen = config['Dependencies-Path']['cmsgen_path']
+        cmd = "%s --seed %s --samples %s %s --samplefile %s > /dev/null 2>&1" % (cmsgen, args.seed, 1, cnffile,satfile)
+        
+        if args.verbose >= 2:
+            print("c picosat return SAT, to find satisfying assignment", cmd)
+        
+        os.system(cmd)
+        
         with open(satfile,"r") as f:
             lines = f.readlines()
         f.close()
@@ -284,7 +301,7 @@ def findUnsatCore(repair_Yvar_constraint, repaircnf, Xvar, Yvar, Count_Yvar, inp
         os.unlink(satfile)
         return ret, model, [], []   
 
-def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigma, inputfile_name, args, HenkinDep = {}):
+def repair(args, config, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigma, inputfile_name, HenkinDep = {}):
 
     modelyp = sigma[2]
     modelx = sigma[0]
@@ -350,11 +367,11 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             print(" c repairing %s" %(repairvar))
         
         if not args.henkin:
-            ret, model, clistx, clisty = findUnsatCore(repair_Yvar_constraint, repaircnf, 
-                                                            Xvar, Yvar, count_Yvar, inputfile_name, args)
+            ret, model, clistx, clisty = findUnsatCore(args, config, repair_Yvar_constraint, repaircnf, 
+                                                            Xvar, Yvar, count_Yvar, inputfile_name)
         else:
-            ret, model, clistx, clisty = findUnsatCore(repair_Yvar_constraint, repaircnf, HenkinDep[repairvar], 
-                                                            Yvar, count_Yvar, inputfile_name, args)
+            ret, model, clistx, clisty = findUnsatCore(args, config, repair_Yvar_constraint, repaircnf, HenkinDep[repairvar], 
+                                                            Yvar, count_Yvar, inputfile_name)
 
         if ret == 0:
             '''
@@ -366,7 +383,7 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             if (repairvar not in ind_org) and (len(repaired) > 0):
                 continue
             
-            if len(ind) > (len(ind_org) * 50) and flagRC2:
+            if len(ind) > (len(ind_org) * 50) and args.lexmaxsat:
                 print(" c too many new repair candidate added.. calling rc2")
                 return 1, repairfunctions
             
@@ -436,7 +453,6 @@ def repair(flagRC2, repaircnf, ind, Xvar, Yvar, YvarOrder, dg, SkolemKnown, sigm
             
             repairfunctions[repairvar] = betaformula.strip("& ")
             assert(repairfunctions[repairvar] != "")
-        
     if args.verbose == 2:
         print(" c repaired functions", repairfunctions)
     return 0, repairfunctions
