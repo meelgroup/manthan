@@ -20,8 +20,22 @@ git submodule update --init --recursive
 
 * Python 3.7+
 
-To install the required libraries, run the following:
+To install the required dependencies, first do the following:
+```
+apt-get install build-essential cmake
+apt-get install libboost-program-options-dev libreadline-dev libgmp-dev
+apt install python3-venv
+```
 
+### To install dependencies
+To install the required libraries, we create a python virtual environment.  Do the following:
+
+```
+python3 -m venv manthan-venv
+source manthan-venv/bin/activate
+```
+
+Now, to install  requirements, do the following:
 ```
 python -m pip install -r requirements.txt
 ```
@@ -31,7 +45,7 @@ You might need to give `root` permission. In that case, run:
 sudo python -m pip install -r requirements.txt
 ```
 
-#### To install dependencies
+
 
 Manthan depends on: 
 1. [UNIQUE](https://github.com/perebor/unique) to extract the unique functions. 
@@ -41,11 +55,7 @@ Manthan depends on:
 5. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
 6. [CMSGEN](https://github.com/meelgroup/cmsgen) to sample satisfying assignments.
 
-To install dependencies, first do the following:
-```
-apt-get install build-essential cmake
-apt-get install libboost-program-options-dev libreadline-dev libgmp-dev
-```
+
 Now, let us build all dependencies:
 ```
 chmod +x configure_dependencies.sh
@@ -59,6 +69,11 @@ chmod +x configure_dependencies.sh
 
 ## How to Use
 
+First, you may need to activate the virtual environment:
+```
+source manthan-venv/bin/activate
+```
+Now, use Manthan to generate Skolem functions:
 ```bash
 python manthan.py  <qdimacs input> 
 ```
