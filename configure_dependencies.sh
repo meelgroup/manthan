@@ -176,7 +176,7 @@ if [ "$all" = "yes" ]; then
         fi
         mkdir build
         cd build
-        cmake .. && echo "c cmake to cryptominisat succeeded" || exit
+        cmake -DENABLE_PYTHON_INTERFACE=OFF .. && echo "c cmake to cryptominisat succeeded" || exit
         make -j8 && echo "c make to cryptominisat succeeded" || exit
         cd ../..
         echo "c installing preprocess"
