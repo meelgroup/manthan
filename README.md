@@ -4,7 +4,7 @@
 ## Manthan: A Data-Driven Approach for Boolean Functional Synthesis
 Manthan takes in a \varphi(X,Y) formula as input and returns Boolean function F(X) such that \exists Y \varphi(X, Y) = \varphi(X, F(X)). Manthan works at the intersection of machine learning, constrained sampling, and automated reasoning. 
 
-To read more about Manthan, have a look at [CAV-20 paper](https://priyanka-golia.github.io/publication/cav20-manthan/cav20-manthan.pdf) and [ICCAD-21 paper](https://arxiv.org/pdf/2108.05717.pdf). You can also refer to the related [slides](https://www.comp.nus.edu.sg/~meel/Slides/manthan.pdf) and the talk [video](https://www.youtube.com/watch?v=dXWWiKfY6cI&t=2s).
+To read more about Manthan, have a look at [CAV-20 paper](https://priyanka-golia.github.io/publication/cav20-manthan/cav20-manthan.pdf) and [ICCAD-21 paper](https://arxiv.org/pdf/2108.05717.pdf). You can also refer to the related [slides]([https://www.comp.nus.edu.sg/~meel/Slides/manthan.pdf)](https://web.archive.org/web/20220623100203/https://www.comp.nus.edu.sg/~meel/Slides/manthan.pdf) and the talk [video](https://www.youtube.com/watch?v=dXWWiKfY6cI&t=2s).
 
 ## Install
 
