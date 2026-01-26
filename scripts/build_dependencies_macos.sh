@@ -67,6 +67,25 @@ echo "c building open-wbo"
 echo "c building unique (itp)"
 (
   cd "$DEPS_DIR/unique"
+  python3 - <<'PY'
+from pathlib import Path
+
+path = Path("avy/src/CMakeLists.txt")
+text = path.read_text()
+marker = "add_library (AbcCpp"
+link_line = "target_link_libraries(AbcCpp ${ABC_LIBRARY} ClauseItpSeq AvyDebug ${MINISAT_LIBRARY})"
+if link_line not in text and marker in text:
+    lines = text.splitlines()
+    out = []
+    inserted = False
+    for line in lines:
+        out.append(line)
+        if line.strip().startswith(marker):
+            out.append(link_line)
+            inserted = True
+    if inserted:
+        path.write_text("\n".join(out) + "\n")
+PY
   if [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
     PYTHON_BIN="$VIRTUAL_ENV/bin/python"
   else
@@ -76,7 +95,7 @@ echo "c building unique (itp)"
   PYBIND11_DIR="$("$PYTHON_BIN" -m pybind11 --cmakedir 2>/dev/null || true)"
   BOOST_PREFIX="$(brew --prefix boost 2>/dev/null || true)"
   UNIQUE_CMAKE_FLAGS=(
-    -DABC_FORCE_CXX=OFF
+    -DABC_FORCE_CXX=ON
     -DABC_NAMESPACE=abc
     -DPYBIND11_FINDPYTHON=ON
     "-DPython_EXECUTABLE=$PYTHON_BIN"

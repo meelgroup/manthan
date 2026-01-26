@@ -1,8 +1,8 @@
 [
   {
     "path": "dependencies/abc",
-    "url": "https://github.com/priyanka-golia/abc.git",
-    "rev": "a13dd4eb9caee9ec62b2c1c35e58d6bd1534d6a3"
+    "url": "https://github.com/meelgroup/abc-fork-ufo.git",
+    "rev": "0aa1a27fcb1b29ffc8f9756388de6c36e39d92b8"
   },
   {
     "path": "dependencies/cmsgen",
@@ -26,8 +26,8 @@
   },
   {
     "path": "dependencies/unique/abc",
-    "url": "https://bitbucket.org/arieg/abc-ufo",
-    "rev": "c935e76bf328e04eaf60e3eeef27ddf53925ffa2"
+    "url": "https://github.com/meelgroup/abc-fork-ufo.git",
+    "rev": "0aa1a27fcb1b29ffc8f9756388de6c36e39d92b8"
   },
   {
     "path": "dependencies/unique/avy",

@@ -28,6 +28,7 @@ checkout_pin() {
   local url="$2"
   local rev="$3"
   if [ -e "$path/.git" ]; then
+    git -C "$path" remote set-url origin "$url" || true
     git -C "$path" fetch --all --tags || true
     git -C "$path" checkout "$rev"
     git -C "$path" submodule update --init --recursive || true

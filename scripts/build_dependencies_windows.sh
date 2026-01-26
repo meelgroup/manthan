@@ -73,11 +73,64 @@ echo "c building open-wbo"
 echo "c building unique (itp)"
 (
   cd "$DEPS_DIR/unique"
+  python3 - <<'PY'
+from pathlib import Path
+
+path = Path("avy/src/CMakeLists.txt")
+text = path.read_text()
+marker = "add_library (AbcCpp"
+link_line = "target_link_libraries(AbcCpp ${ABC_LIBRARY} ClauseItpSeq AvyDebug ${MINISAT_LIBRARY})"
+if link_line not in text and marker in text:
+    lines = text.splitlines()
+    out = []
+    inserted = False
+    for line in lines:
+        out.append(line)
+        if line.strip().startswith(marker):
+            out.append(link_line)
+            inserted = True
+    if inserted:
+        path.write_text("\n".join(out) + "\n")
+PY
+  python3 - <<'PY'
+from pathlib import Path
+
+path = Path("abc/cmake/PackageOptions.cmake")
+text = path.read_text()
+old = """if (${CMAKE_SIZEOF_VOID_P} STREQUAL "8")
+  message (STATUS "Architecture: LIN64")
+  add_definitions (-DLIN64)
+else ()
+  message (STATUS "Architecture: LIN")
+  add_definitions (-DLIN)
+endif()
+"""
+new = """if (WIN32)
+  if (${CMAKE_SIZEOF_VOID_P} STREQUAL "8")
+    message (STATUS "Architecture: NT64")
+    add_definitions (-DNT64)
+  else ()
+    message (STATUS "Architecture: NT")
+    add_definitions (-DNT)
+  endif()
+else ()
+  if (${CMAKE_SIZEOF_VOID_P} STREQUAL "8")
+    message (STATUS "Architecture: LIN64")
+    add_definitions (-DLIN64)
+  else ()
+    message (STATUS "Architecture: LIN")
+    add_definitions (-DLIN)
+  endif()
+endif()
+"""
+if old in text:
+    path.write_text(text.replace(old, new))
+PY
   PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
   PYTHON_EXT="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("EXT_SUFFIX") or ".pyd")')"
   PYBIND11_DIR="$(python3 -m pybind11 --cmakedir 2>/dev/null || true)"
   UNIQUE_CMAKE_FLAGS=(
-    -DABC_FORCE_CXX=OFF
+    -DABC_FORCE_CXX=ON
     -DABC_NAMESPACE=abc
     -DPYBIND11_FINDPYTHON=ON
     "-DPython_EXECUTABLE=$PYTHON_BIN"
