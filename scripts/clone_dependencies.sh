@@ -18,9 +18,10 @@ checkout_pin() {
   local path="$1"
   local url="$2"
   local rev="$3"
-  if [ -d "$path/.git" ]; then
+  if [ -e "$path/.git" ]; then
     git -C "$path" fetch --all --tags || true
     git -C "$path" checkout "$rev"
+    git -C "$path" submodule update --init --recursive || true
     return
   fi
   if [ -e "$path" ]; then
@@ -29,6 +30,7 @@ checkout_pin() {
   fi
   git clone "$url" "$path"
   git -C "$path" checkout "$rev"
+  git -C "$path" submodule update --init --recursive || true
 }
 
 if [ -f "$ROOT_DIR/.gitmodules" ]; then
