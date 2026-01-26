@@ -25,6 +25,7 @@ THE SOFTWARE.
 from __future__ import print_function
 import sys
 import os
+import configparser
 import math
 import random
 import argparse
@@ -37,6 +38,11 @@ import collections
 import subprocess as subprocess
 import time
 import networkx as nx
+config = configparser.ConfigParser()
+config.read("manthan_dependencies.cfg")
+if config.has_option("ITP-Path", "itp_path"):
+    sys.path.append(config["ITP-Path"]["itp_path"])
+
 from src.DefinabilityChecker import DefinabilityChecker
 from dependencies.rc2 import RC2Stratified
 from pysat.formula import WCNF
@@ -265,14 +271,16 @@ def manthan():
             if lexflag:
                 print("calling rc2 to find another set of candidates to repair")
                 ind = callRC2(maxsatcnfRepair,
-                              sigma[2], UniqueVars, Unates, Yvar, YvarOrder)
-                assert(len(ind) > 0)
+                              sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args)
+                if len(ind) == 0:
+                    print("no candidates returned by rc2; stopping repair")
+                    exit(1)
                 if args.verbose == 1:
                     print("number of candidates undergoing repair iterations", len(ind))
                 lexflag, repairfunctions = repair(
                     repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, 0)
             updateSkolem(repairfunctions, countRefine,
-                         sigma[2], inputfile_name, Yvar)
+                         sigma[2], inputfile_name, Yvar, args)
         if countRefine > args.maxrepairitr:
             print("number of maximum allowed repair iteration reached")
             print("could not synthesize functions")
@@ -310,7 +318,14 @@ if __name__ == "__main__":
     parser.add_argument("--clustersize", type=int,
                         default=8, dest='clustersize')
     parser.add_argument("--unique", action='store_true')
+    parser.add_argument("--itp-limit", type=int, default=1000,
+                        help="interpolating solver conflict limit; -1 for no limit", dest='itp_limit')
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
+    try:
+        import src.InterpolatingSolver as InterpolatingSolver
+        InterpolatingSolver.set_global_limit(args.itp_limit)
+    except Exception:
+        pass
     print("starting Manthan")
     manthan()

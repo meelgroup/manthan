@@ -190,7 +190,7 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
     for var in Yvar:
         if (var in UniqueVars) or (var in PosUnate) or (var in NegUnate):
             continue
-        if args. multiclass:
+        if args.multiclass:
             if var in list(ng.nodes):
                 Yset = []
                 hoppingDistance = args.hop
@@ -217,6 +217,7 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
             disjointSet.append([var])
     
     for Yset in disjointSet:
+        print("Learning candidate Skolem functions for Y variables:", Yset)
         dependent = []
         for yvar in Yset:
             depends_on_yvar = list(nx.ancestors(dg,yvar))

@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Independent checker for Skolem functions against the original QDIMACS formula.
+Builds an error formula and uses ABC's file_generation_cex to find a counterexample.
+"""
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+import numpy as np
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+from src.preprocess import parse
+from src.convert_verilog import convert_verilog
+
+
+def _skolem_module_info(skolem_path):
+    module_name = None
+    has_out = False
+    with open(skolem_path, "r") as f:
+        for line in f:
+            if module_name is None:
+                match = re.match(r"\s*module\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", line)
+                if match:
+                    module_name = match.group(1)
+            if re.search(r"\boutput\s+out\b", line):
+                has_out = True
+    if module_name is None:
+        raise RuntimeError("Could not find module declaration in %s" % skolem_path)
+    return module_name, has_out
+
+
+def _build_error_formula(Xvar, Yvar, verilog_formula, skolem_module):
+    inputformula = '('
+    inputskolem = '('
+    inputerrorx = 'module MAIN ('
+    inputerrory = ''
+    inputerroryp = ''
+    declarex = ''
+    declarey = ''
+    declareyp = ''
+
+    for var in Xvar:
+        inputformula += "%s, " % (var)
+        inputskolem += "%s, " % (var)
+        inputerrorx += "%s, " % (var)
+        declarex += "input %s ;\n" % (var)
+
+    for var in Yvar:
+        inputformula += "%s, " % (var)
+        inputerrory += "%s, " % (var)
+        declarey += "input %s ;\n" % (var)
+        inputerroryp += "ip%s, " % (var)
+        declareyp += "input ip%s ;\n" % (var)
+        inputskolem += "ip%s, " % (var)
+
+    inputformula += "out1 );\n"
+    inputformula_sk = inputskolem + "out3 );\n"
+    inputskolem += "out2 );\n"
+    inputerrorx = inputerrorx + inputerrory + inputerroryp + "out );\n"
+    declare = declarex + declarey + declareyp + 'output out;\n' + \
+        "wire out1;\n" + "wire out2;\n" + "wire out3;\n"
+    formula_call = "FORMULA F1 " + inputformula
+    skolem_call = "%s F2 " % skolem_module + inputskolem
+    formulask_call = "FORMULA F2 " + inputformula_sk
+    error_content = inputerrorx + declare + \
+        formula_call + skolem_call + formulask_call
+    error_content += "assign out = ( out1 & out2 & ~(out3) );\nendmodule\n"
+    error_content += verilog_formula
+    return error_content
+
+
+def _build_wrapper(Xvar, Yvar, skolem_module, wrapper_name):
+    decl = "module %s (" % wrapper_name
+    decl_inputs = ""
+    for var in Xvar:
+        decl += "%s, " % var
+        decl_inputs += "input %s;\n" % var
+    for var in Yvar:
+        decl += "ip%s, " % var
+        decl_inputs += "input ip%s;\n" % var
+    decl += "out);\n"
+    decl_inputs += "output out;\n"
+
+    wires = ""
+    inst_args = ""
+    for var in Xvar:
+        inst_args += "%s, " % var
+    for var in Yvar:
+        wires += "wire o%s;\n" % var
+        inst_args += "o%s, " % var
+    inst_args = inst_args.strip(", ")
+    inst = "%s U (%s);\n" % (skolem_module, inst_args)
+
+    out_expr = ""
+    for var in Yvar:
+        out_expr += "(~(o%s ^ ip%s)) & " % (var, var)
+    out_expr = out_expr.strip("& ")
+    assign = "assign out = %s;\n" % out_expr
+    return decl + decl_inputs + wires + inst + assign + "endmodule\n"
+
+
+def _parse_cex(model, x_count, y_count):
+    if (" " not in model) and ("\n" not in model) and all(ch in "01" for ch in model):
+        cex = [int(ch) for ch in model]
+    else:
+        cex = []
+        for tok in model.split():
+            try:
+                val = int(tok)
+            except ValueError:
+                continue
+            if val == 0:
+                continue
+            cex.append(val)
+
+    expected = x_count + 2 * y_count
+    if len(cex) < expected:
+        return None
+    return cex[:expected]
+
+
+def check_skolem(qdimacs_path, skolem_path, multiclass=False):
+    Xvar, Yvar, _ = parse(qdimacs_path)
+    verilog_formula, dg, _ = convert_verilog(qdimacs_path, multiclass, __import__("networkx").DiGraph())
+
+    skolem_module, has_out = _skolem_module_info(skolem_path)
+    if has_out:
+        wrapper_name = skolem_module
+        wrapper_content = ""
+    else:
+        wrapper_name = "SKOLEM_CHECK_WRAPPER"
+        wrapper_content = _build_wrapper(Xvar, Yvar, skolem_module, wrapper_name)
+
+    error_content = _build_error_formula(Xvar, Yvar, verilog_formula, wrapper_name)
+
+    with open(skolem_path, "r") as f:
+        skolem_content = f.read()
+
+    abc_cex = os.path.abspath("./dependencies/file_generation_cex")
+    with tempfile.TemporaryDirectory(prefix="manthan_skolem_check_") as tmpdir:
+        errorformula = os.path.join(tmpdir, "errorformula.v")
+        cexfile = os.path.join(tmpdir, "cex.txt")
+
+        with open(errorformula, "w") as f:
+            f.write(error_content)
+            f.write(skolem_content)
+            if wrapper_content:
+                f.write("\n" + wrapper_content)
+
+        cmd = [abc_cex, errorformula, cexfile]
+        result = subprocess.run(cmd, cwd=tmpdir, capture_output=True, text=True)
+        if result.returncode != 0:
+            err = "ABC failed: %s\nstdout: %s\nstderr: %s" % (
+                " ".join(cmd), result.stdout.strip(), result.stderr.strip())
+            return "error", None, err
+
+        if not os.path.isfile(cexfile):
+            return "unsat", None, None
+
+        with open(cexfile, "r") as f:
+            model = f.read().strip(" \n")
+        if not model:
+            return "unsat", None, None
+
+        cex = _parse_cex(model, len(Xvar), len(Yvar))
+        if cex is None:
+            return "unsat", None, None
+        return "sat", cex, None
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--qdimacs", required=True, help="Input QDIMACS file")
+    parser.add_argument("--skolem", required=True, help="Skolem Verilog file")
+    parser.add_argument("--multiclass", action="store_true")
+    args = parser.parse_args()
+
+    status, cex, err = check_skolem(args.qdimacs, args.skolem, args.multiclass)
+    if status == "sat":
+        print("c skolem check SAT (counterexample exists)")
+        print("c cex length:", len(cex))
+    elif status == "unsat":
+        print("c skolem check UNSAT (no counterexample)")
+    else:
+        print("c skolem check ERROR")
+        print("c", err)
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()

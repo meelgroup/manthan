@@ -49,13 +49,16 @@ def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 
 		defination = UniqueChecker.checkDefinability( Xvar + definingYvar, int(yvar), offset)
 		if defination[0] == True:
+			definitions = defination[1]
+			if isinstance(definitions, tuple):
+				definitions = definitions[0]
 			UniqueVars.append(yvar)
 
-			for lists in defination[1]:
+			for lists in definitions:
 				clause = lists[0]
 				clauseString = ''
 
-				if isinstance(clause,list):
+				if isinstance(clause, (list, tuple)):
 					for defvar in clause:
 						if int(defvar) < 0:
 							clauseString += "~"
@@ -73,7 +76,7 @@ def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 						else:
 							clauseString += "utemp%s &  " %(abs(defvar))
 							
-					if len(defination[1]) > 1:
+					if len(definitions) > 1:
 						if int(lists[1]) not in Yvar:
 							countoffset += 1
 							declare_wire += "wire utemp%s;\n" %(lists[1])
@@ -97,7 +100,8 @@ def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 						UniqueDef += "assign w%s = %s" %(yvar, clauseString)
 				else:
 					print(yvar,clause)
-					if clause > 0:
+					print(clause)
+					if int(clause) > 0:
 						UniqueDef += "assign w%s = 1'b1;\n" %(abs(clause))
 					else:
 						UniqueDef += "assign w%s = 1'b0;\n" %(abs(clause))

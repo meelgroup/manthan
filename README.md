@@ -13,7 +13,7 @@ To install the required libraries, run:
 ```
 python -m pip install -r requirements.txt
 ```
-Manthan depends on: 
+Manthan depends on:
 1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc)  for MaxSAT queries
 2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
 3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
@@ -22,7 +22,30 @@ Manthan depends on:
 
 Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.
 
-In the `dependencies` directory, you will find 64-bit x86 Linux compiled binaries for the required dependencies.
+In the `dependencies` directory, you will find helper binaries and build outputs. For pinned dependency commits and sources, see `dependencies/dependency_pins.json`.
+
+## Dependency sources (pinned)
+
+You can initialize all dependency submodules at their pinned commits:
+
+```
+git submodule update --init --recursive
+./scripts/clone_dependencies.sh
+```
+
+## Build dependencies
+
+macOS:
+
+```
+./scripts/build_dependencies_macos.sh
+```
+
+Linux:
+
+```
+./scripts/build_dependencies_linux.sh
+```
 
 ## Install
 
@@ -51,6 +74,14 @@ cp ../unique/build/interpolatingsolver/src/itp.cpython-38-x86_64-linux-gnu.so it
 
 ```bash
 python manthan.py --preprocess --unique --multiclass --lexmaxsat <qdimacs input> 
+```
+
+## Skolem checker
+
+Use the independent Skolem checker to validate a generated `*_skolem.v` against the original QDIMACS:
+
+```
+python src/checkSkolem.py --qdimacs <input.qdimacs> --skolem <input>_skolem.v --multiclass
 ```
 
 ## To test:
@@ -126,5 +157,3 @@ year={2021}
 * Priyanka Golia (pgoila@cse.iitk.ac.in)
 * Subhajit Roy (subhajit@cse.iitk.ac.in)
 * Kuldeep Meel (meel@comp.nus.edu.sg)
-
-

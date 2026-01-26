@@ -26,11 +26,18 @@ import tempfile
 import numpy as np
 from numpy import count_nonzero
 import os
+import subprocess
 
 
 def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, SkolemKnown, args):
-	samples_biased_one = generatesample( args, 500, sampling_cnf + sampling_weights_y_1, inputfile_name, 1)
-	samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name, 1)
+	try:
+		samples_biased_one = generatesample( args, 500, sampling_cnf + sampling_weights_y_1, inputfile_name, 1)
+		samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name, 1)
+	except RuntimeError as exc:
+		print("c adaptive bias sampling failed, using default weights")
+		if args.verbose >= 2:
+			print("c adaptive bias sampling error:", exc)
+		return sampling_cnf + sampling_weights_y_1
 
 	bias = ""
 
@@ -62,35 +69,24 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 
 
 def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
-	tempcnffile = tempfile.gettempdir() + '/' + inputfile_name + "_sample.cnf"
-	with open (tempcnffile,"w") as f:
-		f.write(sampling_cnf)
-	f.close()
+	with tempfile.TemporaryDirectory(prefix="manthan_cmsgen_") as tmpdir:
+		tempcnffile = os.path.join(tmpdir, "sample.cnf")
+		tempoutputfile = os.path.join(tmpdir, "samples.out")
 
-	tempoutputfile = tempfile.gettempdir() + '/' + inputfile_name + "_.txt"
+		with open(tempcnffile, "w") as f:
+			f.write(sampling_cnf)
+		f.close()
 
-	if weighted:
-		cmd = "./dependencies/cryptominisat5 -n1 --sls 0 --comps 0"
-		cmd += " --restart luby  --nobansol --maple 0 --presimp 0"
-		cmd += " --polar weight --freq 0.9999 --verb 0 --scc 0"
-		cmd += " --random %s --maxsol %s > /dev/null 2>&1" % (args.seed, int(num_samples))
-		cmd += " %s" % (tempcnffile)
-		cmd += " --dumpresult %s " % (tempoutputfile)
-	else:
-		cmd = "./dependencies/cryptominisat5 --restart luby"
-		cmd += " --maple 0 --verb 0 --nobansol"
-		cmd += " --scc 1 -n1 --presimp 0 --polar rnd --freq 0.9999"
-		cmd += " --random %s --maxsol %s" % (args.seed, int(num_samples))
-		cmd += " %s" % (tempcnffile)
-		cmd += " --dumpresult %s > /dev/null 2>&1" % (tempoutputfile)
-	
-	os.system(cmd)
+		cmsgen = os.path.abspath("./dependencies/static_bin/cmsgen")
+		cmd = [cmsgen, "--samples", str(int(num_samples)),
+		       "-s", str(args.seed), "--samplefile", "samples.out", "sample.cnf"]
+		subprocess.run(cmd, cwd=tmpdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+		if not os.path.isfile(tempoutputfile):
+			raise RuntimeError("sample generation failed: %s" % (" ".join(cmd)))
 
-	with open(tempoutputfile,"r") as f:
-		content = f.read()
-	f.close()
-	os.unlink(tempoutputfile)
-	os.unlink(tempcnffile)
+		with open(tempoutputfile, "r") as f:
+			content = f.read()
+		f.close()
 	content = content.replace("SAT\n","").replace("\n"," ").strip(" \n").strip(" ")
 	models = content.split(" ")
 	models = np.array(models)
@@ -98,8 +94,8 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		models = np.delete(models, len(models) - 1, axis=0)
 	if len(np.where(models == "0")[0]) > 0:
 		index = np.where(models == "0")[0][0]
-		var_model = np.reshape(models, (-1, index+1)).astype(np.int)
+		var_model = np.reshape(models, (-1, index+1)).astype(int)
 		var_model = var_model > 1
 		var_model = np.delete(var_model, index, axis=1)
-		var_model = var_model.astype(np.int)
+		var_model = var_model.astype(int)
 	return var_model

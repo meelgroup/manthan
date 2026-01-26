@@ -25,6 +25,7 @@ THE SOFTWARE.
 import numpy as np
 import os
 import tempfile
+import subprocess
 from dependencies.rc2 import RC2Stratified
 from pysat.formula import WCNF
 
@@ -71,7 +72,7 @@ def addXvaluation(cnfcontent, maxsatWt, maxsatcnf, modelx, Xvar):
     maxsatcnf += "\n" + maxsatstr
     return cnfcontent, maxsatcnf
 
-def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder):
+def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args):
     wcnf = WCNF(from_string = maxsatcnf)
     wt_softclause = 0
     for i in range(len(Yvar)):
@@ -89,18 +90,24 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder):
         
         wt_softclause += 1
     
-    wcnf.topw = wt_softclause
-
     rc2 = RC2Stratified(wcnf)
     model = rc2.compute()
+    if args.verbose >= 2 and len(model) == 0:
+        print("c rc2: empty model")
     indlist = []
+    diff_count = 0
     for var in model:
-        if (var in Yvar) and (var not in UniqueVars) and (var not in Unates):
-            index = Yvar.index(var)
-            if (int(var) < 0) and (modelyp[index] == 1):
-                indlist.append(abs(var))
-            if (int(var) > 0) and (modelyp[index] == 0):
-                indlist.append(abs(var))
+        abs_var = abs(var)
+        if (abs_var in Yvar) and (abs_var not in UniqueVars) and (abs_var not in Unates):
+            index = Yvar.index(abs_var)
+            if (var < 0) and (modelyp[index] == 1):
+                indlist.append(abs_var)
+                diff_count += 1
+            if (var > 0) and (modelyp[index] == 0):
+                indlist.append(abs_var)
+                diff_count += 1
+    if args.verbose >= 2:
+        print("c rc2: soft clauses", wt_softclause, "diffs", diff_count, "ind", len(indlist))
     
     indlist = np.array(indlist)
     indlist = np.unique(indlist)
@@ -126,6 +133,11 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder):
 
 
 def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfile_name, flag):
+    def pick_executable(preferred_path, fallback_path):
+        if os.path.isfile(preferred_path) and os.access(preferred_path, os.X_OK):
+            return preferred_path
+        return fallback_path
+
     itr = 0
     for var in Yvar:
         if (var not in Unates) and (var not in UniqueVars):
@@ -141,23 +153,27 @@ def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfil
                 maxsatcnf += "%s %s 0\n" %(weight,var)
         itr += 1
 
-    maxsatformula =  inputfile_name + "_maxsat.cnf"
+    openwbo = pick_executable("./dependencies/open-wbo/open-wbo_release",
+                              "./dependencies/static_bin/open-wbo")
+    openwbo = os.path.abspath(openwbo)
 
-    outputfile =  "o.txt"
+    with tempfile.TemporaryDirectory(prefix="manthan_openwbo_") as tmpdir:
+        maxsatformula = os.path.join(tmpdir, "maxsat.wcnf")
+        outputfile = os.path.join(tmpdir, "o.txt")
 
-    with open(maxsatformula, "w") as f:
-        f.write(maxsatcnf)
-    f.close()
+        with open(maxsatformula, "w") as f:
+            f.write(maxsatcnf)
+        f.close()
 
-    cmd = "./dependencies/open-wbo %s -print-unsat-soft=%s  > /dev/null 2>&1 " % (maxsatformula, outputfile)
-    
-    os.system(cmd)
+        cmd = [openwbo, "maxsat.wcnf", "-print-unsat-soft=o.txt"]
+        subprocess.run(cmd, cwd=tmpdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    with open(outputfile, 'r') as f:
-        lines = f.readlines()
-    f.close()
-    os.unlink(maxsatformula)
-    os.unlink(outputfile)
+        if not os.path.isfile(outputfile):
+            raise FileNotFoundError("open-wbo did not produce %s (cmd: %s)" % (outputfile, " ".join(cmd)))
+
+        with open(outputfile, 'r') as f:
+            lines = f.readlines()
+        f.close()
 
     indlist = []
     for line in lines:
@@ -183,8 +199,10 @@ def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfil
 
 
 def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
-    cmd = "./dependencies/picosat -s %s -V %s %s > %s " %(args.seed, unsatcorefile, cnffile, satfile)
-    os.system(cmd)
+    picosat = os.path.abspath("./dependencies/picosat")
+    cmd = [picosat, "-s", str(args.seed), "-V", unsatcorefile, cnffile]
+    with open(satfile, "w") as out:
+        subprocess.run(cmd, stdout=out, stderr=subprocess.DEVNULL)
     exists = os.path.isfile(unsatcorefile)
     if exists:
         with open(unsatcorefile,"r") as f:
@@ -227,11 +245,17 @@ def findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name,
     if exists:
         os.remove(unsatcorefile)
     ret, clistx, clisty = findUNSATCorePicosat(cnffile, unsatcorefile, satfile, Xvar,Yvar, args)
-
+    print("Picosat UNSAT core result: %s" %(ret))
     if ret:
         return (ret, [], clistx, clisty)
     else:
-        os.system("./dependencies/cryptominisat5 --random %s --maxsol %s %s --dumpresult %s > /dev/null 2>&1" % (args.seed, 1, cnffile,satfile))
+        cmsgen = os.path.abspath("./dependencies/static_bin/cmsgen")
+        tmpdir = os.path.dirname(cnffile)
+        cmd = [cmsgen, "--samples", "1", "-s", str(args.seed),
+               "--samplefile", os.path.basename(satfile), os.path.basename(cnffile)]
+        subprocess.run(cmd, cwd=tmpdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if not os.path.isfile(satfile):
+            raise FileNotFoundError("cmsgen did not produce %s (cmd: %s)" % (satfile, cmd))
         with open(satfile,"r") as f:
             lines = f.readlines()
         f.close()
@@ -239,16 +263,18 @@ def findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name,
         ret = 0
         modelseq = []
         for line in lines:
-            if line.startswith("SAT"):
+            if line.startswith("SAT") or line.startswith("c") or line.startswith("s") or line.startswith("p"):
                 continue
-
-            assignment = line.split(" ")
+            assignment = line.split()
             for assign in assignment:
-                if int(assign) == 0:
+                try:
+                    lit = int(assign)
+                except ValueError:
+                    continue
+                if lit == 0:
                     break
-                else:
-                    if (abs(int(assign))) in Yvar:
-                        modelseq.append(int(assign))
+                if abs(lit) in Yvar:
+                    modelseq.append(lit)
         for yvar in Yvar:
             if yvar in modelseq:
                 model.append(1)
@@ -336,7 +362,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                             break
                         l = l + 1
                     if flag == 0:
-                        ind = np.append(ind, Yvar[yk]).astype(np.int)   
+                        ind = np.append(ind, Yvar[yk]).astype(int)
         else:
             repaired.append(repairvar)
             if args.verbose:
@@ -367,11 +393,13 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                 else:
                     betaformula += "o%s & " %(y)
             
+            if args.verbose >= 2:
+                print("Repair function for w%s: %s" %(repairvar, betaformula.strip("& ")))
             repairfunctions[repairvar] = betaformula.strip("& ")
             assert(repairfunctions[repairvar] != "")
     return 0, repairfunctions
 
-def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar):
+def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, args):
     with open(tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v","r") as f:
         lines = f.readlines()
     f.close()
@@ -387,6 +415,10 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar):
             newfunction = "assign w%s = (( %s ) | ( beta%s_%s) );\n" %(yvar, oldfunctionR, yvar, countRefine)
         else:
             newfunction = "assign w%s = (( %s ) & ~(beta%s_%s) );\n" %(yvar, oldfunctionR, yvar, countRefine)
+        if args.verbose >= 2:
+            print("Old function for w%s: %s" %(yvar, oldfunction.strip("\n")))
+            print("New function for w%s: %s" %(yvar, newfunction.strip("\n")))
+            print("Repair function for w%s: %s" %(yvar, repairformula.strip("\n")))
         skolemcontent = skolemcontent.replace(oldfunction, repairformula + newfunction)
     with open(tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v","w") as f:
         f.write(skolemcontent)

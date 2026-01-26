@@ -5,8 +5,7 @@ Created on Wed Aug 26 22:55:21 2020
 
 @author: fs
 """
-
-from pysat.solvers import Cadical
+from pysat.solvers import Cadical103 as Cadical
 import logging
 import src.InterpolatingSolver as InterpolatingSolver
 import src.Utils as Utils
@@ -97,8 +96,7 @@ class DefinabilityChecker:
       return True, self.solver.getDefinition(defining_variables, 
                                              defined_variable, offset)
     else:
-      return False, self.getAssignment(defining_variables)
-    
+      return False, None 
   def checkForced(self, variable):
     if not self.backbone_solver.solve([variable]):
       logging.debug("Variable {} forced to False.".format(variable))

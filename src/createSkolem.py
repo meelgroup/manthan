@@ -24,6 +24,8 @@ THE SOFTWARE.
 
 import tempfile
 import os
+import subprocess
+import shutil
 import numpy as np
 
 def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef, inputfile_name):
@@ -50,15 +52,12 @@ def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef,
 	declare = declare.strip(", ")+");\n"
 	skolemformula = declare + declarevar + wire + UniqueDef + assign + "endmodule\n"
 
-	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
+	skolemformula =  inputfile_name + "_skolem.v"
 
 	with open(skolemformula,"w") as f:
 		f.write(skolemformula)
 	f.close()
-	cmd = "./dependencies/file_write_aig %s %s   > /dev/null 2>&1 " % (skolemformula, skolemformula.split("_skolem.v")[0]+"_skolem.aig")
-	os.system(cmd)
-	os.system("cp %s %s" %(skolemformula.split("_skolem.v")[0]+"_skolem.aig", inputfile_name + "_skolem.aig"))
-
+	
 def createSkolemfunction(inputfile_name, Xvar,Yvar):
 	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
 	
@@ -100,11 +99,8 @@ def createSkolemfunction(inputfile_name, Xvar,Yvar):
 		f.write(declare + declare_input + content + assign + "endmodule\n")
 	f.close()
 
-	cmd = "./dependencies/file_write_aig %s %s  > /dev/null 2>&1  " % (skolemformula, skolemformula.split("_skolem.v")[0]+"_skolem.aig")
-	os.system(cmd)
-	os.system("cp %s %s" %(skolemformula.split("_skolem.v")[0]+"_skolem.aig", inputfile_name + "_skolem.aig"))
+	shutil.copy(skolemformula, inputfile_name + "_skolem.v")
 	os.unlink(skolemformula)
-	os.unlink("strash.txt")
 
 
 
@@ -237,38 +233,47 @@ def simply(inputfile_name):
 
 def verify(Xvar, Yvar, inputfile_name):
 	errorformula = tempfile.gettempdir() + '/' + inputfile_name + "_errorformula.v"
-	cexfile = tempfile.gettempdir() + '/' + inputfile_name + "_cex.txt"
-	exists = os.path.isfile("strash.txt")
-	if exists:
-		os.system("rm strash.txt")
-	cmd = "./dependencies/file_generation_cex %s %s  > /dev/null 2>&1" % (errorformula, cexfile)
-	os.system(cmd)
-	exists = os.path.isfile("strash.txt")
-	if exists:
-		os.system("rm strash.txt")
-		exists_cex = os.path.isfile(cexfile)
-		if exists_cex:
-			cexmodels = []
-			ret = 1
+	with tempfile.TemporaryDirectory(prefix="manthan_abc_") as abc_tmpdir:
+		cexfile = os.path.join(abc_tmpdir, inputfile_name + "_cex.txt")
+		abc_cex = os.path.abspath("./dependencies/file_generation_cex")
+		cmd = [abc_cex, errorformula, cexfile]
+		print("c abc tool: file_generation_cex")
+		print("c abc cmd:", " ".join(cmd))
+		result = subprocess.run(cmd, cwd=abc_tmpdir,
+			stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+		if result.returncode != 0:
+			return(0, [0], 1)
+
+		if os.path.isfile(cexfile):
 			with open(cexfile, 'r') as f:
-				lines = f.readlines()
-			f.close()
-			os.unlink(cexfile)
-			for line in lines:
-				model = line.strip(" \n")
-			cex = list(map(int, model))
-			templist = np.split(cex, [len(Xvar), len(Xvar) + len(Yvar)])
-			modelx = templist[0]
-			modely = templist[1]
-			modelyp = templist[2]
-			assert(len(modelx) == len(Xvar))
-			assert(len(modelyp) == len(Yvar))
-			assert(len(modely) == len(Yvar))
-			cexmodels.append(modelx)
-			cexmodels.append(modely)
-			cexmodels.append(modelyp)
-			return(1, cexmodels, ret)
-		else:
-			return(1, [], 0)
-	else:
-		return(0, [0], 1)
+				model = f.read().strip(" \n")
+			if model:
+				cexmodels = []
+				ret = 1
+				if (" " not in model) and ("\n" not in model) and all(ch in "01" for ch in model):
+					cex = [int(ch) for ch in model]
+				else:
+					cex = []
+					for tok in model.split():
+						try:
+							val = int(tok)
+						except ValueError:
+							continue
+						if val == 0:
+							continue
+						cex.append(val)
+				if len(cex) < (len(Xvar) + 2 * len(Yvar)):
+					return(1, [], 0)
+				cex = cex[:len(Xvar) + 2 * len(Yvar)]
+				templist = np.split(cex, [len(Xvar), len(Xvar) + len(Yvar)])
+				modelx = templist[0]
+				modely = templist[1]
+				modelyp = templist[2]
+				assert(len(modelx) == len(Xvar))
+				assert(len(modelyp) == len(Yvar))
+				assert(len(modely) == len(Yvar))
+				cexmodels.append(modelx)
+				cexmodels.append(modely)
+				cexmodels.append(modelyp)
+				return(1, cexmodels, ret)
+		return(1, [], 0)

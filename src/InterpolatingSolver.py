@@ -34,8 +34,10 @@ class InterpolatingSolver:
     part = 1 if first_part else 2
     return self.solver.addClause(Utils.miniSAT_literals(literals), part)
   
-  def solve(self, assumptions=[]):
-    return self.solver.solve(Utils.miniSAT_literals(assumptions))
+  def solve(self, assumptions=[], limit=None):
+    if limit is None:
+      return self.solver.solve(Utils.miniSAT_literals(assumptions))
+    return self.solver.solve(Utils.miniSAT_literals(assumptions), limit)
   
   def interpolate(self, variable, shared_variables, assumptions=[], budget=0):
     return self.solver.getInterpolant(variable,
@@ -51,3 +53,8 @@ class InterpolatingSolver:
   
   def getAssignment(self, variables):
     return {v: self.solver.getVarVal(v) for v in variables}
+
+
+def set_global_limit(limit):
+  if hasattr(itp, "set_global_limit"):
+    itp.set_global_limit(limit)
