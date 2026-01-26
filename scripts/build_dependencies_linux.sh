@@ -20,6 +20,7 @@ mkdir -p "$STATIC_DIR"
 echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
+  make libabc.a
   gcc -Wall -g -c file_generation_cex.c -o file_generation_cex.o
   g++ -g -o file_generation_cex file_generation_cex.o libabc.a -lm -ldl -lreadline -lpthread
   gcc -Wall -g -c file_generation_cnf.c -o file_generation_cnf.o

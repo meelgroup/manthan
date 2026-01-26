@@ -16,11 +16,19 @@ fi
 
 checkout_pin() {
   local path="$1"
-  local rev="$2"
+  local url="$2"
+  local rev="$3"
   if [ -d "$path/.git" ]; then
     git -C "$path" fetch --all --tags || true
     git -C "$path" checkout "$rev"
+    return
   fi
+  if [ -e "$path" ]; then
+    echo "Skipping $path (exists but is not a git repo)"
+    return
+  fi
+  git clone "$url" "$path"
+  git -C "$path" checkout "$rev"
 }
 
 if [ -f "$ROOT_DIR/.gitmodules" ]; then
@@ -34,9 +42,10 @@ while IFS= read -r line; do
     continue
   fi
   path="$(echo "$line" | cut -d'|' -f1)"
+  url="$(echo "$line" | cut -d'|' -f2)"
   rev="$(echo "$line" | cut -d'|' -f3)"
   echo "c pinning $path @ $rev"
-  checkout_pin "$ROOT_DIR/$path" "$rev"
+  checkout_pin "$ROOT_DIR/$path" "$url" "$rev"
 done < <(
   python3 - <<'PY'
 import json
