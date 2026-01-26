@@ -81,6 +81,7 @@ echo "c building unique (itp)"
     -DPYBIND11_FINDPYTHON=ON
     "-DPython_EXECUTABLE=$PYTHON_BIN"
     -DCMAKE_CXX_STANDARD=14
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
   )
   if [ -n "$PYBIND11_DIR" ]; then
     UNIQUE_CMAKE_FLAGS+=("-Dpybind11_DIR=$PYBIND11_DIR")
