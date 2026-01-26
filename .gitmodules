@@ -1,6 +1,6 @@
 [submodule "dependencies/sources/unique"]
 	path = dependencies/sources/unique
-	url = git@github.com:meelgroup/unique.git
+	url = https://github.com/meelgroup/unique.git
 [submodule "dependencies/sources/abc-fork-ufo"]
 	path = dependencies/sources/abc-fork-ufo
-	url = git@github.com:meelgroup/abc-fork-ufo.git
+	url = https://github.com/meelgroup/abc-fork-ufo.git
