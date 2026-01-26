@@ -1,3 +1,6 @@
-[submodule "dependencies/cmsgen"]
-	path = dependencies/cmsgen
-	url = https://github.com/meelgroup/cmsgen.git
+[submodule "dependencies/sources/unique"]
+	path = dependencies/sources/unique
+	url = git@github.com:meelgroup/unique.git
+[submodule "dependencies/sources/dependencies/sources/abc-fork-ufo"]
+	path = dependencies/sources/dependencies/sources/abc-fork-ufo
+	url = git@github.com:meelgroup/abc-fork-ufo.git
