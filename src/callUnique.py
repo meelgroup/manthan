@@ -94,13 +94,11 @@ def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 						elif abs(defvar) in Yvar:
 							clauseString += "w%s;\n" %(abs(defvar))
 						else:
-							print("check unique defination")
+							print("c [unique_function] check unique defination")
 							exit()
 
 						UniqueDef += "assign w%s = %s" %(yvar, clauseString)
 				else:
-					print(yvar,clause)
-					print(clause)
 					if int(clause) > 0:
 						UniqueDef += "assign w%s = 1'b1;\n" %(abs(clause))
 					else:

@@ -119,8 +119,8 @@ def convert_verilog(input,cluster,dg):
 	if temp_assign != "":
 		declare_wire += "wire tcount_%s;\n" %(itr)
 		assign_wire += "assign tcount_%s = %s;\n" %(itr,temp_assign.strip("& "))
-		outstr += "tcount_%s;\n" %(itr)
-	outstr = "assign out = %s" %(outstr)
+		outstr += "tcount_%s & " %(itr)
+	outstr = "assign out = %s;\n" %(outstr.strip("& \n"))
 
 
 	verilogformula = declare + declare_input + declare_wire + assign_wire + outstr +"endmodule\n"

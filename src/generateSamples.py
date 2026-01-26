@@ -34,9 +34,9 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 		samples_biased_one = generatesample( args, 500, sampling_cnf + sampling_weights_y_1, inputfile_name, 1)
 		samples_biased_zero = generatesample( args, 500, sampling_cnf + sampling_weights_y_0, inputfile_name, 1)
 	except RuntimeError as exc:
-		print("c adaptive bias sampling failed, using default weights")
+		print("c [computeBias] adaptive bias sampling failed, using default weights")
 		if args.verbose >= 2:
-			print("c adaptive bias sampling error:", exc)
+			print("c [computeBias] adaptive bias sampling error:", exc)
 		return sampling_cnf + sampling_weights_y_1
 
 	bias = ""

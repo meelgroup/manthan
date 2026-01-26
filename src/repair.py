@@ -100,7 +100,7 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args):
     rc2 = RC2Stratified(wcnf)
     model = rc2.compute()
     if args.verbose >= 2 and len(model) == 0:
-        print("c rc2: empty model")
+        print("c [callRC2] rc2: empty model")
     indlist = []
     diff_count = 0
     for var in model:
@@ -114,7 +114,7 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args):
                 indlist.append(abs_var)
                 diff_count += 1
     if args.verbose >= 2:
-        print("c rc2: soft clauses", wt_softclause, "diffs", diff_count, "ind", len(indlist))
+        print("c [callRC2] rc2: soft clauses", wt_softclause, "diffs", diff_count, "ind", len(indlist))
     
     indlist = np.array(indlist)
     indlist = np.unique(indlist)
@@ -252,7 +252,7 @@ def findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name,
     if exists:
         os.remove(unsatcorefile)
     ret, clistx, clisty = findUNSATCorePicosat(cnffile, unsatcorefile, satfile, Xvar,Yvar, args)
-    print("Picosat UNSAT core result: %s" %(ret))
+    print("c [findUnsatCore] Picosat UNSAT core result: %s" %(ret))
     if ret:
         return (ret, [], clistx, clisty)
     else:
@@ -336,21 +336,21 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
             count_Yvar += 1
         
         if args.verbose:
-            print("repairing %s" %(repairvar))
+            print("c [repair] repairing %s" %(repairvar))
         
         ret, model, clistx, clisty = findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, count_Yvar, inputfile_name, args)
 
         if ret == 0:
             if args.verbose:
-                print("gk formula is SAT")
+                print("c [repair] gk formula is SAT")
             satvar.append(repairvar)
             if (repairvar not in ind_org) and (len(repaired) > 0):
                 continue
             if len(ind) > (len(ind_org) * 50) and flagRC2:
-                print("too many new repair candidate added.. calling rc2")
+                print("c [repair] too many new repair candidate added.. calling rc2")
                 return 1, repairfunctions
             if args.verbose:
-                print("looking for other candidates to repair")
+                print("c [repair] looking for other candidates to repair")
             model = np.array(model)
             diff = np.bitwise_xor(modelyp, model)
             index = np.where(diff == 1)[0]
@@ -373,7 +373,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
         else:
             repaired.append(repairvar)
             if args.verbose:
-                print("gk formula is UNSAT\ncreating beta formula")
+                print("c [repair] gk formula is UNSAT; creating beta formula")
             
             betaformula = ''
             for x in clistx:
@@ -401,7 +401,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                     betaformula += "o%s & " %(y)
             
             if args.verbose >= 2:
-                print("Repair function for w%s: %s" %(repairvar, betaformula.strip("& ")))
+                print("c [repair] Repair function for w%s: %s" %(repairvar, betaformula.strip("& ")))
             repairfunctions[repairvar] = betaformula.strip("& ")
             assert(repairfunctions[repairvar] != "")
     return 0, repairfunctions
@@ -423,9 +423,9 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, ar
         else:
             newfunction = "assign w%s = (( %s ) & ~(beta%s_%s) );\n" %(yvar, oldfunctionR, yvar, countRefine)
         if args.verbose >= 2:
-            print("Old function for w%s: %s" %(yvar, oldfunction.strip("\n")))
-            print("New function for w%s: %s" %(yvar, newfunction.strip("\n")))
-            print("Repair function for w%s: %s" %(yvar, repairformula.strip("\n")))
+            print("c [updateSkolem] Old function for w%s: %s" %(yvar, oldfunction.strip("\n")))
+            print("c [updateSkolem] New function for w%s: %s" %(yvar, newfunction.strip("\n")))
+            print("c [updateSkolem] Repair function for w%s: %s" %(yvar, repairformula.strip("\n")))
         skolemcontent = skolemcontent.replace(oldfunction, repairformula + newfunction)
     with open(tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v","w") as f:
         f.write(skolemcontent)

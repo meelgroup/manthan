@@ -193,13 +193,13 @@ def main():
 
     status, cex, err = check_skolem(args.qdimacs, args.skolem, args.multiclass)
     if status == "sat":
-        print("c skolem check SAT (counterexample exists)")
-        print("c cex length:", len(cex))
+        print("c [main] skolem check SAT (counterexample exists)")
+        print("c [main] cex length:", len(cex))
     elif status == "unsat":
-        print("c skolem check UNSAT (no counterexample)")
+        print("c [main] skolem check UNSAT (no counterexample)")
     else:
-        print("c skolem check ERROR")
-        print("c", err)
+        print("c [main] skolem check ERROR")
+        print("c checkSkolem main", err)
         raise SystemExit(1)
 
 

@@ -60,7 +60,7 @@ def parse(inputfile):
 			qdimacs_list.append(clause)
 
 	if (len(Xvar) == 0) or (len(Yvar) == 0) or (len(qdimacs_list) == 0):
-		print("problem with the files, can not synthesis Skolem functions")
+		print("c [parse] problem with the files, can not synthesis Skolem functions")
 	
 	
 	Xvar = list(map(int, list(Xvar)))
@@ -96,7 +96,7 @@ def preprocess(cnffile_name):
 			os.killpg(process.pid, signal.SIGINT)
 			PosUnate = []
 			NegUnate = []
-			print("timeout preprocessing..")
+			print("c [preprocess] timeout preprocessing..")
 			return PosUnate, NegUnate
 		else:
 			PosUnate = []
@@ -120,7 +120,6 @@ def preprocess(cnffile_name):
 						continue
 				os.unlink(cnffile_name + "_vardetails")
 			else:
-				print("preprocessing error .. contining ")
+				print("c [preprocess] preprocessing error .. contining ")
 				exit()
 			return PosUnate, NegUnate
-

@@ -217,7 +217,8 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
             disjointSet.append([var])
     
     for Yset in disjointSet:
-        print("Learning candidate Skolem functions for Y variables:", Yset)
+        if args.verbose >= 2:
+            print("c [learnCandidate] Learning candidate Skolem functions for Y variables:", Yset)
         dependent = []
         for yvar in Yset:
             depends_on_yvar = list(nx.ancestors(dg,yvar))
@@ -241,9 +242,9 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
                 dg.add_edge(var, jvar)
 
     if args.verbose:
-        print("generated candidate functions for all variables.")
+        print("c [learnCandidate] generated candidate functions for all variables.")
 
     if args.verbose == 2:
-        print("candidate functions are", candidateSkf)
+        print("c [learnCandidate] candidate functions are", candidateSkf)
 
     return candidateSkf, dg    
