@@ -49,7 +49,7 @@ To build dependencies (including the `itp` Python module for Unique), use the sc
 
 For Linux, use `./scripts/build_dependencies_linux.sh`. The scripts configure Unique with C++14 and bind to the active `python3` interpreter; the resulting module lives at `dependencies/unique/build/interpolatingsolver/src`.
 
-Binaries are expected under `dependencies/static_bin/<os>/` (e.g., `dependencies/static_bin/macos/`). Copy the binaries for your OS into that directory if you build them elsewhere.
+Binaries are expected under `dependencies/static_bin/`. Copy the binaries for your OS into that directory if you build them elsewhere.
 ## How to Use
 
 ```bash

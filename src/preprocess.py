@@ -29,7 +29,6 @@ import tempfile
 from subprocess import Popen, PIPE, check_output
 import signal
 import os
-import platform
 import numpy as np
 
 def parse(inputfile):
@@ -86,15 +85,7 @@ def convertcnf(inputfile, cnffile_name):
 
 def preprocess(cnffile_name):
 
-	os_name = platform.system().lower()
-	if os_name == "darwin":
-		preprocess_bin = "./dependencies/static_bin/macos/preprocess"
-	elif os_name == "linux":
-		preprocess_bin = "./dependencies/static_bin/linux/preprocess"
-	else:
-		preprocess_bin = "./dependencies/static_bin/preprocess"
-	if not os.path.isfile(preprocess_bin):
-		preprocess_bin = "./dependencies/static_bin/preprocess"
+	preprocess_bin = "./dependencies/static_bin/preprocess"
 	if not os.path.isfile(preprocess_bin):
 		preprocess_bin = "./dependencies/preprocess"
 	cmd = "%s %s " % (preprocess_bin, cnffile_name)
@@ -132,5 +123,4 @@ def preprocess(cnffile_name):
 				print("preprocessing error .. contining ")
 				exit()
 			return PosUnate, NegUnate
-
 

@@ -26,24 +26,13 @@ import tempfile
 import os
 import subprocess
 import shutil
-import platform
 import numpy as np
 
 
 def static_bin_path(bin_name):
-	os_name = platform.system().lower()
-	if os_name == "darwin":
-		base_dir = "./dependencies/static_bin/macos"
-	elif os_name == "linux":
-		base_dir = "./dependencies/static_bin/linux"
-	else:
-		base_dir = "./dependencies/static_bin"
-	preferred = os.path.join(base_dir, bin_name)
+	preferred = os.path.join("./dependencies/static_bin", bin_name)
 	if os.path.isfile(preferred) and os.access(preferred, os.X_OK):
 		return os.path.abspath(preferred)
-	fallback = os.path.join("./dependencies/static_bin", bin_name)
-	if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
-		return os.path.abspath(fallback)
 	return os.path.abspath(os.path.join("./dependencies", bin_name))
 
 def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef, inputfile_name):
