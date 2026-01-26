@@ -20,6 +20,11 @@ if [ ! -f /usr/include/gmpxx.h ] && [ ! -f /usr/local/include/gmpxx.h ]; then
   exit 1
 fi
 
+if [ ! -f /usr/include/boost/program_options.hpp ] && [ ! -f /usr/local/include/boost/program_options.hpp ]; then
+  echo "Boost program_options headers are required (sudo apt-get install libboost-program-options-dev)"
+  exit 1
+fi
+
 mkdir -p "$STATIC_DIR"
 
 echo "c building abc helpers"
