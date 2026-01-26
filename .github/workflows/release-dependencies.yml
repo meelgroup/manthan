@@ -95,57 +95,13 @@ jobs:
       - name: Clone and pin dependencies
         if: matrix.os != 'windows-latest'
         run: |
-          python - <<'PY'
-          import json
-          import subprocess
-          from pathlib import Path
-
-          with open("dependencies/dependency_pins.json", "r") as f:
-              pins = json.load(f)
-
-          def ensure_repo(path, url, rev):
-              path = Path(path)
-              if (path / ".git").exists():
-                  subprocess.check_call(["git", "-C", str(path), "fetch", "--all", "--tags"])
-              elif not path.exists():
-                  path.parent.mkdir(parents=True, exist_ok=True)
-                  subprocess.check_call(["git", "clone", url, str(path)])
-              else:
-                  print(f"Skipping {path} (not a git repo)")
-                  return
-              subprocess.check_call(["git", "-C", str(path), "checkout", rev])
-
-          for entry in pins:
-              ensure_repo(entry["path"], entry["url"], entry["rev"])
-          PY
+          ./scripts/clone_dependencies.sh
 
       - name: Clone and pin dependencies (Windows)
         if: matrix.os == 'windows-latest'
         shell: msys2 {0}
         run: |
-          python - <<'PY'
-          import json
-          import subprocess
-          from pathlib import Path
-
-          with open("dependencies/dependency_pins.json", "r") as f:
-              pins = json.load(f)
-
-          def ensure_repo(path, url, rev):
-              path = Path(path)
-              if (path / ".git").exists():
-                  subprocess.check_call(["git", "-C", str(path), "fetch", "--all", "--tags"])
-              elif not path.exists():
-                  path.parent.mkdir(parents=True, exist_ok=True)
-                  subprocess.check_call(["git", "clone", url, str(path)])
-              else:
-                  print(f"Skipping {path} (not a git repo)")
-                  return
-              subprocess.check_call(["git", "-C", str(path), "checkout", rev])
-
-          for entry in pins:
-              ensure_repo(entry["path"], entry["url"], entry["rev"])
-          PY
+          bash ./scripts/clone_dependencies.sh
 
       - name: Build dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'

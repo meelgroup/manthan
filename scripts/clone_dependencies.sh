@@ -14,6 +14,15 @@ if [ ! -f "$PINS_FILE" ]; then
   exit 1
 fi
 
+PYTHON_BIN="python3"
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  PYTHON_BIN="python"
+fi
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  echo "python is required"
+  exit 1
+fi
+
 checkout_pin() {
   local path="$1"
   local url="$2"
@@ -49,7 +58,7 @@ while IFS= read -r line; do
   echo "c pinning $path @ $rev"
   checkout_pin "$ROOT_DIR/$path" "$url" "$rev"
 done < <(
-  python3 - <<'PY'
+  "$PYTHON_BIN" - <<'PY'
 import json
 with open("dependencies/dependency_pins.json", "r") as f:
     pins = json.load(f)
