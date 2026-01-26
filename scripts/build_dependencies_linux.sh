@@ -15,6 +15,11 @@ if ! command -v gcc >/dev/null 2>&1; then
   exit 1
 fi
 
+if [ ! -f /usr/include/gmpxx.h ] && [ ! -f /usr/local/include/gmpxx.h ]; then
+  echo "gmpxx.h is required (sudo apt-get install libgmp-dev)"
+  exit 1
+fi
+
 mkdir -p "$STATIC_DIR"
 
 echo "c building abc helpers"
