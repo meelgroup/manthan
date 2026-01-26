@@ -29,13 +29,14 @@ copy_bin() {
 echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
-  make libabc.a
-  gcc -Wall -g -c file_generation_cex.c -o file_generation_cex.o
-  g++ -g -o file_generation_cex file_generation_cex.o libabc.a -lm -lreadline -lpthread
-  gcc -Wall -g -c file_generation_cnf.c -o file_generation_cnf.o
-  g++ -g -o file_generation_cnf file_generation_cnf.o libabc.a -lm -lreadline -lpthread
-  gcc -Wall -g -c file_write_verilog.c -o file_write_verilog.o
-  g++ -g -o file_write_verilog file_write_verilog.o libabc.a -lm -lreadline -lpthread
+  ABC_CFLAGS="-DABC_USE_STDINT"
+  make libabc.a CFLAGS="$ABC_CFLAGS"
+  gcc -Wall -g $ABC_CFLAGS -c file_generation_cex.c -o file_generation_cex.o
+  g++ -g $ABC_CFLAGS -o file_generation_cex file_generation_cex.o libabc.a -lm -lreadline -lpthread
+  gcc -Wall -g $ABC_CFLAGS -c file_generation_cnf.c -o file_generation_cnf.o
+  g++ -g $ABC_CFLAGS -o file_generation_cnf file_generation_cnf.o libabc.a -lm -lreadline -lpthread
+  gcc -Wall -g $ABC_CFLAGS -c file_write_verilog.c -o file_write_verilog.o
+  g++ -g $ABC_CFLAGS -o file_write_verilog file_write_verilog.o libabc.a -lm -lreadline -lpthread
   copy_bin file_generation_cex
   copy_bin file_generation_cnf
   copy_bin file_write_verilog

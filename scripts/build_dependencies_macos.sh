@@ -16,6 +16,10 @@ if [ -z "$GMP_PREFIX" ]; then
   exit 1
 fi
 
+export CPATH="$GMP_PREFIX/include${CPATH:+:$CPATH}"
+export CPLUS_INCLUDE_PATH="$GMP_PREFIX/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
+export LIBRARY_PATH="$GMP_PREFIX/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+
 mkdir -p "$STATIC_DIR"
 
 echo "c building abc helpers"
