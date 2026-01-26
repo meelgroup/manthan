@@ -11,6 +11,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import platform
 
 import numpy as np
 
@@ -20,6 +21,23 @@ if REPO_ROOT not in sys.path:
 
 from src.preprocess import parse
 from src.convert_verilog import convert_verilog
+
+
+def _static_bin_path(bin_name):
+    os_name = platform.system().lower()
+    if os_name == "darwin":
+        base_dir = "./dependencies/static_bin/macos"
+    elif os_name == "linux":
+        base_dir = "./dependencies/static_bin/linux"
+    else:
+        base_dir = "./dependencies/static_bin"
+    preferred = os.path.join(base_dir, bin_name)
+    if os.path.isfile(preferred) and os.access(preferred, os.X_OK):
+        return os.path.abspath(preferred)
+    fallback = os.path.join("./dependencies/static_bin", bin_name)
+    if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
+        return os.path.abspath(fallback)
+    return os.path.abspath(os.path.join("./dependencies", bin_name))
 
 
 def _skolem_module_info(skolem_path):
@@ -145,7 +163,7 @@ def check_skolem(qdimacs_path, skolem_path, multiclass=False):
     with open(skolem_path, "r") as f:
         skolem_content = f.read()
 
-    abc_cex = os.path.abspath("./dependencies/file_generation_cex")
+    abc_cex = _static_bin_path("file_generation_cex")
     with tempfile.TemporaryDirectory(prefix="manthan_skolem_check_") as tmpdir:
         errorformula = os.path.join(tmpdir, "errorformula.v")
         cexfile = os.path.join(tmpdir, "cex.txt")

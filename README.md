@@ -4,11 +4,11 @@ Manthan takes in a F(X,Y) formula as input and returns Boolean function \Psi suc
 To read more about Manthan, have a look at [CAV-20 paper](https://priyanka-golia.github.io/publication/cav20-manthan/cav20-manthan.pdf) and [ICCAD-21 paper](https://arxiv.org/pdf/2108.05717.pdf)
 
 
-## Requirements to run
+## Requirements
 
-* Python 2.7+
+* Python 3+
 
-To install the required libraries, run:
+Install the required libraries:
 
 ```
 python -m pip install -r requirements.txt
@@ -20,11 +20,16 @@ Manthan depends on:
 4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
 5. [UNIQUE](https://github.com/perebor/unique) to extract the unique functions.
 
-Manthan employ the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.
+Manthan uses the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.
 
-In the `dependencies` directory, you will find helper binaries and build outputs. For pinned dependency commits and sources, see `dependencies/dependency_pins.json`.
+CryptoMiniSat is used via a prebuilt binary placed at `dependencies/cryptominisat5` (do not add it as a submodule). Download it from https://github.com/msoos/cryptominisat and verify the version:
+```
+./dependencies/cryptominisat5
+c CMS SHA1: 7a62ccb6d63ab835b091b51e8d155629db3e78d2
+c CryptoMiniSat version 5.13.0
+```
 
-## Dependency sources (pinned)
+## Dependency sources
 
 You can initialize all dependency submodules at their pinned commits:
 
@@ -35,41 +40,16 @@ git submodule update --init --recursive
 
 ## Build dependencies
 
-macOS:
+To build dependencies (including the `itp` Python module for Unique), use the scripts below. Make sure `pybind11` is installed in the same Python environment you plan to run Manthan with.
 
 ```
+./scripts/clone_dependencies.sh
 ./scripts/build_dependencies_macos.sh
 ```
 
-Linux:
+For Linux, use `./scripts/build_dependencies_linux.sh`. The scripts configure Unique with C++14 and bind to the active `python3` interpreter; the resulting module lives at `dependencies/unique/build/interpolatingsolver/src`.
 
-```
-./scripts/build_dependencies_linux.sh
-```
-
-## Install
-
-To install Unique: Make sure you have python-sat installed.
-
-```
-git clone https://github.com/perebor/unique.git
-cd unique
-git checkout 1902a5aa9573722cf473c7e8b5f49dedf9a4646d
-git submodule init
-git submodule update
-mkdir build
-cd build
-cmake .. && make
-
-```
-
-Now, clone Manthan
-
-```
-git clone https://github.com/meelgroup/manthan
-cd manthan
-cp ../unique/build/interpolatingsolver/src/itp.cpython-38-x86_64-linux-gnu.so itp.so
-```
+Binaries are expected under `dependencies/static_bin/<os>/` (e.g., `dependencies/static_bin/macos/`). Copy the binaries for your OS into that directory if you build them elsewhere.
 ## How to Use
 
 ```bash
@@ -84,42 +64,11 @@ Use the independent Skolem checker to validate a generated `*_skolem.v` against 
 python src/checkSkolem.py --qdimacs <input.qdimacs> --skolem <input>_skolem.v --multiclass
 ```
 
-## To test:
+To see a detailed list of available options:
 
-A simple invocation with benchmarks/max64.qdimacs
-
-```
-python manthan.py --multiclass --preprocess --unique --lexmaxsat --verb 1 benchmarks/max64.qdimacs
-
-```
-
-```
-
-starting Manthan
-parsing
-count X variables 128
-count Y variables 290
-preprocessing: finding unates (constant functions)
-count of positive unates 7
-count of negative unates 5
-finding uniquely defined functions
-count of uniquely defined variables 277
-parsing and converting to verilog
-generating weighted samples
-generated samples.. learning candidate functions
-generated candidate functions for all variables.
-verification check UNSAT
-no more repair needed
-number of repairs needed to converge 0
-```
-
-you can also provide different option to consider for manthan:
-
-```
+```bash
 python manthan.py [options]  <inputfile qdimacs> 
 ```
-To see detailed list of available option:
-
 ```
 python manthan.py --help
 ```

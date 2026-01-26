@@ -26,6 +26,7 @@ import numpy as np
 import os
 import tempfile
 import subprocess
+import platform
 from dependencies.rc2 import RC2Stratified
 from pysat.formula import WCNF
 
@@ -52,6 +53,23 @@ def maxsatContent(cnfcontent,n, u):
             continue
         maxsatCnf += str(maxsatWt) + " " + line + "\n"
     return maxsatWt, maxsatCnf, cnfcontent
+
+
+def static_bin_path(bin_name):
+    os_name = platform.system().lower()
+    if os_name == "darwin":
+        base_dir = "./dependencies/static_bin/macos"
+    elif os_name == "linux":
+        base_dir = "./dependencies/static_bin/linux"
+    else:
+        base_dir = "./dependencies/static_bin"
+    preferred = os.path.join(base_dir, bin_name)
+    if os.path.isfile(preferred) and os.access(preferred, os.X_OK):
+        return os.path.abspath(preferred)
+    fallback = os.path.join("./dependencies/static_bin", bin_name)
+    if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
+        return os.path.abspath(fallback)
+    return os.path.abspath(os.path.join("./dependencies", bin_name))
 
 
 
@@ -153,8 +171,8 @@ def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfil
                 maxsatcnf += "%s %s 0\n" %(weight,var)
         itr += 1
 
-    openwbo = pick_executable("./dependencies/open-wbo/open-wbo_release",
-                              "./dependencies/static_bin/open-wbo")
+    openwbo = pick_executable(static_bin_path("open-wbo"),
+                              "./dependencies/open-wbo/open-wbo_release")
     openwbo = os.path.abspath(openwbo)
 
     with tempfile.TemporaryDirectory(prefix="manthan_openwbo_") as tmpdir:
@@ -199,7 +217,7 @@ def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfil
 
 
 def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
-    picosat = os.path.abspath("./dependencies/picosat")
+    picosat = static_bin_path("picosat")
     cmd = [picosat, "-s", str(args.seed), "-V", unsatcorefile, cnffile]
     with open(satfile, "w") as out:
         subprocess.run(cmd, stdout=out, stderr=subprocess.DEVNULL)
@@ -249,7 +267,7 @@ def findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name,
     if ret:
         return (ret, [], clistx, clisty)
     else:
-        cmsgen = os.path.abspath("./dependencies/static_bin/cmsgen")
+        cmsgen = static_bin_path("cmsgen")
         tmpdir = os.path.dirname(cnffile)
         cmd = [cmsgen, "--samples", "1", "-s", str(args.seed),
                "--samplefile", os.path.basename(satfile), os.path.basename(cnffile)]

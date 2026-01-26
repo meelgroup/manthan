@@ -27,6 +27,7 @@ import numpy as np
 from numpy import count_nonzero
 import os
 import subprocess
+import platform
 
 
 def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, SkolemKnown, args):
@@ -77,7 +78,18 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 			f.write(sampling_cnf)
 		f.close()
 
-		cmsgen = os.path.abspath("./dependencies/static_bin/cmsgen")
+		os_name = platform.system().lower()
+		if os_name == "darwin":
+			cmsgen = "./dependencies/static_bin/macos/cmsgen"
+		elif os_name == "linux":
+			cmsgen = "./dependencies/static_bin/linux/cmsgen"
+		else:
+			cmsgen = "./dependencies/static_bin/cmsgen"
+		if not os.path.isfile(cmsgen):
+			cmsgen = "./dependencies/static_bin/cmsgen"
+		if not os.path.isfile(cmsgen):
+			cmsgen = "./dependencies/cmsgen"
+		cmsgen = os.path.abspath(cmsgen)
 		cmd = [cmsgen, "--samples", str(int(num_samples)),
 		       "-s", str(args.seed), "--samplefile", "samples.out", "sample.cnf"]
 		subprocess.run(cmd, cwd=tmpdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

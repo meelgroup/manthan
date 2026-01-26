@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPS_DIR="$ROOT_DIR/dependencies"
-STATIC_DIR="$DEPS_DIR/static_bin"
+STATIC_DIR="$DEPS_DIR/static_bin/macos"
 
 if ! command -v cmake >/dev/null 2>&1; then
   echo "cmake is required (brew install cmake)"
@@ -21,13 +21,14 @@ mkdir -p "$STATIC_DIR"
 echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
+  make libabc.a
   gcc -Wall -g -c file_generation_cex.c -o file_generation_cex.o
   g++ -g -o file_generation_cex file_generation_cex.o libabc.a -lm -ldl -lreadline -lpthread
   gcc -Wall -g -c file_generation_cnf.c -o file_generation_cnf.o
   g++ -g -o file_generation_cnf file_generation_cnf.o libabc.a -lm -ldl -lreadline -lpthread
   gcc -Wall -g -c file_write_verilog.c -o file_write_verilog.o
   g++ -g -o file_write_verilog file_write_verilog.o libabc.a -lm -ldl -lreadline -lpthread
-  cp file_generation_cex file_generation_cnf file_write_verilog "$DEPS_DIR/"
+  cp file_generation_cex file_generation_cnf file_write_verilog "$STATIC_DIR/"
 )
 
 echo "c building cmsgen"
@@ -54,6 +55,7 @@ echo "c building open-wbo"
   make clean || true
   make -j8 \
     CFLAGS="-O3 -Wall -Wno-parentheses -std=c++11 -DNSPACE=Glucose -DSOLVERNAME=\\\"Glucose4.1\\\" -DVERSION=core -I$DEPS_DIR/open-wbo/solvers/glucose4.1 -I$GMP_PREFIX/include" \
+    CXXFLAGS="-O3 -Wall -Wno-parentheses -std=c++11 -DNSPACE=Glucose -DSOLVERNAME=\\\"Glucose4.1\\\" -DVERSION=core -I$DEPS_DIR/open-wbo/solvers/glucose4.1 -I$GMP_PREFIX/include" \
     LFLAGS="-lgmpxx -lgmp -L$GMP_PREFIX/lib -lz"
   cp open-wbo "$STATIC_DIR/open-wbo"
 )
@@ -61,18 +63,63 @@ echo "c building open-wbo"
 echo "c building unique (itp)"
 (
   cd "$DEPS_DIR/unique"
+  if [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
+    PYTHON_BIN="$VIRTUAL_ENV/bin/python"
+  else
+    PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
+  fi
+  PYTHON_SOABI="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("SOABI") or "")')"
+  PYBIND11_DIR="$("$PYTHON_BIN" -m pybind11 --cmakedir 2>/dev/null || true)"
+  BOOST_PREFIX="$(brew --prefix boost 2>/dev/null || true)"
+  UNIQUE_CMAKE_FLAGS=(
+    -DABC_FORCE_CXX=ON
+    -DABC_NAMESPACE=abc
+    -DPYBIND11_FINDPYTHON=ON
+    "-DPython_EXECUTABLE=$PYTHON_BIN"
+    -DCMAKE_CXX_STANDARD=14
+  )
+  if [ -n "$PYBIND11_DIR" ]; then
+    UNIQUE_CMAKE_FLAGS+=("-Dpybind11_DIR=$PYBIND11_DIR")
+  fi
+  if [ -n "$BOOST_PREFIX" ]; then
+    UNIQUE_CMAKE_FLAGS+=("-DBoost_ROOT=$BOOST_PREFIX" "-DCMAKE_CXX_FLAGS=-I$BOOST_PREFIX/include")
+  fi
+  if [ -n "$PYTHON_SOABI" ]; then
+    UNIQUE_CMAKE_FLAGS+=("-DPYTHON_MODULE_EXTENSION=.${PYTHON_SOABI}.so")
+  fi
+  rm -rf build
   mkdir -p build
   cd build
-  cmake .. -DCMAKE_CXX_STANDARD=14
+  cmake .. "${UNIQUE_CMAKE_FLAGS[@]}"
   cmake --build . --target itp -- -j8
 )
 
 echo "c building preprocess"
 (
   cd "$DEPS_DIR/manthan-preprocess"
+  echo "c building cryptominisat (static)"
+  (
+    cd "$DEPS_DIR/manthan-preprocess/cryptominisat"
+    rm -rf build
+    mkdir -p build
+    cd build
+    cmake .. -DBUILD_SHARED_LIBS=OFF -DUSE_BREAKID=OFF
+    make -j8
+  )
+  echo "c building louvain-community (static)"
+  (
+    cd "$DEPS_DIR/manthan-preprocess/louvain-community"
+    rm -rf build
+    mkdir -p build
+    cd build
+    cmake .. -DBUILD_SHARED_LIBS=OFF
+    make -j8
+  )
   mkdir -p build
   cd build
-  cmake ..
+  cmake .. -DSTATICCOMPILE=ON \
+    -Dcryptominisat5_DIR="$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
+    -Dlouvain_communities_DIR="$DEPS_DIR/manthan-preprocess/louvain-community/build"
   make -j8
   cp preprocess "$STATIC_DIR/preprocess"
 )
