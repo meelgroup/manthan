@@ -73,14 +73,18 @@ echo "c building unique (itp)"
   cd "$DEPS_DIR/unique"
   PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
   PYTHON_SOABI="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("SOABI") or "")')"
+  PYBIND11_DIR="$(python3 -m pybind11 --cmakedir 2>/dev/null || true)"
   UNIQUE_CMAKE_FLAGS=(
-    -DABC_FORCE_CXX=ON
+    -DABC_FORCE_CXX=OFF
     -DABC_NAMESPACE=abc
     -DPYBIND11_FINDPYTHON=ON
     "-DPython_EXECUTABLE=$PYTHON_BIN"
     -DCMAKE_CXX_STANDARD=14
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5
   )
+  if [ -n "$PYBIND11_DIR" ]; then
+    UNIQUE_CMAKE_FLAGS+=("-Dpybind11_DIR=$PYBIND11_DIR")
+  fi
   if [ -n "$PYTHON_SOABI" ]; then
     UNIQUE_CMAKE_FLAGS+=("-DPYTHON_MODULE_EXTENSION=.${PYTHON_SOABI}.so")
   fi

@@ -77,7 +77,7 @@ echo "c building unique (itp)"
   PYTHON_EXT="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("EXT_SUFFIX") or ".pyd")')"
   PYBIND11_DIR="$(python3 -m pybind11 --cmakedir 2>/dev/null || true)"
   UNIQUE_CMAKE_FLAGS=(
-    -DABC_FORCE_CXX=ON
+    -DABC_FORCE_CXX=OFF
     -DABC_NAMESPACE=abc
     -DPYBIND11_FINDPYTHON=ON
     "-DPython_EXECUTABLE=$PYTHON_BIN"
