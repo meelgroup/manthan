@@ -1,0 +1,144 @@
+name: build-dependencies
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        if: matrix.os != 'windows-latest'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git pkg-config libgmp-dev zlib1g-dev libreadline-dev
+
+      - name: Install system deps (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew update
+          brew install cmake gmp boost
+
+      - name: Setup MSYS2 (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gmp
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-readline
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-python-pip
+            git
+            make
+
+      - name: Install Python deps
+        if: matrix.os != 'windows-latest'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pybind11
+
+      - name: Install Python deps (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pybind11
+
+      - name: Clone and pin dependencies
+        if: matrix.os != 'windows-latest'
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          with open("dependencies/dependency_pins.json", "r") as f:
+              pins = json.load(f)
+
+          def ensure_repo(path, url, rev):
+              path = Path(path)
+              if (path / ".git").exists():
+                  subprocess.check_call(["git", "-C", str(path), "fetch", "--all", "--tags"])
+              elif not path.exists():
+                  path.parent.mkdir(parents=True, exist_ok=True)
+                  subprocess.check_call(["git", "clone", url, str(path)])
+              else:
+                  print(f"Skipping {path} (not a git repo)", file=sys.stderr)
+                  return
+              subprocess.check_call(["git", "-C", str(path), "checkout", rev])
+
+          for entry in pins:
+              ensure_repo(entry["path"], entry["url"], entry["rev"])
+          PY
+
+      - name: Clone and pin dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          with open("dependencies/dependency_pins.json", "r") as f:
+              pins = json.load(f)
+
+          def ensure_repo(path, url, rev):
+              path = Path(path)
+              if (path / ".git").exists():
+                  subprocess.check_call(["git", "-C", str(path), "fetch", "--all", "--tags"])
+              elif not path.exists():
+                  path.parent.mkdir(parents=True, exist_ok=True)
+                  subprocess.check_call(["git", "clone", url, str(path)])
+              else:
+                  print(f"Skipping {path} (not a git repo)", file=sys.stderr)
+                  return
+              subprocess.check_call(["git", "-C", str(path), "checkout", rev])
+
+          for entry in pins:
+              ensure_repo(entry["path"], entry["url"], entry["rev"])
+          PY
+
+      - name: Build dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          ./scripts/build_dependencies_linux.sh
+
+      - name: Build dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          ./scripts/build_dependencies_macos.sh
+
+      - name: Build dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          bash scripts/build_dependencies_windows.sh

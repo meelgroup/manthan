@@ -6,28 +6,55 @@ To read more about Manthan, have a look at [CAV-20 paper](https://priyanka-golia
 
 ## Requirements
 
-* Python 3+
+Manthan requires Python 3+ and a few external tools used during preprocessing and synthesis.
 
-Install the required libraries:
+Python dependencies:
 
 ```
 python -m pip install -r requirements.txt
 ```
-Manthan depends on:
-1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc)  for MaxSAT queries
-2. [PicoSAT](http://fmv.jku.at/picosat/) to compute unsat core. 
-3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) to create decision trees to learn candidates.  
-4. [ABC](https://github.com/berkeley-abc/abc) to represent and manipulate Boolean functions.
-5. [UNIQUE](https://github.com/perebor/unique) to extract the unique functions.
 
-Manthan uses the algorithmic routine proposed by [BFSS](https://github.com/Sumith1896/bfss) to do preprocessing. We used a [CryptoMiniSAT](https://github.com/msoos/cryptominisat) based framework to do the preprocessing.
+External dependencies:
+1. [Open-WBO](https://github.com/sbjoshi/Open-WBO-Inc) for MaxSAT queries.
+2. [PicoSAT](http://fmv.jku.at/picosat/) for UNSAT core computation.
+3. [Scikit-Learn](https://scikit-learn.org/stable/modules/tree.html) for decision-tree learning.
+4. [ABC](https://github.com/berkeley-abc/abc) for Boolean function manipulation.
+5. [UNIQUE](https://github.com/perebor/unique) for extracting unique functions.
+6. [BFSS](https://github.com/Sumith1896/bfss) preprocessing routine.
+7. [CryptoMiniSAT](https://github.com/msoos/cryptominisat) for preprocessing, used via a prebuilt binary.
 
-CryptoMiniSat is used via a prebuilt binary placed at `dependencies/cryptominisat5` (do not add it as a submodule). Download it from https://github.com/msoos/cryptominisat and verify the version:
+CryptoMiniSAT must be available at `dependencies/cryptominisat5` (do not add it as a submodule). Download it from the CryptoMiniSAT repo and verify the version:
+
 ```
 ./dependencies/cryptominisat5
 c CMS SHA1: 7a62ccb6d63ab835b091b51e8d155629db3e78d2
 c CryptoMiniSat version 5.13.0
 ```
+
+## Quick start
+
+To get all prebuilt binaries and the UNIQUE module in the right places:
+
+```
+python -m pip install -r requirements.txt
+./scripts/setup.sh
+```
+
+Windows (PowerShell):
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/setup.ps1
+```
+
+This downloads the latest release artifacts for your OS and extracts them into
+`dependencies/static_bin` and `dependencies/unique/build/interpolatingsolver/src`.
+If you want to build from source instead, run:
+
+```
+./scripts/setup.sh --build
+```
+
+On Windows, run the script from Git Bash or MSYS2.
 
 ## Dependency sources
 

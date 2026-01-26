@@ -1,0 +1,170 @@
+name: release-dependencies
+
+on:
+  push:
+    tags:
+      - "deps-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            slug: linux
+          - os: macos-latest
+            slug: macos
+          - os: windows-latest
+            slug: windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        if: matrix.os != 'windows-latest'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake git pkg-config libgmp-dev zlib1g-dev libreadline-dev
+
+      - name: Install system deps (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew update
+          brew install cmake gmp boost
+
+      - name: Setup MSYS2 (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gmp
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-readline
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-python-pip
+            git
+            make
+
+      - name: Install Python deps
+        if: matrix.os != 'windows-latest'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pybind11
+
+      - name: Install Python deps (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pybind11
+
+      - name: Clone and pin dependencies
+        if: matrix.os != 'windows-latest'
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          with open("dependencies/dependency_pins.json", "r") as f:
+              pins = json.load(f)
+
+          def ensure_repo(path, url, rev):
+              path = Path(path)
+              if (path / ".git").exists():
+                  subprocess.check_call(["git", "-C", str(path), "fetch", "--all", "--tags"])
+              elif not path.exists():
+                  path.parent.mkdir(parents=True, exist_ok=True)
+                  subprocess.check_call(["git", "clone", url, str(path)])
+              else:
+                  print(f"Skipping {path} (not a git repo)")
+                  return
+              subprocess.check_call(["git", "-C", str(path), "checkout", rev])
+
+          for entry in pins:
+              ensure_repo(entry["path"], entry["url"], entry["rev"])
+          PY
+
+      - name: Clone and pin dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          with open("dependencies/dependency_pins.json", "r") as f:
+              pins = json.load(f)
+
+          def ensure_repo(path, url, rev):
+              path = Path(path)
+              if (path / ".git").exists():
+                  subprocess.check_call(["git", "-C", str(path), "fetch", "--all", "--tags"])
+              elif not path.exists():
+                  path.parent.mkdir(parents=True, exist_ok=True)
+                  subprocess.check_call(["git", "clone", url, str(path)])
+              else:
+                  print(f"Skipping {path} (not a git repo)")
+                  return
+              subprocess.check_call(["git", "-C", str(path), "checkout", rev])
+
+          for entry in pins:
+              ensure_repo(entry["path"], entry["url"], entry["rev"])
+          PY
+
+      - name: Build dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          ./scripts/build_dependencies_linux.sh
+
+      - name: Build dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          ./scripts/build_dependencies_macos.sh
+
+      - name: Build dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          bash scripts/build_dependencies_windows.sh
+
+      - name: Package artifacts (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          tar -czf manthan-deps-${{ matrix.slug }}.tar.gz \
+            dependencies/static_bin \
+            dependencies/unique/build/interpolatingsolver/src
+
+      - name: Package artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          tar -czf manthan-deps-${{ matrix.slug }}.tar.gz \
+            dependencies/static_bin \
+            dependencies/unique/build/interpolatingsolver/src
+
+      - name: Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: manthan-deps-${{ matrix.slug }}.tar.gz
