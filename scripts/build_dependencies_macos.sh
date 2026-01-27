@@ -27,13 +27,15 @@ mkdir -p "$STATIC_DIR"
 echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
-  CC="$ABC_CC" CXX="$ABC_CXX" make libabc.a
+  ABC_CXXFLAGS="${ABC_CXXFLAGS:-} -Wno-narrowing"
+  ABC_CFLAGS="${ABC_CFLAGS:-} -Wno-narrowing"
+  CC="$ABC_CC" CXX="$ABC_CXX" CXXFLAGS="$ABC_CXXFLAGS" CFLAGS="$ABC_CFLAGS" make libabc.a
   if [ -f file_generation_cex.c ] && [ -f file_generation_cnf.c ] && [ -f file_write_verilog.c ]; then
-    "$ABC_CC" -Wall -g -c file_generation_cex.c -o file_generation_cex.o
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cex.c -o file_generation_cex.o
     "$ABC_CXX" -g -o file_generation_cex file_generation_cex.o libabc.a -lm -ldl -lreadline -lpthread
-    "$ABC_CC" -Wall -g -c file_generation_cnf.c -o file_generation_cnf.o
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cnf.c -o file_generation_cnf.o
     "$ABC_CXX" -g -o file_generation_cnf file_generation_cnf.o libabc.a -lm -ldl -lreadline -lpthread
-    "$ABC_CC" -Wall -g -c file_write_verilog.c -o file_write_verilog.o
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_write_verilog.c -o file_write_verilog.o
     "$ABC_CXX" -g -o file_write_verilog file_write_verilog.o libabc.a -lm -ldl -lreadline -lpthread
     cp file_generation_cex file_generation_cnf file_write_verilog "$STATIC_DIR/"
   else
