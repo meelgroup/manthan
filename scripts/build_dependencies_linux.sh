@@ -31,13 +31,17 @@ echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
   make libabc.a
-  gcc -Wall -g -c file_generation_cex.c -o file_generation_cex.o
-  g++ -g -o file_generation_cex file_generation_cex.o libabc.a -lm -ldl -lreadline -lpthread
-  gcc -Wall -g -c file_generation_cnf.c -o file_generation_cnf.o
-  g++ -g -o file_generation_cnf file_generation_cnf.o libabc.a -lm -ldl -lreadline -lpthread
-  gcc -Wall -g -c file_write_verilog.c -o file_write_verilog.o
-  g++ -g -o file_write_verilog file_write_verilog.o libabc.a -lm -ldl -lreadline -lpthread
-  cp file_generation_cex file_generation_cnf file_write_verilog "$STATIC_DIR/"
+  if [ -f file_generation_cex.c ] && [ -f file_generation_cnf.c ] && [ -f file_write_verilog.c ]; then
+    gcc -Wall -g -c file_generation_cex.c -o file_generation_cex.o
+    g++ -g -o file_generation_cex file_generation_cex.o libabc.a -lm -ldl -lreadline -lpthread
+    gcc -Wall -g -c file_generation_cnf.c -o file_generation_cnf.o
+    g++ -g -o file_generation_cnf file_generation_cnf.o libabc.a -lm -ldl -lreadline -lpthread
+    gcc -Wall -g -c file_write_verilog.c -o file_write_verilog.o
+    g++ -g -o file_write_verilog file_write_verilog.o libabc.a -lm -ldl -lreadline -lpthread
+    cp file_generation_cex file_generation_cnf file_write_verilog "$STATIC_DIR/"
+  else
+    echo "c skipping abc helpers (file_generation_*.c not found)"
+  fi
 )
 
 echo "c building cmsgen"
@@ -120,10 +124,16 @@ echo "c building preprocess"
   echo "c building cryptominisat (static)"
   (
     cd "$DEPS_DIR/manthan-preprocess/cryptominisat"
+    if grep -q "#include <immintrin.h>" src/occsimplifier.cpp && ! grep -q "__x86_64__" src/occsimplifier.cpp; then
+      perl -0pi -e 's/#include <immintrin.h>/#if defined(__x86_64__) || defined(__i386__)\n#include <immintrin.h>\n#endif/' src/occsimplifier.cpp
+    fi
+    if grep -q "#include <immintrin.h>" src/packedmatrix.h && ! grep -q "__x86_64__" src/packedmatrix.h; then
+      perl -0pi -e 's/#include <immintrin.h>/#if defined(__x86_64__) || defined(__i386__)\n#include <immintrin.h>\n#endif/' src/packedmatrix.h
+    fi
     rm -rf build
     mkdir -p build
     cd build
-    cmake .. -DBUILD_SHARED_LIBS=OFF -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS=
+    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     make -j8
   )
   echo "c building louvain-community (static)"
@@ -132,12 +142,12 @@ echo "c building preprocess"
     rm -rf build
     mkdir -p build
     cd build
-    cmake .. -DBUILD_SHARED_LIBS=OFF
+    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     make -j8
   )
   mkdir -p build
   cd build
-  cmake .. -DSTATICCOMPILE=ON \
+  cmake .. -DSTATICCOMPILE=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -Dcryptominisat5_DIR="$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
     -Dlouvain_communities_DIR="$DEPS_DIR/manthan-preprocess/louvain-community/build"
   make -j8

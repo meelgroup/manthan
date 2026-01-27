@@ -31,16 +31,20 @@ checkout_pin() {
     git -C "$path" remote set-url origin "$url" || true
     git -C "$path" fetch --all --tags || true
     git -C "$path" checkout "$rev"
-    git -C "$path" submodule update --init --recursive || true
+    git -C "$path" submodule update --init --recursive
     return
   fi
   if [ -e "$path" ]; then
-    echo "Skipping $path (exists but is not a git repo)"
-    return
+    if [ -d "$path" ] && [ -z "$(ls -A "$path")" ]; then
+      rmdir "$path"
+    else
+      echo "Skipping $path (exists but is not a git repo)"
+      return
+    fi
   fi
   git clone "$url" "$path"
   git -C "$path" checkout "$rev"
-  git -C "$path" submodule update --init --recursive || true
+  git -C "$path" submodule update --init --recursive
 }
 
 if [ -f "$ROOT_DIR/.gitmodules" ]; then
