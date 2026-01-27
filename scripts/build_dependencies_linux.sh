@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPS_DIR="$ROOT_DIR/dependencies"
 STATIC_DIR="$DEPS_DIR/static_bin"
+export CC=g++
+export CXX=g++
 
 if ! command -v cmake >/dev/null 2>&1; then
   echo "cmake is required (sudo apt-get install cmake)"
