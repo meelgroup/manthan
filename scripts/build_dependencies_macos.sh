@@ -8,6 +8,36 @@ ABC_CC=g++
 ABC_CXX=g++
 UNIQUE_GIT_REV="13b5aada772a5741ac689b6bd9d44d9e43b91954"
 
+pin_unique_submodules() {
+  python3 - <<'PY'
+import json
+import os
+import subprocess
+
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+pins_path = os.path.join(root_dir, "dependencies", "dependency_pins.json")
+unique_dir = os.path.join(root_dir, "dependencies", "unique")
+
+with open(pins_path, "r", encoding="utf-8") as f:
+    pins = json.load(f)
+
+for entry in pins:
+    path = os.path.join(root_dir, entry["path"])
+    if not path.startswith(unique_dir + os.sep):
+        continue
+    rel = os.path.relpath(path, unique_dir)
+    url = entry["url"]
+    rev = entry["rev"]
+    subprocess.run(["git", "-C", unique_dir, "submodule", "set-url", rel, url], check=False)
+    if os.path.isdir(path) and os.path.isdir(os.path.join(path, ".git")):
+        subprocess.run(["git", "-C", path, "fetch", "--all", "--tags"], check=False)
+        subprocess.run(["git", "-C", path, "checkout", rev], check=True)
+    else:
+        subprocess.run(["git", "-C", unique_dir, "submodule", "update", "--init", rel], check=True)
+        subprocess.run(["git", "-C", path, "checkout", rev], check=True)
+PY
+}
+
 if ! command -v cmake >/dev/null 2>&1; then
   echo "cmake is required (brew install cmake)"
   exit 1
@@ -31,6 +61,9 @@ echo "c building unique (itp)"
   if command -v git >/dev/null 2>&1 && [ -e .git ]; then
     git fetch --all --tags || true
     git checkout "$UNIQUE_GIT_REV"
+  fi
+  if command -v git >/dev/null 2>&1 && [ -f "$ROOT_DIR/dependencies/dependency_pins.json" ]; then
+    pin_unique_submodules
   fi
   if command -v git >/dev/null 2>&1 && [ -f .gitmodules ]; then
     git submodule update --init --recursive
