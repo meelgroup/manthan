@@ -27,22 +27,11 @@ checkout_pin() {
   local path="$1"
   local url="$2"
   local rev="$3"
-  local unique_root="$ROOT_DIR/dependencies/unique"
-  local unique_prefix="$unique_root/"
-  local is_unique_subpath="false"
-  if [[ "$path" == "$unique_prefix"* ]]; then
-    is_unique_subpath="true"
-  fi
   if [ -e "$path/.git" ]; then
     git -C "$path" remote set-url origin "$url" || true
     git -C "$path" fetch --all --tags || true
     git -C "$path" checkout "$rev"
-    if [ "$path" != "$unique_root" ] && [ "$is_unique_subpath" != "true" ]; then
-      git -C "$path" submodule update --init --recursive
-    fi
-    if [ "$path" = "$unique_root" ]; then
-      git -C "$path" submodule update --init --recursive
-    fi
+    git -C "$path" submodule update --init --recursive
     return
   fi
   if [ -e "$path" ]; then
@@ -55,12 +44,7 @@ checkout_pin() {
   fi
   git clone "$url" "$path"
   git -C "$path" checkout "$rev"
-  if [ "$path" != "$unique_root" ] && [ "$is_unique_subpath" != "true" ]; then
-    git -C "$path" submodule update --init --recursive
-  fi
-  if [ "$path" = "$unique_root" ]; then
-    git -C "$path" submodule update --init --recursive
-  fi
+  git -C "$path" submodule update --init --recursive
 }
 
 if [ -f "$ROOT_DIR/.gitmodules" ]; then
