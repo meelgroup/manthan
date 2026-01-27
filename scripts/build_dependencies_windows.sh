@@ -147,8 +147,6 @@ PY
   if [ -n "$PYTHON_EXT" ]; then
     UNIQUE_CMAKE_FLAGS+=("-DPYTHON_MODULE_EXTENSION=$PYTHON_EXT")
   fi
-  perl -0pi -e 's/Dec_Edge_t eEdge = \\{\\s*fCompl,\\s*Node\\s*\\};/Dec_Edge_t eEdge = { (unsigned)fCompl, (unsigned)Node };/g' "$DEPS_DIR/unique/abc/src/bool/dec/dec.h"
-  perl -0pi -e 's/static int s_1kPrimes/static unsigned int s_1kPrimes/g' "$DEPS_DIR/unique/abc/src/aig/saig/saigIsoSlow.c"
   rm -rf build
   mkdir -p build
   cd build
@@ -162,12 +160,6 @@ echo "c building preprocess"
   echo "c building cryptominisat (static)"
   (
     cd "$DEPS_DIR/manthan-preprocess/cryptominisat"
-    if grep -q "#include <immintrin.h>" src/occsimplifier.cpp && ! grep -q "__x86_64__" src/occsimplifier.cpp; then
-      perl -0pi -e 's/#include <immintrin.h>/#if defined(__x86_64__) || defined(__i386__)\n#include <immintrin.h>\n#endif/' src/occsimplifier.cpp
-    fi
-    if grep -q "#include <immintrin.h>" src/packedmatrix.h && ! grep -q "__x86_64__" src/packedmatrix.h; then
-      perl -0pi -e 's/#include <immintrin.h>/#if defined(__x86_64__) || defined(__i386__)\n#include <immintrin.h>\n#endif/' src/packedmatrix.h
-    fi
     rm -rf build
     mkdir -p build
     cd build
