@@ -6,6 +6,7 @@ DEPS_DIR="$ROOT_DIR/dependencies"
 STATIC_DIR="$DEPS_DIR/static_bin"
 ABC_CC=g++
 ABC_CXX=g++
+UNIQUE_GIT_REV="13b5aada772a5741ac689b6bd9d44d9e43b91954"
 
 if ! command -v cmake >/dev/null 2>&1; then
   echo "cmake is required (brew install cmake)"
@@ -27,6 +28,10 @@ mkdir -p "$STATIC_DIR"
 echo "c building unique (itp)"
 (
   cd "$DEPS_DIR/unique"
+  if command -v git >/dev/null 2>&1 && [ -e .git ]; then
+    git fetch --all --tags || true
+    git checkout "$UNIQUE_GIT_REV"
+  fi
   if command -v git >/dev/null 2>&1 && [ -f .gitmodules ]; then
     git submodule update --init --recursive
   fi
@@ -77,14 +82,12 @@ PY
     UNIQUE_CMAKE_FLAGS+=("-DPYTHON_MODULE_EXTENSION=.${PYTHON_SOABI}.so")
   fi
   rm -rf build
-  mkdir -p build
-  cd build
-  cmake .. "${UNIQUE_CMAKE_FLAGS[@]}"
+  cmake -S . -B build "${UNIQUE_CMAKE_FLAGS[@]}"
   UNIQUE_BUILD_TARGET=unique
   if [ -n "$PYBIND11_DIR" ]; then
     UNIQUE_BUILD_TARGET=itp
   fi
-  cmake --build . --target "$UNIQUE_BUILD_TARGET" -- -j8
+  cmake --build build --target "$UNIQUE_BUILD_TARGET" -- -j2
 )
 
 echo "c building abc helpers"

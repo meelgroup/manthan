@@ -22,7 +22,7 @@
   {
     "path": "dependencies/unique",
     "url": "https://github.com/meelgroup/unique.git",
-    "rev": "c53d79f62514923c4e09559aacf075783e8d76ad"
+    "rev": "13b5aada772a5741ac689b6bd9d44d9e43b91954"
   },
   {
     "path": "dependencies/unique/abc",
