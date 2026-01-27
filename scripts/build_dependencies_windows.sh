@@ -28,62 +28,18 @@ copy_bin() {
   fi
 }
 
-echo "c building abc helpers"
-(
-  cd "$DEPS_DIR/abc"
-  ABC_CXXFLAGS="${ABC_CXXFLAGS:-} -Wno-narrowing"
-  ABC_CFLAGS="${ABC_CFLAGS:-} -DABC_USE_STDINT -Wno-narrowing"
-  CC="$ABC_CC" CXX="$ABC_CXX" CXXFLAGS="$ABC_CXXFLAGS" CFLAGS="$ABC_CFLAGS" make libabc.a
-  if [ -f file_generation_cex.c ] && [ -f file_generation_cnf.c ] && [ -f file_write_verilog.c ]; then
-    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cex.c -o file_generation_cex.o
-    "$ABC_CXX" -g $ABC_CFLAGS -o file_generation_cex file_generation_cex.o libabc.a -lm -lreadline -lpthread
-    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cnf.c -o file_generation_cnf.o
-    "$ABC_CXX" -g $ABC_CFLAGS -o file_generation_cnf file_generation_cnf.o libabc.a -lm -lreadline -lpthread
-    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_write_verilog.c -o file_write_verilog.o
-    "$ABC_CXX" -g $ABC_CFLAGS -o file_write_verilog file_write_verilog.o libabc.a -lm -lreadline -lpthread
-    copy_bin file_generation_cex
-    copy_bin file_generation_cnf
-    copy_bin file_write_verilog
-  else
-    echo "c skipping abc helpers (file_generation_*.c not found)"
-  fi
-)
-
-echo "c building cmsgen"
-(
-  cd "$DEPS_DIR/cmsgen"
-  mkdir -p build
-  cd build
-  CC=cc CXX=c++ cmake ..
-  cmake --build . -- -j8
-  copy_bin cmsgen
-)
-
-echo "c building picosat"
-(
-  cd "$DEPS_DIR/picosat-src"
-  ./configure.sh
-  make -j8
-  copy_bin picosat
-)
-
-echo "c building open-wbo"
-(
-  cd "$DEPS_DIR/open-wbo"
-  make clean || true
-  make -j8 \
-    CFLAGS="-O3 -Wall -Wno-parentheses -std=c++11 -DNSPACE=Glucose -DSOLVERNAME=\\\"Glucose4.1\\\" -DVERSION=core -I$DEPS_DIR/open-wbo/solvers/glucose4.1" \
-    LFLAGS="-lgmpxx -lgmp -lz"
-  copy_bin open-wbo
-)
-
 echo "c building unique (itp)"
 (
   cd "$DEPS_DIR/unique"
+  if command -v git >/dev/null 2>&1 && [ -f .gitmodules ]; then
+    git submodule update --init --recursive
+  fi
   python3 - <<'PY'
 from pathlib import Path
 
 path = Path("avy/src/CMakeLists.txt")
+if not path.exists():
+    raise SystemExit("avy/src/CMakeLists.txt not found; did you init/update submodules?")
 text = path.read_text()
 marker = "add_library (AbcCpp"
 link_line = "target_link_libraries(AbcCpp ${ABC_LIBRARY} ClauseItpSeq AvyDebug ${MINISAT_LIBRARY})"
@@ -103,6 +59,8 @@ PY
 from pathlib import Path
 
 path = Path("abc/cmake/PackageOptions.cmake")
+if not path.exists():
+    raise SystemExit("abc/cmake/PackageOptions.cmake not found; did you init/update submodules?")
 text = path.read_text()
 old = """if (${CMAKE_SIZEOF_VOID_P} STREQUAL "8")
   message (STATUS "Architecture: LIN64")
@@ -154,7 +112,60 @@ PY
   mkdir -p build
   cd build
   cmake .. "${UNIQUE_CMAKE_FLAGS[@]}"
-  cmake --build . --target itp -- -j8
+  UNIQUE_BUILD_TARGET=unique
+  if [ -n "$PYBIND11_DIR" ]; then
+    UNIQUE_BUILD_TARGET=itp
+  fi
+  cmake --build . --target "$UNIQUE_BUILD_TARGET" -- -j8
+)
+
+echo "c building abc helpers"
+(
+  cd "$DEPS_DIR/abc"
+  ABC_CXXFLAGS="${ABC_CXXFLAGS:-} -Wno-narrowing"
+  ABC_CFLAGS="${ABC_CFLAGS:-} -DABC_USE_STDINT -Wno-narrowing"
+  CC="$ABC_CC" CXX="$ABC_CXX" CXXFLAGS="$ABC_CXXFLAGS" CFLAGS="$ABC_CFLAGS" make libabc.a
+  if [ -f file_generation_cex.c ] && [ -f file_generation_cnf.c ] && [ -f file_write_verilog.c ]; then
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cex.c -o file_generation_cex.o
+    "$ABC_CXX" -g $ABC_CFLAGS -o file_generation_cex file_generation_cex.o libabc.a -lm -lreadline -lpthread
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cnf.c -o file_generation_cnf.o
+    "$ABC_CXX" -g $ABC_CFLAGS -o file_generation_cnf file_generation_cnf.o libabc.a -lm -lreadline -lpthread
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_write_verilog.c -o file_write_verilog.o
+    "$ABC_CXX" -g $ABC_CFLAGS -o file_write_verilog file_write_verilog.o libabc.a -lm -lreadline -lpthread
+    copy_bin file_generation_cex
+    copy_bin file_generation_cnf
+    copy_bin file_write_verilog
+  else
+    echo "c skipping abc helpers (file_generation_*.c not found)"
+  fi
+)
+
+echo "c building cmsgen"
+(
+  cd "$DEPS_DIR/cmsgen"
+  mkdir -p build
+  cd build
+  CC=cc CXX=c++ cmake ..
+  cmake --build . -- -j8
+  copy_bin cmsgen
+)
+
+echo "c building picosat"
+(
+  cd "$DEPS_DIR/picosat-src"
+  ./configure.sh
+  make -j8
+  copy_bin picosat
+)
+
+echo "c building open-wbo"
+(
+  cd "$DEPS_DIR/open-wbo"
+  make clean || true
+  make -j8 \
+    CFLAGS="-O3 -Wall -Wno-parentheses -std=c++11 -DNSPACE=Glucose -DSOLVERNAME=\\\"Glucose4.1\\\" -DVERSION=core -I$DEPS_DIR/open-wbo/solvers/glucose4.1" \
+    LFLAGS="-lgmpxx -lgmp -lz"
+  copy_bin open-wbo
 )
 
 echo "c building preprocess"

@@ -24,6 +24,69 @@ export LIBRARY_PATH="$GMP_PREFIX/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
 
 mkdir -p "$STATIC_DIR"
 
+echo "c building unique (itp)"
+(
+  cd "$DEPS_DIR/unique"
+  if command -v git >/dev/null 2>&1 && [ -f .gitmodules ]; then
+    git submodule update --init --recursive
+  fi
+  python3 - <<'PY'
+from pathlib import Path
+
+path = Path("avy/src/CMakeLists.txt")
+if not path.exists():
+    raise SystemExit("avy/src/CMakeLists.txt not found; did you init/update submodules?")
+text = path.read_text()
+marker = "add_library (AbcCpp"
+link_line = "target_link_libraries(AbcCpp ${ABC_LIBRARY} ClauseItpSeq AvyDebug ${MINISAT_LIBRARY})"
+if link_line not in text and marker in text:
+    lines = text.splitlines()
+    out = []
+    inserted = False
+    for line in lines:
+        out.append(line)
+        if line.strip().startswith(marker):
+            out.append(link_line)
+            inserted = True
+    if inserted:
+        path.write_text("\n".join(out) + "\n")
+PY
+  if [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
+    PYTHON_BIN="$VIRTUAL_ENV/bin/python"
+  else
+    PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
+  fi
+  PYTHON_SOABI="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("SOABI") or "")')"
+  PYBIND11_DIR="$("$PYTHON_BIN" -m pybind11 --cmakedir 2>/dev/null || true)"
+  BOOST_PREFIX="$(brew --prefix boost 2>/dev/null || true)"
+  UNIQUE_CMAKE_FLAGS=(
+    -DABC_FORCE_CXX=ON
+    -DABC_NAMESPACE=abc
+    -DPYBIND11_FINDPYTHON=ON
+    "-DPython_EXECUTABLE=$PYTHON_BIN"
+    -DCMAKE_CXX_STANDARD=14
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+  )
+  if [ -n "$PYBIND11_DIR" ]; then
+    UNIQUE_CMAKE_FLAGS+=("-Dpybind11_DIR=$PYBIND11_DIR")
+  fi
+  if [ -n "$BOOST_PREFIX" ]; then
+    UNIQUE_CMAKE_FLAGS+=("-DBoost_ROOT=$BOOST_PREFIX" "-DCMAKE_CXX_FLAGS=-I$BOOST_PREFIX/include")
+  fi
+  if [ -n "$PYTHON_SOABI" ]; then
+    UNIQUE_CMAKE_FLAGS+=("-DPYTHON_MODULE_EXTENSION=.${PYTHON_SOABI}.so")
+  fi
+  rm -rf build
+  mkdir -p build
+  cd build
+  cmake .. "${UNIQUE_CMAKE_FLAGS[@]}"
+  UNIQUE_BUILD_TARGET=unique
+  if [ -n "$PYBIND11_DIR" ]; then
+    UNIQUE_BUILD_TARGET=itp
+  fi
+  cmake --build . --target "$UNIQUE_BUILD_TARGET" -- -j8
+)
+
 echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
@@ -70,60 +133,6 @@ echo "c building open-wbo"
     CXXFLAGS="-O3 -Wall -Wno-parentheses -std=c++11 -DNSPACE=Glucose -DSOLVERNAME=\\\"Glucose4.1\\\" -DVERSION=core -I$DEPS_DIR/open-wbo/solvers/glucose4.1 -I$GMP_PREFIX/include" \
     LFLAGS="-lgmpxx -lgmp -L$GMP_PREFIX/lib -lz"
   cp open-wbo "$STATIC_DIR/open-wbo"
-)
-
-echo "c building unique (itp)"
-(
-  cd "$DEPS_DIR/unique"
-  python3 - <<'PY'
-from pathlib import Path
-
-path = Path("avy/src/CMakeLists.txt")
-text = path.read_text()
-marker = "add_library (AbcCpp"
-link_line = "target_link_libraries(AbcCpp ${ABC_LIBRARY} ClauseItpSeq AvyDebug ${MINISAT_LIBRARY})"
-if link_line not in text and marker in text:
-    lines = text.splitlines()
-    out = []
-    inserted = False
-    for line in lines:
-        out.append(line)
-        if line.strip().startswith(marker):
-            out.append(link_line)
-            inserted = True
-    if inserted:
-        path.write_text("\n".join(out) + "\n")
-PY
-  if [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
-    PYTHON_BIN="$VIRTUAL_ENV/bin/python"
-  else
-    PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
-  fi
-  PYTHON_SOABI="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("SOABI") or "")')"
-  PYBIND11_DIR="$("$PYTHON_BIN" -m pybind11 --cmakedir 2>/dev/null || true)"
-  BOOST_PREFIX="$(brew --prefix boost 2>/dev/null || true)"
-  UNIQUE_CMAKE_FLAGS=(
-    -DABC_FORCE_CXX=ON
-    -DABC_NAMESPACE=abc
-    -DPYBIND11_FINDPYTHON=ON
-    "-DPython_EXECUTABLE=$PYTHON_BIN"
-    -DCMAKE_CXX_STANDARD=14
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-  )
-  if [ -n "$PYBIND11_DIR" ]; then
-    UNIQUE_CMAKE_FLAGS+=("-Dpybind11_DIR=$PYBIND11_DIR")
-  fi
-  if [ -n "$BOOST_PREFIX" ]; then
-    UNIQUE_CMAKE_FLAGS+=("-DBoost_ROOT=$BOOST_PREFIX" "-DCMAKE_CXX_FLAGS=-I$BOOST_PREFIX/include")
-  fi
-  if [ -n "$PYTHON_SOABI" ]; then
-    UNIQUE_CMAKE_FLAGS+=("-DPYTHON_MODULE_EXTENSION=.${PYTHON_SOABI}.so")
-  fi
-  rm -rf build
-  mkdir -p build
-  cd build
-  cmake .. "${UNIQUE_CMAKE_FLAGS[@]}"
-  cmake --build . --target itp -- -j8
 )
 
 echo "c building preprocess"
