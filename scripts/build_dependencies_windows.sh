@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEPS_DIR="$ROOT_DIR/dependencies"
 STATIC_DIR="$DEPS_DIR/static_bin"
-export CC=g++
-export CXX=g++
+ABC_CC=g++
+ABC_CXX=g++
 
 if ! command -v cmake >/dev/null 2>&1; then
   echo "cmake is required (pacman -S mingw-w64-x86_64-cmake)"
@@ -32,14 +32,14 @@ echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
   ABC_CFLAGS="-DABC_USE_STDINT"
-  make libabc.a CFLAGS="$ABC_CFLAGS"
+  CC="$ABC_CC" CXX="$ABC_CXX" make libabc.a CFLAGS="$ABC_CFLAGS"
   if [ -f file_generation_cex.c ] && [ -f file_generation_cnf.c ] && [ -f file_write_verilog.c ]; then
-    gcc -Wall -g $ABC_CFLAGS -c file_generation_cex.c -o file_generation_cex.o
-    g++ -g $ABC_CFLAGS -o file_generation_cex file_generation_cex.o libabc.a -lm -lreadline -lpthread
-    gcc -Wall -g $ABC_CFLAGS -c file_generation_cnf.c -o file_generation_cnf.o
-    g++ -g $ABC_CFLAGS -o file_generation_cnf file_generation_cnf.o libabc.a -lm -lreadline -lpthread
-    gcc -Wall -g $ABC_CFLAGS -c file_write_verilog.c -o file_write_verilog.o
-    g++ -g $ABC_CFLAGS -o file_write_verilog file_write_verilog.o libabc.a -lm -lreadline -lpthread
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cex.c -o file_generation_cex.o
+    "$ABC_CXX" -g $ABC_CFLAGS -o file_generation_cex file_generation_cex.o libabc.a -lm -lreadline -lpthread
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cnf.c -o file_generation_cnf.o
+    "$ABC_CXX" -g $ABC_CFLAGS -o file_generation_cnf file_generation_cnf.o libabc.a -lm -lreadline -lpthread
+    "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_write_verilog.c -o file_write_verilog.o
+    "$ABC_CXX" -g $ABC_CFLAGS -o file_write_verilog file_write_verilog.o libabc.a -lm -lreadline -lpthread
     copy_bin file_generation_cex
     copy_bin file_generation_cnf
     copy_bin file_write_verilog
@@ -53,7 +53,7 @@ echo "c building cmsgen"
   cd "$DEPS_DIR/cmsgen"
   mkdir -p build
   cd build
-  cmake ..
+  CC=cc CXX=c++ cmake ..
   cmake --build . -- -j8
   copy_bin cmsgen
 )
