@@ -6,37 +6,7 @@ DEPS_DIR="$ROOT_DIR/dependencies"
 STATIC_DIR="$DEPS_DIR/static_bin"
 ABC_CC=g++
 ABC_CXX=g++
-UNIQUE_GIT_REV="13b5aada772a5741ac689b6bd9d44d9e43b91954"
-
-pin_unique_submodules() {
-  python3 - <<'PY'
-import json
-import os
-import subprocess
-
-root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-pins_path = os.path.join(root_dir, "dependencies", "dependency_pins.json")
-unique_dir = os.path.join(root_dir, "dependencies", "unique")
-
-with open(pins_path, "r", encoding="utf-8") as f:
-    pins = json.load(f)
-
-for entry in pins:
-    path = os.path.join(root_dir, entry["path"])
-    if not path.startswith(unique_dir + os.sep):
-        continue
-    rel = os.path.relpath(path, unique_dir)
-    url = entry["url"]
-    rev = entry["rev"]
-    subprocess.run(["git", "-C", unique_dir, "submodule", "set-url", rel, url], check=False)
-    if os.path.isdir(path) and os.path.isdir(os.path.join(path, ".git")):
-        subprocess.run(["git", "-C", path, "fetch", "--all", "--tags"], check=False)
-        subprocess.run(["git", "-C", path, "checkout", rev], check=True)
-    else:
-        subprocess.run(["git", "-C", unique_dir, "submodule", "update", "--init", rel], check=True)
-        subprocess.run(["git", "-C", path, "checkout", rev], check=True)
-PY
-}
+UNIQUE_GIT_REV=""
 
 if ! command -v cmake >/dev/null 2>&1; then
   echo "cmake is required (sudo apt-get install cmake)"
@@ -63,37 +33,24 @@ mkdir -p "$STATIC_DIR"
 echo "c building unique (itp)"
 (
   cd "$DEPS_DIR/unique"
+  if [ -z "$UNIQUE_GIT_REV" ] && [ -f "$DEPS_DIR/dependency_pins.json" ]; then
+    UNIQUE_GIT_REV="$(python3 - <<'PY'
+import json
+with open("dependencies/dependency_pins.json", "r") as f:
+    pins = json.load(f)
+for entry in pins:
+    if entry.get("path") == "dependencies/unique":
+        print(entry.get("rev", ""))
+        break
+PY
+)"
+  fi
   if command -v git >/dev/null 2>&1 && [ -e .git ]; then
     git fetch --all --tags || true
-    git checkout "$UNIQUE_GIT_REV"
+    if [ -n "$UNIQUE_GIT_REV" ]; then
+      git checkout "$UNIQUE_GIT_REV"
+    fi
   fi
-  if command -v git >/dev/null 2>&1 && [ -f "$ROOT_DIR/dependencies/dependency_pins.json" ]; then
-    pin_unique_submodules
-  fi
-  if command -v git >/dev/null 2>&1 && [ -f .gitmodules ]; then
-    git submodule update --init --recursive
-  fi
-  python3 - <<'PY'
-from pathlib import Path
-
-path = Path("avy/src/CMakeLists.txt")
-if not path.exists():
-    raise SystemExit("avy/src/CMakeLists.txt not found; did you init/update submodules?")
-text = path.read_text()
-marker = "add_library (AbcCpp"
-link_line = "target_link_libraries(AbcCpp ${ABC_LIBRARY} ClauseItpSeq AvyDebug ${MINISAT_LIBRARY})"
-if link_line not in text and marker in text:
-    lines = text.splitlines()
-    out = []
-    inserted = False
-    for line in lines:
-        out.append(line)
-        if line.strip().startswith(marker):
-            out.append(link_line)
-            inserted = True
-    if inserted:
-        path.write_text("\n".join(out) + "\n")
-PY
   PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
   PYTHON_SOABI="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("SOABI") or "")')"
   PYBIND11_DIR="$(python3 -m pybind11 --cmakedir 2>/dev/null || true)"
