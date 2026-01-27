@@ -116,6 +116,7 @@ PY
     UNIQUE_CMAKE_FLAGS+=("-DPYTHON_MODULE_EXTENSION=.${PYTHON_SOABI}.so")
   fi
   perl -0pi -e 's/Dec_Edge_t eEdge = \\{\\s*fCompl,\\s*Node\\s*\\};/Dec_Edge_t eEdge = { (unsigned)fCompl, (unsigned)Node };/g' "$DEPS_DIR/unique/abc/src/bool/dec/dec.h"
+  perl -0pi -e 's/static int s_1kPrimes/static unsigned int s_1kPrimes/g' "$DEPS_DIR/unique/abc/src/aig/saig/saigIsoSlow.c"
   rm -rf build
   mkdir -p build
   cd build
