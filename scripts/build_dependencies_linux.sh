@@ -34,16 +34,20 @@ echo "c building unique (itp)"
 (
   cd "$DEPS_DIR/unique"
   if [ -z "$UNIQUE_GIT_REV" ] && [ -f "$DEPS_DIR/dependency_pins.json" ]; then
-    UNIQUE_GIT_REV="$(python3 - <<'PY'
+    UNIQUE_GIT_REV="$(
+      DEPS_DIR="$DEPS_DIR" python3 - <<'PY'
 import json
-with open("dependencies/dependency_pins.json", "r") as f:
+import os
+
+pins_path = os.path.join(os.environ["DEPS_DIR"], "dependency_pins.json")
+with open(pins_path, "r") as f:
     pins = json.load(f)
 for entry in pins:
     if entry.get("path") == "dependencies/unique":
         print(entry.get("rev", ""))
         break
 PY
-)"
+    )"
   fi
   if command -v git >/dev/null 2>&1 && [ -e .git ]; then
     git fetch --all --tags || true
