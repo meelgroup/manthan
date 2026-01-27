@@ -31,8 +31,9 @@ copy_bin() {
 echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
-  ABC_CFLAGS="-DABC_USE_STDINT"
-  CC="$ABC_CC" CXX="$ABC_CXX" make libabc.a CFLAGS="$ABC_CFLAGS"
+  ABC_CXXFLAGS="${ABC_CXXFLAGS:-} -Wno-narrowing"
+  ABC_CFLAGS="${ABC_CFLAGS:-} -DABC_USE_STDINT -Wno-narrowing"
+  CC="$ABC_CC" CXX="$ABC_CXX" CXXFLAGS="$ABC_CXXFLAGS" CFLAGS="$ABC_CFLAGS" make libabc.a
   if [ -f file_generation_cex.c ] && [ -f file_generation_cnf.c ] && [ -f file_write_verilog.c ]; then
     "$ABC_CC" -Wall -g $ABC_CFLAGS -c file_generation_cex.c -o file_generation_cex.o
     "$ABC_CXX" -g $ABC_CFLAGS -o file_generation_cex file_generation_cex.o libabc.a -lm -lreadline -lpthread
