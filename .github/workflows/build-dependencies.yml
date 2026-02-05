@@ -106,6 +106,8 @@ jobs:
                   print(f"Skipping {path} (not a git repo)", file=sys.stderr)
                   return
               subprocess.check_call(["git", "-C", str(path), "checkout", rev])
+              if str(path) == "dependencies/unique":
+                  subprocess.check_call(["git", "-C", str(path), "submodule", "update", "--init", "--recursive"])
 
           for entry in pins:
               ensure_repo(entry["path"], entry["url"], entry["rev"])
@@ -136,6 +138,8 @@ jobs:
                   print(f"Skipping {path} (not a git repo)", file=sys.stderr)
                   return
               subprocess.check_call(["git", "-C", str(path), "checkout", rev])
+              if str(path) == "dependencies/unique":
+                  subprocess.check_call(["git", "-C", str(path), "submodule", "update", "--init", "--recursive"])
 
           for entry in pins:
               ensure_repo(entry["path"], entry["url"], entry["rev"])
