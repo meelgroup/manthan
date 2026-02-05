@@ -36,8 +36,17 @@ On Windows, run the build from Git Bash or MSYS2.
 ## Usage
 
 ```bash
-python manthan.py --preprocess --unique --multiclass --lexmaxsat <qdimacs input> 
+python manthan.py <qdimacs input>
 ```
+
+To disable any of these flags, pass `0`:
+
+```bash
+python manthan.py --preprocess=0 --unique=0 --multiclass=0 --lexmaxsat=0 <qdimacs input>
+```
+
+Each of these options defaults to `1`, and specifying the flag without a value
+still enables it (e.g., `--preprocess` is the same as `--preprocess=1`).
 
 ## Skolem checker
 

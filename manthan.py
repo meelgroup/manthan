@@ -81,7 +81,7 @@ def manthan():
     cnfcontent = convertcnf(args.input, cnffile_name)
     cnfcontent = cnfcontent.strip("\n")+"\n"
 
-    if args.preprocess:
+    if args.preprocess == 1:
         print("c [manthan] preprocessing: finding unates (constant functions)")
         start_t = time.time()
         if len(Yvar) < 20000:
@@ -114,7 +114,7 @@ def manthan():
         Unates = []
         PosUnate = []
         NegUnate = []
-        print("c [manthan] preprocessing is disabled. To do preprocessing, please use --preprocess")
+        print("c [manthan] preprocessing is disabled. To do preprocessing, please use --preprocess=1")
 
     if len(Unates) == len(Yvar):
         print("c [manthan] positive unates", PosUnate)
@@ -128,7 +128,7 @@ def manthan():
 
     dg = nx.DiGraph()  # dag to handle dependencies
 
-    if args.unique:
+    if args.unique == 1:
         print("c [manthan] finding uniquely defined functions")
         start_t = time.time()
         UniqueVars, UniqueDef = unique_function(
@@ -148,7 +148,7 @@ def manthan():
     if len(Unates) + len(UniqueVars) == len(Yvar):
         print("c [manthan] all Y variables are either unate or unique")
         print("c [manthan] found functions for all Y variables")
-        if args.preprocess:
+        if args.preprocess == 1:
             skolemfunction_preprocess(
                 Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, inputfile_name)
         else:
@@ -160,7 +160,7 @@ def manthan():
 
     # we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
     print("c [manthan] parsing and converting to verilog")
-    verilogformula, dg, ng = convert_verilog(args.input, args.multiclass, dg)
+    verilogformula, dg, ng = convert_verilog(args.input, args.multiclass == 1, dg)
 
     start_t = time.time()
 
@@ -266,7 +266,7 @@ def manthan():
                 print("c [manthan] variables undergoing refinement", ind)
 
             lexflag, repairfunctions = repair(
-                repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, args.lexmaxsat)
+                repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, args.lexmaxsat == 1)
 
             if lexflag:
                 print("c [manthan] calling rc2 to find another set of candidates to repair")
@@ -310,14 +310,46 @@ if __name__ == "__main__":
                         help="To see the decision trees: 1; default 0", dest='showtrees')
     parser.add_argument('--maxsamples', type=int,
                         help="samples used to learn", dest='maxsamples')
-    parser.add_argument("--preprocess", action='store_true')
-    parser.add_argument("--multiclass", action='store_true')
+    parser.add_argument(
+        "--preprocess",
+        nargs="?",
+        const=1,
+        default=1,
+        type=int,
+        choices=[0, 1],
+        help="enable preprocess: 1; disable: 0; default 1",
+    )
+    parser.add_argument(
+        "--multiclass",
+        nargs="?",
+        const=1,
+        default=1,
+        type=int,
+        choices=[0, 1],
+        help="enable multiclass: 1; disable: 0; default 1",
+    )
     parser.add_argument("--weightedmaxsat", action='store_true')
-    parser.add_argument("--lexmaxsat", action='store_true')
+    parser.add_argument(
+        "--lexmaxsat",
+        nargs="?",
+        const=1,
+        default=1,
+        type=int,
+        choices=[0, 1],
+        help="enable lexmaxsat: 1; disable: 0; default 1",
+    )
     parser.add_argument("--hop", type=int, default=3, dest='hop')
     parser.add_argument("--clustersize", type=int,
                         default=8, dest='clustersize')
-    parser.add_argument("--unique", action='store_true')
+    parser.add_argument(
+        "--unique",
+        nargs="?",
+        const=1,
+        default=1,
+        type=int,
+        choices=[0, 1],
+        help="enable unique: 1; disable: 0; default 1",
+    )
     parser.add_argument("--itp-limit", type=int, default=1000,
                         help="interpolating solver conflict limit; -1 for no limit", dest='itp_limit')
     parser.add_argument("input", help="input file")
