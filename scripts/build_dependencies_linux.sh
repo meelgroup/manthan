@@ -30,6 +30,36 @@ fi
 
 mkdir -p "$STATIC_DIR"
 
+echo "c building preprocess"
+(
+  cd "$DEPS_DIR/manthan-preprocess"
+  echo "c building cryptominisat (static)"
+  (
+    cd "$DEPS_DIR/manthan-preprocess/cryptominisat"
+    rm -rf build
+    mkdir -p build
+    cd build
+    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    make -j8
+  )
+  echo "c building louvain-community (static)"
+  (
+    cd "$DEPS_DIR/manthan-preprocess/louvain-community"
+    rm -rf build
+    mkdir -p build
+    cd build
+    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    make -j8
+  )
+  mkdir -p build
+  cd build
+  cmake .. -DSTATICCOMPILE=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -Dcryptominisat5_DIR="$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
+    -Dlouvain_communities_DIR="$DEPS_DIR/manthan-preprocess/louvain-community/build"
+  make -j8
+  cp preprocess "$STATIC_DIR/preprocess"
+)
+
 echo "c building unique (itp)"
 (
   cd "$DEPS_DIR/unique"
@@ -126,36 +156,6 @@ echo "c building open-wbo"
     CFLAGS="-O3 -Wall -Wno-parentheses -std=c++11 -DNSPACE=Glucose -DSOLVERNAME=\\\"Glucose4.1\\\" -DVERSION=core -I$DEPS_DIR/open-wbo/solvers/glucose4.1" \
     LFLAGS="-lgmpxx -lgmp -lz"
   cp open-wbo "$STATIC_DIR/open-wbo"
-)
-
-echo "c building preprocess"
-(
-  cd "$DEPS_DIR/manthan-preprocess"
-  echo "c building cryptominisat (static)"
-  (
-    cd "$DEPS_DIR/manthan-preprocess/cryptominisat"
-    rm -rf build
-    mkdir -p build
-    cd build
-    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-    make -j8
-  )
-  echo "c building louvain-community (static)"
-  (
-    cd "$DEPS_DIR/manthan-preprocess/louvain-community"
-    rm -rf build
-    mkdir -p build
-    cd build
-    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-    make -j8
-  )
-  mkdir -p build
-  cd build
-  cmake .. -DSTATICCOMPILE=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    -Dcryptominisat5_DIR="$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
-    -Dlouvain_communities_DIR="$DEPS_DIR/manthan-preprocess/louvain-community/build"
-  make -j8
-  cp preprocess "$STATIC_DIR/preprocess"
 )
 
 echo "c done"
