@@ -31,7 +31,11 @@ checkout_pin() {
     git -C "$path" remote set-url origin "$url" || true
     git -C "$path" fetch --all --tags || true
     git -C "$path" checkout "$rev"
-    git -C "$path" submodule update --init --recursive
+    case "$path" in
+      */dependencies/unique|*/dependencies/manthan-preprocess)
+        git -C "$path" submodule update --init --recursive
+        ;;
+    esac
     return
   fi
   if [ -e "$path" ]; then
@@ -44,7 +48,11 @@ checkout_pin() {
   fi
   git clone "$url" "$path"
   git -C "$path" checkout "$rev"
-  git -C "$path" submodule update --init --recursive
+  case "$path" in
+    */dependencies/unique|*/dependencies/manthan-preprocess)
+      git -C "$path" submodule update --init --recursive
+      ;;
+  esac
 }
 
 if [ -f "$ROOT_DIR/.gitmodules" ]; then

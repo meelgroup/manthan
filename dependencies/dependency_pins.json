@@ -1,5 +1,10 @@
 [
   {
+    "path": "dependencies/manthan-preprocess",
+    "url": "https://github.com/priyanka-golia/manthan-preprocess",
+    "rev": "343d4992779272b5405674b7ac5b1e063665e590"
+  },
+  {
     "path": "dependencies/unique",
     "url": "https://github.com/meelgroup/unique.git",
     "rev": "itp-global-limit"
@@ -23,21 +28,5 @@
     "path": "dependencies/picosat-src",
     "url": "https://github.com/priyanka-golia/picosat.git",
     "rev": "f7915dc13cfb0eadaad71cb85795304fdfabcddb"
-  },
-
-  {
-    "path": "dependencies/manthan-preprocess",
-    "url": "https://github.com/priyanka-golia/manthan-preprocess",
-    "rev": "343d4992779272b5405674b7ac5b1e063665e590"
-  },
-  {
-    "path": "dependencies/manthan-preprocess/cryptominisat",
-    "url": "https://github.com/priyanka-golia/cryptominisat",
-    "rev": "a89297978b65bbfeef1867721f662cc2019f54d4"
-  },
-  {
-    "path": "dependencies/manthan-preprocess/louvain-community",
-    "url": "https://github.com/meelgroup/louvain-community",
-    "rev": "8cc5382d4844af127b1c1257373740d7e6b76f1e"
   }
 ]
