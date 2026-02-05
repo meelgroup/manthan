@@ -39,7 +39,7 @@ echo "c building preprocess"
     rm -rf build
     mkdir -p build
     cd build
-    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PYTHON_INTERFACE=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     make -j8
   )
   echo "c building louvain-community (static)"
@@ -53,7 +53,7 @@ echo "c building preprocess"
   )
   mkdir -p build
   cd build
-  cmake .. -DSTATICCOMPILE=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  cmake .. -DSTATICCOMPILE=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -Dcryptominisat5_DIR="$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
     -Dlouvain_communities_DIR="$DEPS_DIR/manthan-preprocess/louvain-community/build"
   make -j8
