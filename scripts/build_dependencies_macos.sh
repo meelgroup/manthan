@@ -28,22 +28,22 @@ mkdir -p "$STATIC_DIR"
 echo "c building preprocess"
 (
   cd "$DEPS_DIR/manthan-preprocess"
-  echo "c building cryptominisat (static)"
+  echo "c building cryptominisat (shared)"
   (
     cd "$DEPS_DIR/manthan-preprocess/cryptominisat"
     rm -rf build
     mkdir -p build
     cd build
-    cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PYTHON_INTERFACE=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PYTHON_INTERFACE=OFF -DMANPAGE=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     make -j8
   )
-  echo "c building louvain-community (static)"
+  echo "c building louvain-community (shared)"
   (
     cd "$DEPS_DIR/manthan-preprocess/louvain-community"
     rm -rf build
     mkdir -p build
     cd build
-    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     make -j8
   )
   mkdir -p build
@@ -53,6 +53,16 @@ echo "c building preprocess"
     -Dlouvain_communities_DIR="$DEPS_DIR/manthan-preprocess/louvain-community/build"
   make -j8
   cp preprocess "$STATIC_DIR/preprocess"
+  # Bundle dylibs alongside preprocess and make it load from @loader_path.
+  if command -v install_name_tool >/dev/null 2>&1; then
+    install_name_tool -add_rpath "@loader_path" "$STATIC_DIR/preprocess" || true
+  fi
+  if [ -d "$DEPS_DIR/manthan-preprocess/cryptominisat/build/lib" ]; then
+    cp -f "$DEPS_DIR/manthan-preprocess/cryptominisat/build/lib/"*.dylib "$STATIC_DIR/" 2>/dev/null || true
+  fi
+  if [ -d "$DEPS_DIR/manthan-preprocess/louvain-community/build/lib" ]; then
+    cp -f "$DEPS_DIR/manthan-preprocess/louvain-community/build/lib/"*.dylib "$STATIC_DIR/" 2>/dev/null || true
+  fi
 )
 
 echo "c building unique (itp)"

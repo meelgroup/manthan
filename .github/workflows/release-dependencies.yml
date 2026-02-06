@@ -20,8 +20,6 @@ jobs:
             slug: linux
           - os: macos-latest
             slug: macos
-          - os: windows-latest
-            slug: windows
 
     steps:
       - name: Checkout
@@ -42,13 +40,7 @@ jobs:
         if: matrix.os != 'windows-latest'
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Set up Python (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install system deps (Ubuntu)
         if: matrix.os == 'ubuntu-latest' && steps.deps-cache.outputs.cache-hit != 'true'
@@ -62,55 +54,16 @@ jobs:
           brew update
           brew install cmake gmp boost
 
-      - name: Setup MSYS2 (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-gmp
-            mingw-w64-x86_64-boost
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-readline
-            mingw-w64-x86_64-python
-            mingw-w64-x86_64-python-pip
-            git
-            make
-
       - name: Install Python deps
         if: matrix.os != 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pybind11
 
-      - name: Install Python deps (Windows, CPython)
-        if: matrix.os == 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pybind11
-
-      - name: Install pybind11 for MSYS2 Python
-        if: matrix.os == 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
-        shell: msys2 {0}
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install pybind11
-
       - name: Clone and pin dependencies
         if: matrix.os != 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           ./scripts/clone_dependencies.sh
-
-      - name: Clone and pin dependencies (Windows)
-        if: matrix.os == 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
-        shell: msys2 {0}
-        run: |
-          bash ./scripts/clone_dependencies.sh
 
       - name: Build dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest' && steps.deps-cache.outputs.cache-hit != 'true'
@@ -122,12 +75,6 @@ jobs:
         run: |
           ./scripts/build_dependencies_macos.sh
 
-      - name: Build dependencies (Windows)
-        if: matrix.os == 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
-        shell: msys2 {0}
-        run: |
-          bash scripts/build_dependencies_windows.sh
-
       - name: Package artifacts (Unix)
         if: matrix.os != 'windows-latest'
         run: |
@@ -135,13 +82,14 @@ jobs:
             dependencies/static_bin \
             dependencies/unique/build/interpolatingsolver/src
 
-      - name: Package artifacts (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: msys2 {0}
+      - name: Smoke test Manthan
         run: |
-          tar -czf manthan-deps-${{ matrix.slug }}.tar.gz \
-            dependencies/static_bin \
-            dependencies/unique/build/interpolatingsolver/src
+          python --version
+          python manthan.py benchmarks/max64.qdimacs \
+            --maxsamples=10 \
+            --maxrepairitr=10 \
+            --adaptivesample=0 \
+            --weightedsampling=0
 
       - name: Release assets
         uses: softprops/action-gh-release@v2

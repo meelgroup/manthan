@@ -23,7 +23,7 @@ jobs:
         if: matrix.os != 'windows-latest'
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install system deps (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
@@ -83,3 +83,12 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           ./scripts/build_dependencies_macos.sh
+
+      - name: Smoke test Manthan
+        run: |
+          python --version
+          python manthan.py benchmarks/max64.qdimacs \
+            --maxsamples=10 \
+            --maxrepairitr=10 \
+            --adaptivesample=0 \
+            --weightedsampling=0
