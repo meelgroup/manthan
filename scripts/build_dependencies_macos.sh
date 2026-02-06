@@ -106,6 +106,11 @@ PY
     -DCMAKE_CXX_STANDARD=14
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5
   )
+  # Avoid hard-linking the Python framework in extension modules.
+  UNIQUE_CMAKE_FLAGS+=(
+    "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup"
+    "-DCMAKE_MODULE_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup"
+  )
   if [ -n "$PYBIND11_DIR" ]; then
     UNIQUE_CMAKE_FLAGS+=("-Dpybind11_DIR=$PYBIND11_DIR")
   fi
@@ -128,6 +133,9 @@ PY
     if [ -n "$ITP_SO" ]; then
       if [ ! -f "$ITP_DIR/libinterpolating_minisat.dylib" ] && [ -f "$DEPS_DIR/unique/build/avy/src/libinterpolating_minisat.dylib" ]; then
         cp -f "$DEPS_DIR/unique/build/avy/src/libinterpolating_minisat.dylib" "$ITP_DIR/" || true
+      fi
+      if [ ! -f "$ITP_DIR/libAvyDebug.dylib" ] && [ -f "$DEPS_DIR/unique/build/avy/src/libAvyDebug.dylib" ]; then
+        cp -f "$DEPS_DIR/unique/build/avy/src/libAvyDebug.dylib" "$ITP_DIR/" || true
       fi
       if command -v install_name_tool >/dev/null 2>&1; then
         install_name_tool -add_rpath "@loader_path" "$ITP_SO" || true

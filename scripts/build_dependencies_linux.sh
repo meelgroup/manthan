@@ -132,6 +132,9 @@ PY
       elif [ -f "$DEPS_DIR/unique/build/avy/src/libinterpolating_minisat.so" ]; then
         cp -f "$DEPS_DIR/unique/build/avy/src/libinterpolating_minisat.so"* "$ITP_DIR/" 2>/dev/null || true
       fi
+      if [ ! -f "$ITP_DIR/libAvyDebug.so" ] && [ -f "$DEPS_DIR/unique/build/avy/src/libAvyDebug.so" ]; then
+        cp -f "$DEPS_DIR/unique/build/avy/src/libAvyDebug.so"* "$ITP_DIR/" 2>/dev/null || true
+      fi
       if command -v patchelf >/dev/null 2>&1; then
         patchelf --set-rpath '$ORIGIN' "$ITP_SO" || true
       fi
