@@ -28,6 +28,7 @@ import subprocess
 import shutil
 import numpy as np
 from src.logging_utils import cprint
+from src.tempfiles import temp_path
 
 
 def static_bin_path(bin_name):
@@ -74,7 +75,7 @@ def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef,
 	f.close()
 	
 def createSkolemfunction(inputfile_name, Xvar,Yvar):
-	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
+	skolemformula = temp_path(inputfile_name + "_skolem.v")
 	
 	content = ''
 	declare = "module SkolemFormula ("
@@ -162,18 +163,18 @@ def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
 
 
 def addSkolem(error_content,inputfile_name):
-	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"
+	skolemformula = temp_path(inputfile_name + "_skolem.v")
 	with open(skolemformula, 'r') as f:
 		skolemcontent = f.read()
 	f.close()
-	errorformula = tempfile.gettempdir() + '/' + inputfile_name + "_errorformula.v"
+	errorformula = temp_path(inputfile_name + "_errorformula.v")
 	f = open(errorformula, "w")
 	f.write(error_content)
 	f.write(skolemcontent)
 	f.close()
 
 def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name):
-	tempOutputFile = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"  # F(X,Y')
+	tempOutputFile = temp_path(inputfile_name + "_skolem.v")  # F(X,Y')
 	inputstr = 'module SKOLEMFORMULA ('
 	declarestr = ''
 	assignstr = ''
@@ -223,7 +224,7 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 
 
 def simply(inputfile_name):
-	skolemformula = tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v"  # F(X,Y')
+	skolemformula = temp_path(inputfile_name + "_skolem.v")  # F(X,Y')
 
 	with open(skolemformula,"r") as f:
 		lines = f.readlines()
@@ -247,7 +248,7 @@ def simply(inputfile_name):
 
 
 def verify(Xvar, Yvar, inputfile_name, verbose=0):
-	errorformula = tempfile.gettempdir() + '/' + inputfile_name + "_errorformula.v"
+	errorformula = temp_path(inputfile_name + "_errorformula.v")
 	if not os.path.isfile(errorformula):
 		cprint("c [verify] missing error formula:", errorformula)
 		return(0, [0], 1)

@@ -31,6 +31,8 @@ import random
 import argparse
 import copy
 import tempfile
+from src import runtime_env  # noqa: F401
+from src.tempfiles import temp_path
 import numpy as np
 from numpy import count_nonzero
 from sklearn import tree
@@ -77,7 +79,7 @@ def manthan():
         cprint("c [manthan] count Y variables", len(Yvar))
 
     inputfile_name = args.input.split('/')[-1][:-8]
-    cnffile_name = tempfile.gettempdir()+"/"+inputfile_name+".cnf"
+    cnffile_name = temp_path(inputfile_name + ".cnf")
 
     cnfcontent = convertcnf(args.input, cnffile_name)
     cnfcontent = cnfcontent.strip("\n")+"\n"

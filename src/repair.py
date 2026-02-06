@@ -26,7 +26,9 @@ import numpy as np
 import os
 import tempfile
 import subprocess
+from src import runtime_env  # noqa: F401
 from src.logging_utils import cprint
+from src.tempfiles import temp_path
 from dependencies.rc2 import RC2Stratified
 from pysat.formula import WCNF
 
@@ -241,14 +243,14 @@ def findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name,
             break
     repaircnf = repaircnf.replace(str_tmp, "p cnf " + str(numVar) + " " + str(numCls + Count_Yvar  + len(Xvar)))
     repaircnf += repairYvar
-    cnffile = tempfile.gettempdir() + '/' + inputfile_name+"_unsat.cnf"
+    cnffile = temp_path(inputfile_name + "_unsat.cnf")
 
     with open(cnffile,"w") as f:
         f.write(repaircnf)
     f.close()
 
-    unsatcorefile = tempfile.gettempdir() + '/' + inputfile_name + "_unsatcore.txt"
-    satfile = tempfile.gettempdir() + '/' + inputfile_name + "_sat.txt"
+    unsatcorefile = temp_path(inputfile_name + "_unsatcore.txt")
+    satfile = temp_path(inputfile_name + "_sat.txt")
     exists = os.path.isfile(unsatcorefile)
     if exists:
         os.remove(unsatcorefile)
@@ -409,7 +411,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
     return 0, repairfunctions
 
 def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, args):
-    with open(tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v","r") as f:
+    with open(temp_path(inputfile_name + "_skolem.v"),"r") as f:
         lines = f.readlines()
     f.close()
     skolemcontent = "".join(lines)
@@ -429,6 +431,6 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, ar
             cprint("c [updateSkolem] New function for w%s: %s" %(yvar, newfunction.strip("\n")))
             cprint("c [updateSkolem] Repair function for w%s: %s" %(yvar, repairformula.strip("\n")))
         skolemcontent = skolemcontent.replace(oldfunction, repairformula + newfunction)
-    with open(tempfile.gettempdir() + '/' + inputfile_name + "_skolem.v","w") as f:
+    with open(temp_path(inputfile_name + "_skolem.v"),"w") as f:
         f.write(skolemcontent)
     f.close()
