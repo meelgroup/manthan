@@ -123,7 +123,7 @@ download_release() {
   curl -sL "$api_url" -o "$tmp_json"
 
   local asset_url
-  asset_url="$(python3 - <<'PY'
+  asset_url="$(python3 - "$tmp_json" "$asset_name" <<'PY'
 import json
 import sys
 
@@ -136,7 +136,7 @@ for asset in data.get("assets", []):
         print(asset.get("browser_download_url", ""))
         break
 PY
-"$tmp_json" "$asset_name")"
+)"
 
   if [ -z "$asset_url" ]; then
     echo "No release asset named $asset_name found in $repo."

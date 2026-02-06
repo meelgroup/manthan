@@ -29,6 +29,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache built dependencies
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            dependencies/static_bin
+            dependencies/unique/build/interpolatingsolver/src
+          key: deps-${{ matrix.slug }}-${{ hashFiles('dependencies/dependency_pins.json', 'scripts/clone_dependencies.sh', 'scripts/build_dependencies_linux.sh', 'scripts/build_dependencies_macos.sh', 'scripts/build_dependencies_windows.sh') }}
+
       - name: Set up Python
         if: matrix.os != 'windows-latest'
         uses: actions/setup-python@v5
@@ -42,13 +51,13 @@ jobs:
           python-version: "3.11"
 
       - name: Install system deps (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake git pkg-config libgmp-dev zlib1g-dev libreadline-dev libboost-dev libboost-program-options-dev
 
       - name: Install system deps (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           brew update
           brew install cmake gmp boost
@@ -72,19 +81,19 @@ jobs:
             make
 
       - name: Install Python deps
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pybind11
 
       - name: Install Python deps (Windows, CPython)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pybind11
 
       - name: Install pybind11 for MSYS2 Python
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
           python -m venv .venv
@@ -93,28 +102,28 @@ jobs:
           python -m pip install pybind11
 
       - name: Clone and pin dependencies
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           ./scripts/clone_dependencies.sh
 
       - name: Clone and pin dependencies (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
           bash ./scripts/clone_dependencies.sh
 
       - name: Build dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           ./scripts/build_dependencies_linux.sh
 
       - name: Build dependencies (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         run: |
           ./scripts/build_dependencies_macos.sh
 
       - name: Build dependencies (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && steps.deps-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
           bash scripts/build_dependencies_windows.sh
