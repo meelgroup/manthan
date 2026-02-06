@@ -95,9 +95,13 @@ PY
       git checkout "$UNIQUE_GIT_REV"
     fi
   fi
-  PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
-  PYTHON_SOABI="$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("SOABI") or "")')"
-  PYBIND11_DIR="$(python3 -m pybind11 --cmakedir 2>/dev/null || true)"
+  if [ -n "${VIRTUAL_ENV:-}" ] && [ -x "$VIRTUAL_ENV/bin/python" ]; then
+    PYTHON_BIN="$VIRTUAL_ENV/bin/python"
+  else
+    PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
+  fi
+  PYTHON_SOABI="$("$PYTHON_BIN" -c 'import sysconfig; print(sysconfig.get_config_var("SOABI") or "")')"
+  PYBIND11_DIR="$("$PYTHON_BIN" -m pybind11 --cmakedir 2>/dev/null || true)"
   UNIQUE_CMAKE_FLAGS=(
     -DABC_FORCE_CXX=ON
     -DABC_NAMESPACE=abc
@@ -119,6 +123,20 @@ PY
     UNIQUE_BUILD_TARGET=itp
   fi
   cmake --build build --target "$UNIQUE_BUILD_TARGET" -- -j2
+  if [ "$UNIQUE_BUILD_TARGET" = "itp" ]; then
+    ITP_DIR="$DEPS_DIR/unique/build/interpolatingsolver/src"
+    ITP_SO="$(ls "$ITP_DIR"/itp.cpython-*.so 2>/dev/null | head -n 1 || true)"
+    if [ -n "$ITP_SO" ]; then
+      if [ -f "$ITP_DIR/libinterpolating_minisat.so" ]; then
+        cp -f "$ITP_DIR/libinterpolating_minisat.so"* "$ITP_DIR/" 2>/dev/null || true
+      elif [ -f "$DEPS_DIR/unique/build/avy/src/libinterpolating_minisat.so" ]; then
+        cp -f "$DEPS_DIR/unique/build/avy/src/libinterpolating_minisat.so"* "$ITP_DIR/" 2>/dev/null || true
+      fi
+      if command -v patchelf >/dev/null 2>&1; then
+        patchelf --set-rpath '$ORIGIN' "$ITP_SO" || true
+      fi
+    fi
+  fi
 )
 
 echo "c building abc helpers"

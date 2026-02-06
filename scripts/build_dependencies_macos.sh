@@ -122,6 +122,18 @@ PY
     UNIQUE_BUILD_TARGET=itp
   fi
   cmake --build build --target "$UNIQUE_BUILD_TARGET" -- -j2
+  if [ "$UNIQUE_BUILD_TARGET" = "itp" ]; then
+    ITP_DIR="$DEPS_DIR/unique/build/interpolatingsolver/src"
+    ITP_SO="$(ls "$ITP_DIR"/itp.cpython-*-darwin.so 2>/dev/null | head -n 1 || true)"
+    if [ -n "$ITP_SO" ]; then
+      if [ ! -f "$ITP_DIR/libinterpolating_minisat.dylib" ] && [ -f "$DEPS_DIR/unique/build/avy/src/libinterpolating_minisat.dylib" ]; then
+        cp -f "$DEPS_DIR/unique/build/avy/src/libinterpolating_minisat.dylib" "$ITP_DIR/" || true
+      fi
+      if command -v install_name_tool >/dev/null 2>&1; then
+        install_name_tool -add_rpath "@loader_path" "$ITP_SO" || true
+      fi
+    fi
+  fi
 )
 
 echo "c building abc helpers"
