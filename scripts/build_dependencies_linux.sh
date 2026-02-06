@@ -136,7 +136,8 @@ echo "c building abc helpers"
     "$ABC_CXX" -g -o file_write_verilog file_write_verilog.o libabc.a -lm -ldl -lreadline -lpthread
     cp file_generation_cex file_generation_cnf file_write_verilog "$STATIC_DIR/"
   else
-    echo "c skipping abc helpers (file_generation_*.c not found)"
+    echo "c missing abc helper sources (file_generation_*.c not found)"
+    exit 1
   fi
 )
 

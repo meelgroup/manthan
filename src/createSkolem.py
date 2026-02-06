@@ -33,6 +33,13 @@ def static_bin_path(bin_name):
 	preferred = os.path.join("./dependencies/static_bin", bin_name)
 	if os.path.isfile(preferred) and os.access(preferred, os.X_OK):
 		return os.path.abspath(preferred)
+	fallbacks = [
+		os.path.join("./dependencies", bin_name),
+		os.path.join("./dependencies/abc", bin_name),
+	]
+	for candidate in fallbacks:
+		if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+			return os.path.abspath(candidate)
 	return os.path.abspath(os.path.join("./dependencies", bin_name))
 
 def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef, inputfile_name):
