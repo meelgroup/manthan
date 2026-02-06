@@ -18,23 +18,29 @@ python -m pip install -r requirements.txt
 ./scripts/setup.sh
 ```
 
-Windows (PowerShell):
+If you already ran setup and want to re-download the latest prebuilt deps:
 
+```bash
+./scripts/setup.sh --force
 ```
-powershell -ExecutionPolicy Bypass -File scripts/setup.ps1
-```
+
 
 This downloads the latest release artifacts for your OS and extracts them into:
 - `dependencies/static_bin`
 - `dependencies/unique/build/interpolatingsolver/src`
 
-To build everything from source instead:
+### Build from source (macOS/Linux)
+
+Install build prerequisites:
+
+- macOS: `brew install cmake gmp boost`
+- Ubuntu: `sudo apt-get install -y build-essential cmake git pkg-config libgmp-dev zlib1g-dev libreadline-dev libboost-dev libboost-program-options-dev`
+
+Then:
 
 ```
 ./scripts/setup.sh --build
 ```
-
-On Windows, run the build from Git Bash or MSYS2.
 
 ## Usage
 
@@ -71,8 +77,16 @@ python manthan.py --help
 ## Python version
 
 For prebuilt dependency bundles, use Python 3.13 (the `itp` module is built for
-that version). If you use another Python version, you may need to rebuild
-dependencies from source with `./scripts/setup.sh --build`.
+that version). If you use another Python version, you must rebuild dependencies
+from source with `./scripts/setup.sh --build`.
+
+## Smoke test
+
+After setup, run:
+
+```bash
+python manthan.py benchmarks/max64.qdimacs --maxsamples=10 --maxrepairitr=10 --adaptivesample=0 --weightedsampling=0
+```
 
 ## Benchmarks
 Some benchmarks are available in the `benchmarks` directory. 
