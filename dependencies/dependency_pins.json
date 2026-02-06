@@ -11,8 +11,8 @@
   },
   {
     "path": "dependencies/abc",
-    "url": "https://github.com/meelgroup/abc-fork-ufo.git",
-    "rev": "0aa1a27fcb1b29ffc8f9756388de6c36e39d92b8"
+    "url": "https://github.com/priyanka-golia/abc",
+    "rev": "a13dd4eb9caee9ec62b2c1c35e58d6bd1534d6a3"
   },
   {
     "path": "dependencies/cmsgen",
