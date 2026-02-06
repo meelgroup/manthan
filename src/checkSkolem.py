@@ -18,6 +18,7 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+from src.logging_utils import cprint
 from src.preprocess import parse
 from src.convert_verilog import convert_verilog
 
@@ -193,13 +194,13 @@ def main():
 
     status, cex, err = check_skolem(args.qdimacs, args.skolem, args.multiclass)
     if status == "sat":
-        print("c [main] skolem check SAT (counterexample exists)")
-        print("c [main] cex length:", len(cex))
+        cprint("c [main] skolem check SAT (counterexample exists)")
+        cprint("c [main] cex length:", len(cex))
     elif status == "unsat":
-        print("c [main] skolem check UNSAT (no counterexample)")
+        cprint("c [main] skolem check UNSAT (no counterexample)")
     else:
-        print("c [main] skolem check ERROR")
-        print("c checkSkolem main", err)
+        cprint("c [main] skolem check ERROR")
+        cprint("c checkSkolem main", err)
         raise SystemExit(1)
 
 

@@ -27,6 +27,7 @@ import os
 import subprocess
 import shutil
 import numpy as np
+from src.logging_utils import cprint
 
 
 def static_bin_path(bin_name):
@@ -248,20 +249,20 @@ def simply(inputfile_name):
 def verify(Xvar, Yvar, inputfile_name, verbose=0):
 	errorformula = tempfile.gettempdir() + '/' + inputfile_name + "_errorformula.v"
 	if not os.path.isfile(errorformula):
-		print("c [verify] missing error formula:", errorformula)
+		cprint("c [verify] missing error formula:", errorformula)
 		return(0, [0], 1)
 	with tempfile.TemporaryDirectory(prefix="manthan_abc_") as abc_tmpdir:
 		cexfile = os.path.join(abc_tmpdir, inputfile_name + "_cex.txt")
 		abc_cex = static_bin_path("file_generation_cex")
 		cmd = [abc_cex, errorformula, cexfile]
-		print("c [verify] abc tool: file_generation_cex")
-		print("c [verify] abc cmd:", " ".join(cmd))
+		cprint("c [verify] abc tool: file_generation_cex")
+		cprint("c [verify] abc cmd:", " ".join(cmd))
 		result = subprocess.run(cmd, cwd=abc_tmpdir,
 			stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 		if result.returncode != 0:
 			if verbose:
-				print("c [verify] abc stdout:", result.stdout.strip())
-				print("c [verify] abc stderr:", result.stderr.strip())
+				cprint("c [verify] abc stdout:", result.stdout.strip())
+				cprint("c [verify] abc stderr:", result.stderr.strip())
 			return(0, [0], 1)
 
 		if os.path.isfile(cexfile):

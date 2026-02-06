@@ -24,6 +24,7 @@ THE SOFTWARE.
 
 from src.DefinabilityChecker import DefinabilityChecker
 import networkx as nx
+from src.logging_utils import cprint
 
 def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 
@@ -94,7 +95,7 @@ def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 						elif abs(defvar) in Yvar:
 							clauseString += "w%s;\n" %(abs(defvar))
 						else:
-							print("c [unique_function] check unique defination")
+							cprint("c [unique_function] check unique defination")
 							exit()
 
 						UniqueDef += "assign w%s = %s" %(yvar, clauseString)

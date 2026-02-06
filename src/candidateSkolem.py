@@ -28,6 +28,7 @@ import pydotplus
 import networkx as nx
 from collections import OrderedDict
 from numpy import count_nonzero
+from src.logging_utils import cprint
 import collections
 
 
@@ -218,7 +219,7 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
     
     for Yset in disjointSet:
         if args.verbose >= 2:
-            print("c [learnCandidate] Learning candidate Skolem functions for Y variables:", Yset)
+            cprint("c [learnCandidate] Learning candidate Skolem functions for Y variables:", Yset)
         dependent = []
         for yvar in Yset:
             depends_on_yvar = list(nx.ancestors(dg,yvar))
@@ -242,9 +243,9 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
                 dg.add_edge(var, jvar)
 
     if args.verbose:
-        print("c [learnCandidate] generated candidate functions for all variables.")
+        cprint("c [learnCandidate] generated candidate functions for all variables.")
 
     if args.verbose == 2:
-        print("c [learnCandidate] candidate functions are", candidateSkf)
+        cprint("c [learnCandidate] candidate functions are", candidateSkf)
 
     return candidateSkf, dg    

@@ -135,6 +135,12 @@ from pysat.formula import CNFPlus, WCNFPlus
 from pysat.card import ITotalizer
 from pysat.solvers import Solver, SolverNames
 import re
+
+try:
+    from src.logging_utils import cprint
+except Exception:
+    def cprint(*args, **kwargs):
+        print(*args, **kwargs)
 import six
 from six.moves import range
 import sys
@@ -320,7 +326,7 @@ class RC2(object):
             self.vmap.i2e[v] = v
 
         if self.verbose > 1:
-            print('c formula: {0} vars, {1} hard, {2} soft'.format(formula.nv,
+            cprint('c formula: {0} vars, {1} hard, {2} soft'.format(formula.nv,
                 len(formula.hard), len(formula.soft)))
 
     def add_clause(self, clause, weight=None):
@@ -554,7 +560,7 @@ class RC2(object):
             self.process_core()
 
             if self.verbose > 1:
-                print('c cost: {0}; core sz: {1}; soft sz: {2}'.format(self.cost,
+                cprint('c cost: {0}; core sz: {1}; soft sz: {2}'.format(self.cost,
                     len(self.core), len(self.sels) + len(self.sums)))
 
         return True
@@ -707,7 +713,7 @@ class RC2(object):
                 self.process_core()
 
             if self.verbose > 1:
-                print('c unit cores found: {0}; cost: {1}'.format(len(confl),
+                cprint('c unit cores found: {0}; cost: {1}'.format(len(confl),
                     self.cost))
 
         nof_am1 = 0
@@ -739,7 +745,7 @@ class RC2(object):
         self.sels_set = set(self.sels)
 
         if self.verbose > 1 and nof_am1:
-            print('c am1s found: {0}; avgsz: {1:.1f}; cost: {2}'.format(nof_am1,
+            cprint('c am1s found: {0}; avgsz: {1:.1f}; cost: {2}'.format(nof_am1,
                 sum(len_am1) / float(nof_am1), self.cost))
 
     def process_am1(self, am1):
@@ -1254,7 +1260,7 @@ class RC2Stratified(RC2, object):
             done = self.activate_clauses(done)
 
             if self.verbose > 1:
-                print('c wght str:', self.blop[self.levl])
+                cprint('c wght str:', self.blop[self.levl])
 
             # call RC2
             if self.compute_() == False:
@@ -1265,7 +1271,7 @@ class RC2Stratified(RC2, object):
 
             if done < len(self.blop):
                 if self.verbose > 1:
-                    print('c curr opt:', self.cost)
+                    cprint('c curr opt:', self.cost)
 
                 # done with this level
                 self.finish_level()
@@ -1364,7 +1370,7 @@ class RC2Stratified(RC2, object):
                 self.garbage.add(s)
 
         if self.verbose > 1:
-            print('c hardened:', len(self.garbage))
+            cprint('c hardened:', len(self.garbage))
 
         # remove unnecessary assumptions
         self.filter_assumps()
@@ -1648,7 +1654,7 @@ if __name__ == '__main__':
                 if not optimum_found:
                     print('s UNSATISFIABLE')
                 elif to_enum != 1:
-                    print('c models found:', i)
+                    cprint('c models found:', i)
 
                 if verbose > 1:
-                    print('c oracle time: {0:.4f}'.format(rc2.oracle_time()))
+                    cprint('c oracle time: {0:.4f}'.format(rc2.oracle_time()))

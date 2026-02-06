@@ -38,6 +38,7 @@ import collections
 import subprocess as subprocess
 import time
 import networkx as nx
+from src.logging_utils import cprint
 config = configparser.ConfigParser()
 config.read("manthan_dependencies.cfg")
 if config.has_option("ITP-Path", "itp_path"):
@@ -67,13 +68,13 @@ def logtime(inputfile, text):
 
 
 def manthan():
-    print("c [manthan] parsing")
+    cprint("c [manthan] parsing")
     start_time = time.time()
     Xvar, Yvar, qdimacs_list = parse(args.input)
 
     if args.verbose:
-        print("c [manthan] count X variables", len(Xvar))
-        print("c [manthan] count Y variables", len(Yvar))
+        cprint("c [manthan] count X variables", len(Xvar))
+        cprint("c [manthan] count Y variables", len(Yvar))
 
     inputfile_name = args.input.split('/')[-1][:-8]
     cnffile_name = tempfile.gettempdir()+"/"+inputfile_name+".cnf"
@@ -82,23 +83,23 @@ def manthan():
     cnfcontent = cnfcontent.strip("\n")+"\n"
 
     if args.preprocess == 1:
-        print("c [manthan] preprocessing: finding unates (constant functions)")
+        cprint("c [manthan] preprocessing: finding unates (constant functions)")
         start_t = time.time()
         if len(Yvar) < 20000:
             PosUnate, NegUnate = preprocess(cnffile_name)
         else:
-            print("c [manthan] too many Y variables, let us proceed with Unique extraction")
+            cprint("c [manthan] too many Y variables, let us proceed with Unique extraction")
             PosUnate = []
             NegUnate = []
         end_t = time.time()
         logtime(inputfile_name, "preprocessing time:"+str(end_t-start_t))
 
         if args.verbose:
-            print("c [manthan] count of positive unates", len(PosUnate))
-            print("c [manthan] count of negative unates", len(NegUnate))
+            cprint("c [manthan] count of positive unates", len(PosUnate))
+            cprint("c [manthan] count of negative unates", len(NegUnate))
             if args.verbose >= 2:
-                print("c [manthan] positive unates", PosUnate)
-                print("c [manthan] negative unates", NegUnate)
+                cprint("c [manthan] positive unates", PosUnate)
+                cprint("c [manthan] negative unates", NegUnate)
 
         Unates = PosUnate + NegUnate
 
@@ -114,12 +115,12 @@ def manthan():
         Unates = []
         PosUnate = []
         NegUnate = []
-        print("c [manthan] preprocessing is disabled. To do preprocessing, please use --preprocess=1")
+        cprint("c [manthan] preprocessing is disabled. To do preprocessing, please use --preprocess=1")
 
     if len(Unates) == len(Yvar):
-        print("c [manthan] positive unates", PosUnate)
-        print("c [manthan] negative unates", NegUnate)
-        print("c [manthan] all Y variables are unates and have constant functions")
+        cprint("c [manthan] positive unates", PosUnate)
+        cprint("c [manthan] negative unates", NegUnate)
+        cprint("c [manthan] all Y variables are unates and have constant functions")
         skolemfunction_preprocess(
             Xvar, Yvar, PosUnate, NegUnate, [], '', inputfile_name)
         end_time = time.time()
@@ -129,7 +130,7 @@ def manthan():
     dg = nx.DiGraph()  # dag to handle dependencies
 
     if args.unique == 1:
-        print("c [manthan] finding uniquely defined functions")
+        cprint("c [manthan] finding uniquely defined functions")
         start_t = time.time()
         UniqueVars, UniqueDef = unique_function(
             qdimacs_list, Xvar, Yvar, dg, Unates)
@@ -137,17 +138,17 @@ def manthan():
         logtime(inputfile_name, "unique function finding:"+str(end_t-start_t))
 
         if args.verbose:
-            print("c [manthan] count of uniquely defined variables", len(UniqueVars))
+            cprint("c [manthan] count of uniquely defined variables", len(UniqueVars))
             if args.verbose >= 2:
-                print("c [manthan] uniquely defined variables", UniqueVars)
+                cprint("c [manthan] uniquely defined variables", UniqueVars)
     else:
         UniqueVars = []
         UniqueDef = ''
-        print("c [manthan] finding unique function is disabled. To find unique functions please use --unique")
+        cprint("c [manthan] finding unique function is disabled. To find unique functions please use --unique")
 
     if len(Unates) + len(UniqueVars) == len(Yvar):
-        print("c [manthan] all Y variables are either unate or unique")
-        print("c [manthan] found functions for all Y variables")
+        cprint("c [manthan] all Y variables are either unate or unique")
+        cprint("c [manthan] found functions for all Y variables")
         if args.preprocess == 1:
             skolemfunction_preprocess(
                 Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, inputfile_name)
@@ -159,7 +160,7 @@ def manthan():
         exit()
 
     # we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
-    print("c [manthan] parsing and converting to verilog")
+    cprint("c [manthan] parsing and converting to verilog")
     verilogformula, dg, ng = convert_verilog(args.input, args.multiclass == 1, dg)
 
     start_t = time.time()
@@ -196,18 +197,18 @@ def manthan():
         else:
             weighted_sampling_cnf = sampling_cnf + sampling_weights_y_1
 
-        print("c [manthan] generating weighted samples")
+        cprint("c [manthan] generating weighted samples")
         samples = generatesample(
             args, num_samples, weighted_sampling_cnf, inputfile_name, 1)
     else:
-        print("c [manthan] generating uniform samples")
+        cprint("c [manthan] generating uniform samples")
         samples = generatesample(
             args, num_samples, sampling_cnf, inputfile_name, 0)
 
     end_t = time.time()
     logtime(inputfile_name, "generating samples:"+str(end_t-start_t))
 
-    print("c [manthan] generated samples.. learning candidate functions")
+    cprint("c [manthan] generated samples.. learning candidate functions")
     start_t = time.time()
 
     candidateSkf, dg = learnCandidate(
@@ -236,20 +237,20 @@ def manthan():
         addSkolem(error_content, inputfile_name)
         check, sigma, ret = verify(Xvar, Yvar, inputfile_name, args.verbose or 0)
         if check == 0:
-            print("c [manthan] error --- ABC network read fail")
+            cprint("c [manthan] error --- ABC network read fail")
             break
         if ret == 0:
-            print("c [manthan] verification check UNSAT")
-            print("c [manthan] no more repair needed")
-            print("c [manthan] number of repairs needed to converge", countRefine)
+            cprint("c [manthan] verification check UNSAT")
+            cprint("c [manthan] no more repair needed")
+            cprint("c [manthan] number of repairs needed to converge", countRefine)
             createSkolemfunction(inputfile_name, Xvar, Yvar)
             break
         if ret == 1:
             countRefine += 1
-            print("c [manthan] verification check is SAT, we have counterexample to fix")
+            cprint("c [manthan] verification check is SAT, we have counterexample to fix")
             if args.verbose:
-                print("c [manthan] number of repair", countRefine)
-                print("c [manthan] finding candidates to repair using maxsat")
+                cprint("c [manthan] number of repair", countRefine)
+                cprint("c [manthan] finding candidates to repair using maxsat")
 
             repaircnf, maxsatcnfRepair = addXvaluation(
                 cnfcontent, maxsatWt, maxsatcnf, sigma[0], Xvar)
@@ -260,30 +261,30 @@ def manthan():
             assert(len(ind) > 0)
 
             if args.verbose == 1:
-                print("c [manthan] number of candidates undergoing repair iterations", len(ind))
+                cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))
             if args.verbose == 2:
-                print("c [manthan] number of candidates undergoing repair iterations", len(ind))
-                print("c [manthan] variables undergoing refinement", ind)
+                cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))
+                cprint("c [manthan] variables undergoing refinement", ind)
 
             lexflag, repairfunctions = repair(
                 repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, args.lexmaxsat == 1)
 
             if lexflag:
-                print("c [manthan] calling rc2 to find another set of candidates to repair")
+                cprint("c [manthan] calling rc2 to find another set of candidates to repair")
                 ind = callRC2(maxsatcnfRepair,
                               sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args)
                 if len(ind) == 0:
-                    print("c [manthan] no candidates returned by rc2; stopping repair")
+                    cprint("c [manthan] no candidates returned by rc2; stopping repair")
                     exit(1)
                 if args.verbose == 1:
-                    print("c [manthan] number of candidates undergoing repair iterations", len(ind))
+                    cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))
                 lexflag, repairfunctions = repair(
                     repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, 0)
             updateSkolem(repairfunctions, countRefine,
                          sigma[2], inputfile_name, Yvar, args)
         if countRefine > args.maxrepairitr:
-            print("c [manthan] number of maximum allowed repair iteration reached")
-            print("c [manthan] could not synthesize functions")
+            cprint("c [manthan] number of maximum allowed repair iteration reached")
+            cprint("c [manthan] could not synthesize functions")
             break
     end_time = time.time()
     logtime(inputfile_name, "repair time:"+str(end_time-start_t))
@@ -359,5 +360,5 @@ if __name__ == "__main__":
         InterpolatingSolver.set_global_limit(args.itp_limit)
     except Exception:
         pass
-    print("c [__main__] starting Manthan")
+    cprint("c [__main__] starting Manthan")
     manthan()

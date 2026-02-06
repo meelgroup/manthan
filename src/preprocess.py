@@ -28,6 +28,7 @@ THE SOFTWARE.
 import tempfile
 from subprocess import Popen, PIPE, check_output
 import signal
+from src.logging_utils import cprint
 import os
 import numpy as np
 
@@ -60,7 +61,7 @@ def parse(inputfile):
 			qdimacs_list.append(clause)
 
 	if (len(Xvar) == 0) or (len(Yvar) == 0) or (len(qdimacs_list) == 0):
-		print("c [parse] problem with the files, can not synthesis Skolem functions")
+		cprint("c [parse] problem with the files, can not synthesis Skolem functions")
 	
 	
 	Xvar = list(map(int, list(Xvar)))
@@ -96,7 +97,7 @@ def preprocess(cnffile_name):
 			os.killpg(process.pid, signal.SIGINT)
 			PosUnate = []
 			NegUnate = []
-			print("c [preprocess] timeout preprocessing..")
+			cprint("c [preprocess] timeout preprocessing..")
 			return PosUnate, NegUnate
 		else:
 			PosUnate = []
@@ -120,6 +121,6 @@ def preprocess(cnffile_name):
 						continue
 				os.unlink(cnffile_name + "_vardetails")
 			else:
-				print("c [preprocess] preprocessing error .. contining ")
+				cprint("c [preprocess] preprocessing error .. contining ")
 				exit()
 			return PosUnate, NegUnate
