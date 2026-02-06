@@ -18,14 +18,34 @@ if ! command -v gcc >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -f /usr/include/gmpxx.h ] && [ ! -f /usr/local/include/gmpxx.h ]; then
-  echo "gmpxx.h is required (sudo apt-get install libgmp-dev)"
-  exit 1
+if command -v pkg-config >/dev/null 2>&1; then
+  if ! pkg-config --exists gmpxx 2>/dev/null; then
+    if ! pkg-config --exists gmp 2>/dev/null; then
+      echo "gmpxx/gmp not found via pkg-config. Set GMP_DIR or install libgmp-dev."
+      exit 1
+    fi
+  fi
+else
+  if [ ! -f /usr/include/gmpxx.h ] && [ ! -f /usr/local/include/gmpxx.h ] && [ -z "${GMP_DIR:-}" ]; then
+    echo "gmpxx.h is required. Set GMP_DIR or install libgmp-dev."
+    exit 1
+  fi
 fi
 
-if [ ! -f /usr/include/boost/program_options.hpp ] && [ ! -f /usr/local/include/boost/program_options.hpp ]; then
-  echo "Boost program_options headers are required (sudo apt-get install libboost-program-options-dev)"
-  exit 1
+if [ -z "${BOOST_ROOT:-}" ] && [ -z "${Boost_ROOT:-}" ] && [ -z "${CMAKE_PREFIX_PATH:-}" ]; then
+  if command -v pkg-config >/dev/null 2>&1; then
+    if ! pkg-config --exists boost 2>/dev/null; then
+      if [ ! -f /usr/include/boost/program_options.hpp ] && [ ! -f /usr/local/include/boost/program_options.hpp ]; then
+        echo "Boost headers not found. Set BOOST_ROOT/Boost_ROOT or install libboost-program-options-dev."
+        exit 1
+      fi
+    fi
+  else
+    if [ ! -f /usr/include/boost/program_options.hpp ] && [ ! -f /usr/local/include/boost/program_options.hpp ]; then
+      echo "Boost program_options headers are required. Set BOOST_ROOT/Boost_ROOT or install libboost-program-options-dev."
+      exit 1
+    fi
+  fi
 fi
 
 mkdir -p "$STATIC_DIR"
