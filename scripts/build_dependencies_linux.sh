@@ -33,31 +33,41 @@ mkdir -p "$STATIC_DIR"
 echo "c building preprocess"
 (
   cd "$DEPS_DIR/manthan-preprocess"
-  echo "c building cryptominisat (static)"
+  echo "c building cryptominisat (shared)"
   (
     cd "$DEPS_DIR/manthan-preprocess/cryptominisat"
     rm -rf build
     mkdir -p build
     cd build
-    cmake .. -DBUILD_SHARED_LIBS=OFF -DSTATICCOMPILE=ON -DONLY_SIMPLE=ON -DENABLE_PYTHON_INTERFACE=OFF -DMANPAGE=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PYTHON_INTERFACE=OFF -DMANPAGE=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     make -j8
   )
-  echo "c building louvain-community (static)"
+  echo "c building louvain-community (shared)"
   (
     cd "$DEPS_DIR/manthan-preprocess/louvain-community"
     rm -rf build
     mkdir -p build
     cd build
-    cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     make -j8
   )
   mkdir -p build
   cd build
-  cmake .. -DSTATICCOMPILE=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+  cmake .. -DSTATICCOMPILE=OFF -DNOM4RI=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -Dcryptominisat5_DIR="$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
     -Dlouvain_communities_DIR="$DEPS_DIR/manthan-preprocess/louvain-community/build"
   make -j8
   cp preprocess "$STATIC_DIR/preprocess"
+  # Bundle shared libs alongside preprocess and make it load from $ORIGIN.
+  if command -v patchelf >/dev/null 2>&1; then
+    patchelf --set-rpath '$ORIGIN' "$STATIC_DIR/preprocess" || true
+  fi
+  if [ -d "$DEPS_DIR/manthan-preprocess/cryptominisat/build/lib" ]; then
+    cp -f "$DEPS_DIR/manthan-preprocess/cryptominisat/build/lib/"*.so* "$STATIC_DIR/" 2>/dev/null || true
+  fi
+  if [ -d "$DEPS_DIR/manthan-preprocess/louvain-community/build/lib" ]; then
+    cp -f "$DEPS_DIR/manthan-preprocess/louvain-community/build/lib/"*.so* "$STATIC_DIR/" 2>/dev/null || true
+  fi
 )
 
 echo "c building unique (itp)"

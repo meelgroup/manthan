@@ -8,9 +8,12 @@ and [ICCAD-21 paper](https://arxiv.org/pdf/2108.05717.pdf).
 
 ## Quick start
 
-Install Python requirements and download prebuilt binaries:
+Create a virtual environment, install Python requirements, and download prebuilt binaries:
 
-```
+```bash
+python3.13 -m venv manthan-venv
+source manthan-venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ./scripts/setup.sh
 ```
@@ -64,6 +67,12 @@ python manthan.py [options]  <inputfile qdimacs>
 ```
 python manthan.py --help
 ```
+
+## Python version
+
+For prebuilt dependency bundles, use Python 3.13 (the `itp` module is built for
+that version). If you use another Python version, you may need to rebuild
+dependencies from source with `./scripts/setup.sh --build`.
 
 ## Benchmarks
 Some benchmarks are available in the `benchmarks` directory. 

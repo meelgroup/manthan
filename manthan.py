@@ -295,7 +295,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--seed', type=int, default=10, dest='seed')
-    parser.add_argument('--verb', type=int, help="0 ,1 ,2", dest='verbose')
+    parser.add_argument('--verb', type=int, default=0, help="0 ,1 ,2", dest='verbose')
     parser.add_argument(
         '--gini', type=float, help="minimum impurity drop, default = 0.005", default=0.005, dest='gini')
     parser.add_argument('--weightedsampling', type=int, default=1,
