@@ -70,8 +70,7 @@ def manthan():
     start_time = time.time()
     status = "finished"
     def finish(status):
-        elapsed = time.time() - start_time
-        cprint("c [manthan] [%.2fs] %s" % (elapsed, status))
+        cprint("c [manthan] %s" % (status))
     Xvar, Yvar, qdimacs_list = parse(args.input)
 
     if args.verbose:
