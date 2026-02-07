@@ -144,5 +144,5 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		if not os.path.isfile(tempoutputfile):
 			raise RuntimeError("sample generation failed: %s" % (" ".join(cmd)))
 
-	frac = float(getattr(args, "sample_mem_frac", 0.3))
-	return _stream_samples(tempoutputfile, int(num_samples), frac)
+		frac = float(getattr(args, "sample_mem_frac", 0.3))
+		return _stream_samples(tempoutputfile, int(num_samples), frac)
