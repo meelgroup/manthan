@@ -44,6 +44,23 @@ def static_bin_path(bin_name):
 			return os.path.abspath(candidate)
 	return os.path.abspath(os.path.join("./dependencies", bin_name))
 
+def _wrap_assign(expr, indent="  ", max_terms=200):
+	if " | " in expr:
+		terms = expr.split(" | ")
+		sep = " | "
+	elif " & " in expr:
+		terms = expr.split(" & ")
+		sep = " & "
+	else:
+		return expr
+	if len(terms) <= max_terms:
+		return expr
+	lines = []
+	for i in range(0, len(terms), max_terms):
+		lines.append(sep.join(terms[i:i + max_terms]))
+	return ("\n" + indent + sep).join(lines)
+
+
 def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueDef, inputfile_name, output_path=None):
 	declare = 'module SkolemFormula ('
 	declarevar = ''
@@ -196,8 +213,10 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 		inputstr += "o%s, " % (var)
 		wirestr += "wire w%s;\n" % (var)
 		if var not in UniqueVars:
-			assignstr += 'assign w%s = (' % (var)
-			assignstr += candidateSkf[var].replace(" 1 ", " one ").replace(" 0 ", " zero ") +");\n"
+		assignstr += 'assign w%s = (' % (var)
+		assign_expr = candidateSkf[var].replace(" 1 ", " one ").replace(" 0 ", " zero ")
+		assign_expr = _wrap_assign(assign_expr, indent="    ", max_terms=200)
+		assignstr += assign_expr +");\n"
 		
 		outstr += "(~(w%s ^ o%s)) & " % (var,var)
 		if itr % 10 == 0:
@@ -216,7 +235,9 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 	assignstr += "assign out = "
 	for i in wtlist:
 		assignstr += "wt%s & " % (i)
-	assignstr = assignstr.strip("& ") + ";\n"
+	assign_expr = assignstr.strip("& ")
+	assign_expr = _wrap_assign(assign_expr, indent="  ", max_terms=200)
+	assignstr = assign_expr + ";\n"
 	inputstr += " out );\n"
 	declarestr += "output out ;\n"
 	f = open(tempOutputFile, "w")

@@ -26,6 +26,23 @@ THE SOFTWARE.
 import networkx as nx
 
 
+def _wrap_assign(expr, indent="  ", max_terms=200):
+	if " | " in expr:
+		terms = expr.split(" | ")
+		sep = " | "
+	elif " & " in expr:
+		terms = expr.split(" & ")
+		sep = " & "
+	else:
+		return expr
+	if len(terms) <= max_terms:
+		return expr
+	lines = []
+	for i in range(0, len(terms), max_terms):
+		lines.append(sep.join(terms[i:i + max_terms]))
+	return ("\n" + indent + sep).join(lines)
+
+
 def convert_verilog(input,cluster,dg):
 	ng = nx.Graph() # used only if args.multiclass
 
@@ -78,7 +95,9 @@ def convert_verilog(input,cluster,dg):
 			else:
 				assign_wire += "%s | " %(abs(int(var)))
 
-		assign_wire = assign_wire.strip("| ")+";\n"
+		assign_wire = assign_wire.strip("| ")
+		assign_wire = _wrap_assign(assign_wire, indent="  ", max_terms=200)
+		assign_wire += ";\n"
 		
 		### if args.multiclass, then add an edge between variables of the clause ###
 
@@ -120,7 +139,9 @@ def convert_verilog(input,cluster,dg):
 		declare_wire += "wire tcount_%s;\n" %(itr)
 		assign_wire += "assign tcount_%s = %s;\n" %(itr,temp_assign.strip("& "))
 		outstr += "tcount_%s & " %(itr)
-	outstr = "assign out = %s;\n" %(outstr.strip("& \n"))
+	out_expr = outstr.strip("& \n")
+	out_expr = _wrap_assign(out_expr, indent="  ", max_terms=200)
+	outstr = "assign out = %s;\n" %(out_expr)
 
 
 	verilogformula = declare + declare_input + declare_wire + assign_wire + outstr +"endmodule\n"
