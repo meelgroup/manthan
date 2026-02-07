@@ -46,13 +46,15 @@ def static_bin_path(bin_name):
 
 def _wrap_assign(expr, indent="  ", max_terms=200, max_len=4000):
 	if " | " in expr:
-		terms = expr.split(" | ")
+		terms = [t.strip() for t in expr.split(" | ") if t.strip()]
 		sep = " | "
 	elif " & " in expr:
-		terms = expr.split(" & ")
+		terms = [t.strip() for t in expr.split(" & ") if t.strip()]
 		sep = " & "
 	else:
 		return expr
+	if not terms:
+		return ""
 	lines = []
 	current = ""
 	for term in terms:
