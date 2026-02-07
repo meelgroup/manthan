@@ -44,7 +44,7 @@ def static_bin_path(bin_name):
 			return os.path.abspath(candidate)
 	return os.path.abspath(os.path.join("./dependencies", bin_name))
 
-def _wrap_assign(expr, indent="  ", max_terms=200):
+def _wrap_assign(expr, indent="  ", max_terms=200, max_len=4000):
 	if " | " in expr:
 		terms = expr.split(" | ")
 		sep = " | "
@@ -53,12 +53,23 @@ def _wrap_assign(expr, indent="  ", max_terms=200):
 		sep = " & "
 	else:
 		return expr
-	if len(terms) <= max_terms:
-		return expr
 	lines = []
-	for i in range(0, len(terms), max_terms):
-		lines.append(sep.join(terms[i:i + max_terms]))
-	return ("\n" + indent + sep).join(lines)
+	current = ""
+	for term in terms:
+		if not current:
+			next_str = term
+		else:
+			next_str = current + sep + term
+		if (current and (len(next_str) > max_len or (current.count(sep) + 1) >= max_terms)):
+			lines.append(current)
+			current = term
+		else:
+			current = next_str
+	if current:
+		lines.append(current)
+	if len(lines) <= 1:
+		return expr
+	return (sep + "\n" + indent).join(lines)
 
 
 def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueDef, inputfile_name, output_path=None):
