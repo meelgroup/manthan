@@ -55,6 +55,7 @@ def _wrap_assign(expr, indent="  ", max_terms=200, max_len=4000):
 		return expr
 	if not terms:
 		return ""
+	rebuilt = sep.join(terms)
 	lines = []
 	current = ""
 	for term in terms:
@@ -70,7 +71,7 @@ def _wrap_assign(expr, indent="  ", max_terms=200, max_len=4000):
 	if current:
 		lines.append(current)
 	if len(lines) <= 1:
-		return expr
+		return rebuilt
 	return (sep + "\n" + indent).join(lines)
 
 
