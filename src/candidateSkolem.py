@@ -132,7 +132,7 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
 
     for i in range(len(yvar)):
         D = []
-        paths, D = treepaths( 0, is_leaves, children_left, children_right, featname, feature, values, D, leave_label, Xvar, Yvar, i, len(yvar),args)
+        paths, D = treepaths(0, is_leaves, children_left, children_right, featname, feature, values, D, leave_label, Xvar, Yvar, i, len(yvar), args)
         psi_i = ''
 
         if is_leaves[0]:
@@ -147,14 +147,14 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
                     paths = ["0"]
                 else:
                     paths = ["1"]  
+        paths = [p.strip() for p in paths if p and p.strip()]
         if len(paths) == 0:
-            paths.append("0")
+            paths = ["0"]
             D = []
 
-        for path in paths:
-            psi_i += "( "+ path + " ) | " 
+        psi_i = " | ".join("( " + path + " )" for path in paths)
         D_dict[yvar[i]] = D
-        psi_dict[yvar[i]] = psi_i.strip("| ")
+        psi_dict[yvar[i]] = psi_i.strip()
     
     return psi_dict, D_dict
          

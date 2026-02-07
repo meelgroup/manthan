@@ -75,6 +75,8 @@ def _wrap_assign(expr, indent="  ", max_terms=200, max_len=4000):
 	return (sep + "\n" + indent).join(lines)
 
 
+
+
 def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueDef, inputfile_name, output_path=None):
 	declare = 'module SkolemFormula ('
 	declarevar = ''
@@ -231,9 +233,9 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 		wirestr += "wire w%s;\n" % (var)
 		if var not in UniqueVars:
 			assignstr += 'assign w%s = (' % (var)
-			assign_expr = candidateSkf[var].replace(" 1 ", " one ").replace(" 0 ", " zero ")
-			assign_expr = _wrap_assign(assign_expr, indent="    ", max_terms=200)
-			assignstr += assign_expr +");\n"
+		assign_expr = candidateSkf[var].replace(" 1 ", " one ").replace(" 0 ", " zero ")
+		assign_expr = _wrap_assign(assign_expr, indent="    ", max_terms=200)
+		assignstr += assign_expr +");\n"
 		
 		outstr += "(~(w%s ^ o%s)) & " % (var,var)
 		if itr % 10 == 0:
