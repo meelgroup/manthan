@@ -8,38 +8,32 @@ and [ICCAD-21 paper](https://arxiv.org/pdf/2108.05717.pdf).
 
 ## Quick start
 
-Create a virtual environment, install Python requirements, and download prebuilt binaries:
+System prerequisites:
+
+- macOS: `brew install cmake gmp boost`
+- Ubuntu: `sudo apt-get install -y build-essential cmake git pkg-config libgmp-dev zlib1g-dev libreadline-dev libboost-dev libboost-program-options-dev`
+
+Create a virtual environment, install Python requirements, and build dependencies:
 
 ```bash
 python3.13 -m venv manthan-venv
 source manthan-venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-./scripts/setup.sh
+./scripts/setup.sh --build
 ```
 
-If you already ran setup and want to re-download the latest prebuilt deps:
+If you want to clean and rebuild dependencies:
 
 ```bash
-./scripts/setup.sh --force
-```
-
-
-This downloads the latest release artifacts for your OS and extracts them into:
-- `dependencies/static_bin`
-- `dependencies/unique/build/interpolatingsolver/src`
-
-### Build from source (macOS/Linux)
-
-Install build prerequisites:
-
-- macOS: `brew install cmake gmp boost`
-- Ubuntu: `sudo apt-get install -y build-essential cmake git pkg-config libgmp-dev zlib1g-dev libreadline-dev libboost-dev libboost-program-options-dev`
-
-Then:
-
-```
+./scripts/setup.sh --clean
 ./scripts/setup.sh --build
+```
+
+To pull fresh changes in dependencies before rebuilding:
+
+```bash
+./scripts/setup.sh --update
 ```
 
 ## Usage
@@ -57,13 +51,6 @@ python manthan.py --preprocess=0 --unique=0 --multiclass=0 --lexmaxsat=0 <qdimac
 Each of these options defaults to `1`, and specifying the flag without a value
 still enables it (e.g., `--preprocess` is the same as `--preprocess=1`).
 
-## Skolem checker
-
-Use the independent Skolem checker to validate a generated `*_skolem.v` against the original QDIMACS:
-
-```
-python src/checkSkolem.py --qdimacs <input.qdimacs> --skolem <input>_skolem.v --multiclass
-```
 
 To see a detailed list of available options:
 
@@ -73,12 +60,13 @@ python manthan.py [options]  <inputfile qdimacs>
 ```
 python manthan.py --help
 ```
+## Skolem checker
 
-## Python version
+Use the independent Skolem checker to validate a generated `*_skolem.v` against the original QDIMACS:
 
-For prebuilt dependency bundles, use Python 3.13 (the `itp` module is built for
-that version). If you use another Python version, you must rebuild dependencies
-from source with `./scripts/setup.sh --build`.
+```
+python src/checkSkolem.py --qdimacs <input.qdimacs> --skolem <input>_skolem.v --multiclass
+```
 
 ## Smoke test
 
