@@ -71,6 +71,7 @@ echo "c building preprocess"
     cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     make -j8
   )
+  rm -rf build
   mkdir -p build
   cd build
   cmake .. -DSTATICCOMPILE=OFF -DNOM4RI=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
@@ -165,6 +166,7 @@ PY
 echo "c building abc helpers"
 (
   cd "$DEPS_DIR/abc"
+  make clean || true
   ABC_CXXFLAGS="${ABC_CXXFLAGS:-} -Wno-narrowing"
   ABC_CFLAGS="${ABC_CFLAGS:-} -Wno-narrowing"
   CC="$ABC_CC" CXX="$ABC_CXX" CXXFLAGS="$ABC_CXXFLAGS" CFLAGS="$ABC_CFLAGS" make libabc.a
@@ -185,6 +187,7 @@ echo "c building abc helpers"
 echo "c building cmsgen"
 (
   cd "$DEPS_DIR/cmsgen"
+  rm -rf build
   mkdir -p build
   cd build
   CC=cc CXX=c++ cmake ..
@@ -195,6 +198,7 @@ echo "c building cmsgen"
 echo "c building picosat"
 (
   cd "$DEPS_DIR/picosat-src"
+  make clean || true
   ./configure.sh
   make -j8
   cp picosat "$STATIC_DIR/picosat"

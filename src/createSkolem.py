@@ -232,10 +232,13 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 		inputstr += "o%s, " % (var)
 		wirestr += "wire w%s;\n" % (var)
 		if var not in UniqueVars:
+			if var not in candidateSkf:
+				cprint("c [createSkolem] missing candidate for w%s; defaulting to 0" % (var))
+				candidateSkf[var] = " 0 "
 			assignstr += 'assign w%s = (' % (var)
-		assign_expr = candidateSkf[var].replace(" 1 ", " one ").replace(" 0 ", " zero ")
-		assign_expr = _wrap_assign(assign_expr, indent="    ", max_terms=200)
-		assignstr += assign_expr +");\n"
+			assign_expr = candidateSkf[var].replace(" 1 ", " one ").replace(" 0 ", " zero ")
+			assign_expr = _wrap_assign(assign_expr, indent="    ", max_terms=200)
+			assignstr += assign_expr +");\n"
 		
 		outstr += "(~(w%s ^ o%s)) & " % (var,var)
 		if itr % 10 == 0:
