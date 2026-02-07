@@ -416,8 +416,26 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, ar
     f.close()
     skolemcontent = "".join(lines)
     for yvar in list(repairfunctions.keys()):
-        oldfunction = [line for line in lines if "assign w" + str(yvar)+" " in line][0]
-        oldfunctionR = oldfunction.rstrip(";\n").lstrip("assign w%s = " %(yvar))
+        start_idx = None
+        for i, line in enumerate(lines):
+            if line.strip().startswith("assign w" + str(yvar) + " "):
+                start_idx = i
+                break
+        if start_idx is None:
+            continue
+        old_lines = [lines[start_idx]]
+        i = start_idx
+        while ";" not in lines[i]:
+            i += 1
+            if i >= len(lines):
+                break
+            old_lines.append(lines[i])
+        oldfunction = "".join(old_lines)
+        oldfunctionR = oldfunction.replace("\n", " ").strip()
+        prefix = "assign w%s = " % (yvar)
+        if oldfunctionR.startswith(prefix):
+            oldfunctionR = oldfunctionR[len(prefix):]
+        oldfunctionR = oldfunctionR.rstrip(";").strip()
         repairformula = "wire beta%s_%s;\nassign beta%s_%s = ( %s );\n" %(yvar,countRefine,yvar,countRefine,repairfunctions[yvar])
         
         yindex = np.where(np.array(Yvar) == yvar)[0][0]
