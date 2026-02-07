@@ -207,6 +207,11 @@ def manthan():
     candidateSkf, dg = learnCandidate(
         Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args)
 
+    missing = [y for y in Yvar if (y not in UniqueVars and y not in PosUnate and y not in NegUnate and y not in candidateSkf)]
+    if missing:
+        cprint("c [manthan] missing candidate functions for Y variables:", missing)
+        raise RuntimeError("Missing candidate functions for some Y variables; see log for details.")
+
     YvarOrder = np.array(list(nx.topological_sort(dg)))
 
     assert(len(Yvar) == len(YvarOrder))
