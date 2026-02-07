@@ -68,6 +68,10 @@ from src.repair import *
 def manthan():
     cprint("c [manthan] parsing")
     start_time = time.time()
+    status = "finished"
+    def finish(status):
+        elapsed = time.time() - start_time
+        cprint("c [manthan] [%.2fs] %s" % (elapsed, status))
     Xvar, Yvar, qdimacs_list = parse(args.input)
 
     if args.verbose:
@@ -126,7 +130,8 @@ def manthan():
         cprint("c [manthan] all Y variables are unates and have constant functions")
         skolemfunction_preprocess(
             Xvar, Yvar, PosUnate, NegUnate, [], '', temp_stem, output_path)
-        exit()
+        finish("finished")
+        return
 
     dg = nx.DiGraph()  # dag to handle dependencies
 
@@ -153,7 +158,8 @@ def manthan():
         else:
             skolemfunction_preprocess(
                 Xvar, Yvar, [], [], UniqueVars, UniqueDef, temp_stem, output_path)
-        exit()
+        finish("finished")
+        return
 
     # we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
     cprint("c [manthan] parsing and converting to verilog")
@@ -233,6 +239,7 @@ def manthan():
         check, sigma, ret = verify(Xvar, Yvar, temp_stem, args.verbose or 0, args.debug_keep)
         if check == 0:
             cprint("c [manthan] error --- ABC network read fail")
+            status = "failed"
             break
         if ret == 0:
             cprint("c [manthan] verification check UNSAT")
@@ -270,7 +277,8 @@ def manthan():
                               sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args)
                 if len(ind) == 0:
                     cprint("c [manthan] no candidates returned by rc2; stopping repair")
-                    exit(1)
+                    status = "failed"
+                    break
                 if args.verbose == 1:
                     cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))
                 lexflag, repairfunctions = repair(
@@ -280,7 +288,9 @@ def manthan():
         if countRefine > args.maxrepairitr:
             cprint("c [manthan] number of maximum allowed repair iteration reached")
             cprint("c [manthan] could not synthesize functions")
+            status = "failed"
             break
+    finish(status)
 
 
 if __name__ == "__main__":
