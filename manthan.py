@@ -225,7 +225,7 @@ def manthan():
 
     while True:
         addSkolem(error_content, temp_stem, debug_keep=args.debug_keep)
-        check, sigma, ret = verify(Xvar, Yvar, temp_stem, args.verbose or 0)
+        check, sigma, ret = verify(Xvar, Yvar, temp_stem, args.verbose or 0, args.debug_keep)
         if check == 0:
             cprint("c [manthan] error --- ABC network read fail")
             break

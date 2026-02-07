@@ -285,8 +285,10 @@ def simply(inputfile_name):
 
 
 
-def verify(Xvar, Yvar, inputfile_name, verbose=0):
+def verify(Xvar, Yvar, inputfile_name, verbose=0, debug_keep=False):
 	errorformula = temp_path(inputfile_name + "_errorformula.v")
+	if debug_keep and not os.path.isfile(errorformula):
+		errorformula = os.path.abspath(inputfile_name + "_errorformula.v")
 	if not os.path.isfile(errorformula):
 		cprint("c [verify] missing error formula:", errorformula)
 		return(0, [0], 1)
