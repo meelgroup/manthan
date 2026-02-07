@@ -41,6 +41,8 @@ import subprocess as subprocess
 import time
 import networkx as nx
 from src.logging_utils import cprint
+from pathlib import Path
+import re
 config = configparser.ConfigParser()
 config.read("manthan_dependencies.cfg")
 if config.has_option("ITP-Path", "itp_path"):
@@ -72,8 +74,15 @@ def manthan():
         cprint("c [manthan] count X variables", len(Xvar))
         cprint("c [manthan] count Y variables", len(Yvar))
 
-    inputfile_name = args.input.split('/')[-1][:-8]
-    cnffile_name = temp_path(inputfile_name + ".cnf")
+    input_name = Path(args.input).name
+    if input_name.endswith(".qdimacs"):
+        output_stem = input_name[:-8]
+    else:
+        output_stem = Path(input_name).stem
+    output_path = args.output or f"{output_stem}_skolem.v"
+    temp_stem = re.sub(r"[^A-Za-z0-9_-]+", "_", output_stem).strip("_") or "manthan"
+
+    cnffile_name = temp_path(temp_stem + ".cnf")
 
     cnfcontent = convertcnf(args.input, cnffile_name)
     cnfcontent = cnfcontent.strip("\n")+"\n"
@@ -116,7 +125,7 @@ def manthan():
         cprint("c [manthan] negative unates", NegUnate)
         cprint("c [manthan] all Y variables are unates and have constant functions")
         skolemfunction_preprocess(
-            Xvar, Yvar, PosUnate, NegUnate, [], '', inputfile_name, args.output)
+            Xvar, Yvar, PosUnate, NegUnate, [], '', temp_stem, output_path)
         exit()
 
     dg = nx.DiGraph()  # dag to handle dependencies
@@ -140,10 +149,10 @@ def manthan():
         cprint("c [manthan] found functions for all Y variables")
         if args.preprocess == 1:
             skolemfunction_preprocess(
-                Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, inputfile_name, args.output)
+                Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, temp_stem, output_path)
         else:
             skolemfunction_preprocess(
-                Xvar, Yvar, [], [], UniqueVars, UniqueDef, inputfile_name, args.output)
+                Xvar, Yvar, [], [], UniqueVars, UniqueDef, temp_stem, output_path)
         exit()
 
     # we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
@@ -180,17 +189,17 @@ def manthan():
 
         if args.adaptivesample:
             weighted_sampling_cnf = computeBias(
-                Xvar, Yvar, sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, Unates + UniqueVars, args)
+                Xvar, Yvar, sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, temp_stem, Unates + UniqueVars, args)
         else:
             weighted_sampling_cnf = sampling_cnf + sampling_weights_y_1
 
         cprint("c [manthan] generating weighted samples")
         samples = generatesample(
-            args, num_samples, weighted_sampling_cnf, inputfile_name, 1)
+            args, num_samples, weighted_sampling_cnf, temp_stem, 1)
     else:
         cprint("c [manthan] generating uniform samples")
         samples = generatesample(
-            args, num_samples, sampling_cnf, inputfile_name, 0)
+            args, num_samples, sampling_cnf, temp_stem, 0)
 
     cprint("c [manthan] generated samples.. learning candidate functions")
     start_t = time.time()
@@ -203,7 +212,7 @@ def manthan():
     assert(len(Yvar) == len(YvarOrder))
 
     createSkolem(candidateSkf, Xvar, Yvar, UniqueVars,
-                 UniqueDef, inputfile_name)
+                 UniqueDef, temp_stem)
 
     error_content = createErrorFormula(Xvar, Yvar, UniqueVars, verilogformula)
 
@@ -215,8 +224,8 @@ def manthan():
     start_t = time.time()
 
     while True:
-        addSkolem(error_content, inputfile_name)
-        check, sigma, ret = verify(Xvar, Yvar, inputfile_name, args.verbose or 0)
+        addSkolem(error_content, temp_stem)
+        check, sigma, ret = verify(Xvar, Yvar, temp_stem, args.verbose or 0)
         if check == 0:
             cprint("c [manthan] error --- ABC network read fail")
             break
@@ -224,7 +233,7 @@ def manthan():
             cprint("c [manthan] verification check UNSAT")
             cprint("c [manthan] no more repair needed")
             cprint("c [manthan] number of repairs needed to converge", countRefine)
-            createSkolemfunction(inputfile_name, Xvar, Yvar, args.output)
+            createSkolemfunction(temp_stem, Xvar, Yvar, output_path)
             break
         if ret == 1:
             countRefine += 1
@@ -237,7 +246,7 @@ def manthan():
                 cnfcontent, maxsatWt, maxsatcnf, sigma[0], Xvar)
 
             ind = callMaxsat(
-                maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, inputfile_name, args.weightedmaxsat)
+                maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat)
 
             assert(len(ind) > 0)
 
@@ -248,7 +257,7 @@ def manthan():
                 cprint("c [manthan] variables undergoing refinement", ind)
 
             lexflag, repairfunctions = repair(
-                repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, args.lexmaxsat == 1)
+                repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, temp_stem, args, args.lexmaxsat == 1)
 
             if lexflag:
                 cprint("c [manthan] calling rc2 to find another set of candidates to repair")
@@ -260,9 +269,9 @@ def manthan():
                 if args.verbose == 1:
                     cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))
                 lexflag, repairfunctions = repair(
-                    repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inputfile_name, args, 0)
+                    repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, temp_stem, args, 0)
             updateSkolem(repairfunctions, countRefine,
-                         sigma[2], inputfile_name, Yvar, args)
+                         sigma[2], temp_stem, Yvar, args)
         if countRefine > args.maxrepairitr:
             cprint("c [manthan] number of maximum allowed repair iteration reached")
             cprint("c [manthan] could not synthesize functions")
@@ -332,6 +341,8 @@ if __name__ == "__main__":
     parser.add_argument("--itp-limit", type=int, default=1000,
                         help="interpolating solver conflict limit; -1 for no limit", dest='itp_limit')
     parser.add_argument("-o", "--output", help="output skolem verilog path")
+    parser.add_argument("--sample-mem-frac", type=float, default=0.7,
+                        help="fraction of available memory to use for sample parsing (0 disables cap)")
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
     try:

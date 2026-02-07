@@ -29,6 +29,7 @@ import os
 import subprocess
 from src import runtime_env  # noqa: F401
 from src.logging_utils import cprint
+import psutil
 
 
 def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, inputfile_name, SkolemKnown, args):
@@ -70,6 +71,60 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 
 
 
+def _max_rows_from_memory(row_len, num_samples, frac):
+	if frac <= 0:
+		return num_samples
+	available = psutil.virtual_memory().available
+	bytes_per_row = max(row_len - 1, 1)
+	max_rows = max(int((available * frac) // bytes_per_row), 1)
+	return min(num_samples, max_rows)
+
+
+def _stream_samples(path, num_samples, frac):
+	rows = []
+	row = []
+	row_len = None
+	max_rows = None
+	skipped_header = False
+
+	with open(path, "r") as f:
+		buf = ""
+		for chunk in iter(lambda: f.read(1024 * 1024), ""):
+			buf += chunk
+			parts = buf.split()
+			if not buf.endswith((" ", "\n", "\t")):
+				buf = parts.pop() if parts else buf
+			else:
+				buf = ""
+			for tok in parts:
+				if not skipped_header and tok == "SAT":
+					skipped_header = True
+					continue
+				try:
+					val = int(tok)
+				except ValueError:
+					continue
+				if val == 0:
+					if row_len is None:
+						row_len = len(row) + 1
+						max_rows = _max_rows_from_memory(row_len, num_samples, frac)
+					if row_len and len(row) + 1 != row_len:
+						row = []
+						continue
+					if row_len:
+						rows.append((np.array(row, dtype=np.int32) > 0).astype(np.uint8))
+					row = []
+					if max_rows is not None and len(rows) >= max_rows:
+						if max_rows < num_samples:
+							cprint("c [samples] truncated to", max_rows, "rows due to memory budget")
+						return np.vstack(rows) if rows else np.empty((0, 0), dtype=np.uint8)
+				else:
+					row.append(val)
+	if rows:
+		return np.vstack(rows)
+	return np.empty((0, 0), dtype=np.uint8)
+
+
 def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 	with tempfile.TemporaryDirectory(prefix="manthan_cmsgen_") as tmpdir:
 		tempcnffile = os.path.join(tmpdir, "sample.cnf")
@@ -89,24 +144,5 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		if not os.path.isfile(tempoutputfile):
 			raise RuntimeError("sample generation failed: %s" % (" ".join(cmd)))
 
-		with open(tempoutputfile, "r") as f:
-			content = f.read()
-		f.close()
-	content = content.replace("SAT\n","").replace("\n"," ").strip(" \n").strip(" ")
-	if not content:
-		return np.empty((0, 0), dtype=np.uint8)
-	models = np.fromstring(content, sep=" ", dtype=np.int32)
-	if models.size == 0:
-		return np.empty((0, 0), dtype=np.uint8)
-	if models[-1] != 0:
-		models = models[:-1]
-	zeros = np.where(models == 0)[0]
-	if zeros.size == 0:
-		return np.empty((0, 0), dtype=np.uint8)
-	row_len = int(zeros[0]) + 1
-	usable = models[: (models.size // row_len) * row_len]
-	if usable.size == 0:
-		return np.empty((0, 0), dtype=np.uint8)
-	reshaped = usable.reshape(-1, row_len)
-	var_model = (reshaped[:, :row_len - 1] > 0).astype(np.uint8)
-	return var_model
+	frac = float(getattr(args, "sample_mem_frac", 0.3))
+	return _stream_samples(tempoutputfile, int(num_samples), frac)

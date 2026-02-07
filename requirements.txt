@@ -4,3 +4,4 @@ networkx
 pydotplus
 python-sat
 pybind11
+psutil
