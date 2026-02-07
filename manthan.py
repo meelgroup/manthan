@@ -116,7 +116,7 @@ def manthan():
         cprint("c [manthan] negative unates", NegUnate)
         cprint("c [manthan] all Y variables are unates and have constant functions")
         skolemfunction_preprocess(
-            Xvar, Yvar, PosUnate, NegUnate, [], '', inputfile_name)
+            Xvar, Yvar, PosUnate, NegUnate, [], '', inputfile_name, args.output)
         exit()
 
     dg = nx.DiGraph()  # dag to handle dependencies
@@ -126,9 +126,6 @@ def manthan():
         start_t = time.time()
         UniqueVars, UniqueDef = unique_function(
             qdimacs_list, Xvar, Yvar, dg, Unates)
-        end_t = time.time()
-        logtime(inputfile_name, "unique function finding:"+str(end_t-start_t))
-
         if args.verbose:
             cprint("c [manthan] count of uniquely defined variables", len(UniqueVars))
             if args.verbose >= 2:
@@ -143,12 +140,10 @@ def manthan():
         cprint("c [manthan] found functions for all Y variables")
         if args.preprocess == 1:
             skolemfunction_preprocess(
-                Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, inputfile_name)
+                Xvar, Yvar, PosUnate, NegUnate, UniqueVars, UniqueDef, inputfile_name, args.output)
         else:
             skolemfunction_preprocess(
-                Xvar, Yvar, [], [], UniqueVars, UniqueDef, inputfile_name)
-        end_time = time.time()
-        logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
+                Xvar, Yvar, [], [], UniqueVars, UniqueDef, inputfile_name, args.output)
         exit()
 
     # we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
@@ -197,17 +192,11 @@ def manthan():
         samples = generatesample(
             args, num_samples, sampling_cnf, inputfile_name, 0)
 
-    end_t = time.time()
-    logtime(inputfile_name, "generating samples:"+str(end_t-start_t))
-
     cprint("c [manthan] generated samples.. learning candidate functions")
     start_t = time.time()
 
     candidateSkf, dg = learnCandidate(
         Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args)
-
-    end_t = time.time()
-    logtime(inputfile_name, "candidate learning:"+str(end_t-start_t))
 
     YvarOrder = np.array(list(nx.topological_sort(dg)))
 
@@ -235,7 +224,7 @@ def manthan():
             cprint("c [manthan] verification check UNSAT")
             cprint("c [manthan] no more repair needed")
             cprint("c [manthan] number of repairs needed to converge", countRefine)
-            createSkolemfunction(inputfile_name, Xvar, Yvar)
+            createSkolemfunction(inputfile_name, Xvar, Yvar, args.output)
             break
         if ret == 1:
             countRefine += 1
@@ -278,9 +267,6 @@ def manthan():
             cprint("c [manthan] number of maximum allowed repair iteration reached")
             cprint("c [manthan] could not synthesize functions")
             break
-    end_time = time.time()
-    logtime(inputfile_name, "repair time:"+str(end_time-start_t))
-    logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
 
 
 if __name__ == "__main__":
@@ -345,6 +331,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--itp-limit", type=int, default=1000,
                         help="interpolating solver conflict limit; -1 for no limit", dest='itp_limit')
+    parser.add_argument("-o", "--output", help="output skolem verilog path")
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
     try:

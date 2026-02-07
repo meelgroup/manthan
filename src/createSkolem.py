@@ -44,7 +44,7 @@ def static_bin_path(bin_name):
 			return os.path.abspath(candidate)
 	return os.path.abspath(os.path.join("./dependencies", bin_name))
 
-def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef, inputfile_name):
+def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueDef, inputfile_name, output_path=None):
 	declare = 'module SkolemFormula ('
 	declarevar = ''
 	assign = ''
@@ -68,14 +68,17 @@ def skolemfunction_preprocess(Xvar,Yvar,PosUnate,NegUnate, UniqueVar, UniqueDef,
 	declare = declare.strip(", ")+");\n"
 	skolemformula = declare + declarevar + wire + UniqueDef + assign + "endmodule\n"
 
-	skolemformula =  inputfile_name + "_skolem.v"
+	if output_path is None:
+		output_path = inputfile_name + "_skolem.v"
 
-	with open(skolemformula,"w") as f:
+	with open(output_path,"w") as f:
 		f.write(skolemformula)
 	f.close()
 	
-def createSkolemfunction(inputfile_name, Xvar,Yvar):
+def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None):
 	skolemformula = temp_path(inputfile_name + "_skolem.v")
+	if output_path is None:
+		output_path = inputfile_name + "_skolem.v"
 	
 	content = ''
 	declare = "module SkolemFormula ("
@@ -115,7 +118,7 @@ def createSkolemfunction(inputfile_name, Xvar,Yvar):
 		f.write(declare + declare_input + content + assign + "endmodule\n")
 	f.close()
 
-	shutil.copy(skolemformula, inputfile_name + "_skolem.v")
+	shutil.copy(skolemformula, output_path)
 	os.unlink(skolemformula)
 
 
