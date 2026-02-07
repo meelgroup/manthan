@@ -93,14 +93,20 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 			content = f.read()
 		f.close()
 	content = content.replace("SAT\n","").replace("\n"," ").strip(" \n").strip(" ")
-	models = content.split(" ")
-	models = np.array(models)
-	if models[len(models)-1] != "0":
-		models = np.delete(models, len(models) - 1, axis=0)
-	if len(np.where(models == "0")[0]) > 0:
-		index = np.where(models == "0")[0][0]
-		var_model = np.reshape(models, (-1, index+1)).astype(int)
-		var_model = var_model > 1
-		var_model = np.delete(var_model, index, axis=1)
-		var_model = var_model.astype(int)
+	if not content:
+		return np.empty((0, 0), dtype=np.uint8)
+	models = np.fromstring(content, sep=" ", dtype=np.int32)
+	if models.size == 0:
+		return np.empty((0, 0), dtype=np.uint8)
+	if models[-1] != 0:
+		models = models[:-1]
+	zeros = np.where(models == 0)[0]
+	if zeros.size == 0:
+		return np.empty((0, 0), dtype=np.uint8)
+	row_len = int(zeros[0]) + 1
+	usable = models[: (models.size // row_len) * row_len]
+	if usable.size == 0:
+		return np.empty((0, 0), dtype=np.uint8)
+	reshaped = usable.reshape(-1, row_len)
+	var_model = (reshaped[:, :row_len - 1] > 0).astype(np.uint8)
 	return var_model
