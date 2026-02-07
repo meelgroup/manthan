@@ -63,12 +63,6 @@ from src.candidateSkolem import *
 from src.repair import *
 
 
-def logtime(inputfile, text):
-    with open(inputfile+"time_details", "a+") as f:
-        f.write(text + "\n")
-    f.close()
-
-
 def manthan():
     cprint("c [manthan] parsing")
     start_time = time.time()
@@ -94,8 +88,6 @@ def manthan():
             PosUnate = []
             NegUnate = []
         end_t = time.time()
-        logtime(inputfile_name, "preprocessing time:"+str(end_t-start_t))
-
         if args.verbose:
             cprint("c [manthan] count of positive unates", len(PosUnate))
             cprint("c [manthan] count of negative unates", len(NegUnate))
@@ -125,8 +117,6 @@ def manthan():
         cprint("c [manthan] all Y variables are unates and have constant functions")
         skolemfunction_preprocess(
             Xvar, Yvar, PosUnate, NegUnate, [], '', inputfile_name)
-        end_time = time.time()
-        logtime(inputfile_name, "totaltime:"+str(end_time-start_time))
         exit()
 
     dg = nx.DiGraph()  # dag to handle dependencies
