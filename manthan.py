@@ -224,7 +224,7 @@ def manthan():
     start_t = time.time()
 
     while True:
-        addSkolem(error_content, temp_stem)
+        addSkolem(error_content, temp_stem, debug_keep=args.debug_keep)
         check, sigma, ret = verify(Xvar, Yvar, temp_stem, args.verbose or 0)
         if check == 0:
             cprint("c [manthan] error --- ABC network read fail")
@@ -343,6 +343,8 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", help="output skolem verilog path")
     parser.add_argument("--sample-mem-frac", type=float, default=0.7,
                         help="fraction of available memory to use for sample parsing (0 disables cap)")
+    parser.add_argument("--debug-keep", action="store_true",
+                        help="keep generated temp files for debugging")
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
     try:

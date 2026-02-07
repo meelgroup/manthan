@@ -193,12 +193,15 @@ def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
 	return error_content
 
 
-def addSkolem(error_content,inputfile_name):
+def addSkolem(error_content, inputfile_name, debug_keep=False):
 	skolemformula = temp_path(inputfile_name + "_skolem.v")
 	with open(skolemformula, 'r') as f:
 		skolemcontent = f.read()
 	f.close()
-	errorformula = temp_path(inputfile_name + "_errorformula.v")
+	if debug_keep:
+		errorformula = os.path.abspath(inputfile_name + "_errorformula.v")
+	else:
+		errorformula = temp_path(inputfile_name + "_errorformula.v")
 	f = open(errorformula, "w")
 	f.write(error_content)
 	f.write(skolemcontent)
