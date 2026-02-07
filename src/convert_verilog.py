@@ -95,11 +95,14 @@ def convert_verilog(input,cluster,dg):
 					dg.add_node(int(evar))
 			continue
 
+		parts = line.strip().split()
+		clause_variable = parts[:-1]
+		if not clause_variable:
+			continue
+
 		declare_wire += "wire t_%s;\n" %(itr)
 		assign_wire += "assign t_%s = " %(itr)
 		itr += 1
-
-		clause_variable = line.strip(" \n").split(" ")[:-1]
 		for var in clause_variable:
 			if int(var) < 0:
 				assign_wire += "~%s | " %(abs(int(var)))
