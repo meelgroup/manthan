@@ -65,7 +65,7 @@ python manthan.py --help
 Use the independent Skolem checker to validate a generated `*_skolem.v` against the original QDIMACS:
 
 ```
-python src/checkSkolem.py --qdimacs <input.qdimacs> --skolem <input>_skolem.v --multiclass
+python checkSkolem.py --qdimacs <input.qdimacs> --skolem <input>_skolem.v
 ```
 
 ## Smoke test
