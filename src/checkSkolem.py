@@ -21,7 +21,6 @@ if REPO_ROOT not in sys.path:
 
 from src.logging_utils import cprint
 from src.preprocess import parse
-from src.convert_verilog import convert_verilog
 
 
 def _static_bin_path(bin_name):
@@ -45,6 +44,85 @@ def _skolem_module_info(skolem_path):
     if module_name is None:
         raise RuntimeError("Could not find module declaration in %s" % skolem_path)
     return module_name, has_out
+
+
+def _convert_verilog(qdimacs_path):
+
+    with open(qdimacs_path, "r") as f:
+        lines = f.readlines()
+
+    itr = 1
+    declare = "module FORMULA( "
+    declare_input = ""
+    declare_wire = ""
+    assign_wire = ""
+    tmp_array = []
+
+    for line in lines:
+        line = line.strip(" ")
+        if (line == "") or (line == "\n"):
+            continue
+        if line.startswith("c "):
+            continue
+        if line.startswith("p "):
+            continue
+
+        if line.startswith("a"):
+            a_variables = line.strip("a").strip("\n").strip(" ").split(" ")[:-1]
+            for avar in a_variables:
+                declare += "%s," % (avar)
+                declare_input += "input %s;\n" % (avar)
+            continue
+
+        if line.startswith("e"):
+            e_variables = line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
+            for evar in e_variables:
+                tmp_array.append(int(evar))
+                declare += "%s," % (evar)
+                declare_input += "input %s;\n" % (evar)
+            continue
+
+        declare_wire += "wire t_%s;\n" % (itr)
+        assign_wire += "assign t_%s = " % (itr)
+        itr += 1
+
+        clause_variable = line.strip(" \n").split(" ")[:-1]
+        for var in clause_variable:
+            if int(var) < 0:
+                assign_wire += "~%s | " % (abs(int(var)))
+            else:
+                assign_wire += "%s | " % (abs(int(var)))
+
+        assign_wire = assign_wire.strip("| ") + ";\n"
+
+
+    count_tempvariable = itr
+
+    declare += "out);\n"
+    declare_input += "output out;\n"
+
+    temp_assign = ""
+    outstr = ""
+
+    itr = 1
+    while itr < count_tempvariable:
+        temp_assign += "t_%s & " % (itr)
+        if itr % 100 == 0:
+            declare_wire += "wire tcount_%s;\n" % (itr)
+            assign_wire += "assign tcount_%s = %s;\n" % (itr, temp_assign.strip("& "))
+            outstr += "tcount_%s & " % (itr)
+            temp_assign = ""
+        itr += 1
+
+    if temp_assign != "":
+        declare_wire += "wire tcount_%s;\n" % (itr)
+        assign_wire += "assign tcount_%s = %s;\n" % (itr, temp_assign.strip("& "))
+        outstr += "tcount_%s & " % (itr)
+    outstr = "assign out = %s;\n" % (outstr.strip("& \n"))
+
+    verilogformula = declare + declare_input + declare_wire + assign_wire + outstr + "endmodule\n"
+
+    return verilogformula
 
 
 def _build_error_formula(Xvar, Yvar, verilog_formula, skolem_module):
@@ -137,9 +215,9 @@ def _parse_cex(model, x_count, y_count):
     return cex[:expected]
 
 
-def check_skolem(qdimacs_path, skolem_path, multiclass=False):
+def check_skolem(qdimacs_path, skolem_path):
     Xvar, Yvar, _ = parse(qdimacs_path)
-    verilog_formula, dg, _ = convert_verilog(qdimacs_path, multiclass, __import__("networkx").DiGraph())
+    verilog_formula = _convert_verilog(qdimacs_path)
 
     skolem_module, has_out = _skolem_module_info(skolem_path)
     if has_out:
@@ -190,10 +268,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--qdimacs", required=True, help="Input QDIMACS file")
     parser.add_argument("--skolem", required=True, help="Skolem Verilog file")
-    parser.add_argument("--multiclass", action="store_true")
     args = parser.parse_args()
 
-    status, cex, err = check_skolem(args.qdimacs, args.skolem, args.multiclass)
+    status, cex, err = check_skolem(args.qdimacs, args.skolem)
     if status == "sat":
         cprint("c [main] skolem check SAT (counterexample exists)")
         cprint("c [main] cex length:", len(cex))
