@@ -27,6 +27,7 @@ import numpy as np
 from numpy import count_nonzero
 import os
 import subprocess
+from src import runtime_env  # noqa: F401
 from src.logging_utils import cprint
 
 

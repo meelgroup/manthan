@@ -28,6 +28,7 @@ import pydotplus
 import networkx as nx
 from collections import OrderedDict
 from numpy import count_nonzero
+from src import runtime_env  # noqa: F401
 from src.logging_utils import cprint
 import collections
 

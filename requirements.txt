@@ -3,3 +3,4 @@ scikit-learn
 networkx
 pydotplus
 python-sat
+pybind11
