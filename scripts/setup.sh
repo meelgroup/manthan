@@ -6,33 +6,31 @@ DEPS_DIR="$ROOT_DIR/dependencies"
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/setup.sh [--build] [--force] [--repo owner/name]
+Usage: ./scripts/setup.sh [--build] [--clean] [--update]
 
-Default: download prebuilt dependency binaries from the latest GitHub release
-and extract them into dependencies/.
+Default: build dependencies from source.
 
 Options:
-  --build   Build from source instead of downloading artifacts.
-  --force   Re-download even if dependencies/static_bin already exists.
-  --repo    Override GitHub repo in owner/name form.
+  --build   Build from source (default behavior).
+  --clean   Remove built dependency artifacts.
+  --update  Fetch/pull dependency repos before building.
 EOF
 }
 
 want_build=0
-force_download=0
-repo_override=""
+want_clean=0
+want_update=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --build)
       want_build=1
       ;;
-    --force)
-      force_download=1
+    --clean)
+      want_clean=1
       ;;
-    --repo)
-      repo_override="${2:-}"
-      shift
+    --update)
+      want_update=1
       ;;
     -h|--help)
       usage
@@ -58,32 +56,6 @@ detect_os() {
   esac
 }
 
-resolve_repo() {
-  if [ -n "$repo_override" ]; then
-    echo "$repo_override"
-    return
-  fi
-  if [ -n "${MANTHAN_REPO:-}" ]; then
-    echo "$MANTHAN_REPO"
-    return
-  fi
-  local origin_url
-  origin_url="$(git -C "$ROOT_DIR" config --get remote.origin.url || true)"
-  if [ -z "$origin_url" ]; then
-    echo ""
-    return
-  fi
-  if [[ "$origin_url" == git@github.com:* ]]; then
-    echo "$origin_url" | sed -E 's#git@github.com:([^/]+/[^.]+)(\.git)?#\1#'
-    return
-  fi
-  if [[ "$origin_url" == https://github.com/* ]]; then
-    echo "$origin_url" | sed -E 's#https://github.com/([^/]+/[^.]+)(\.git)?#\1#'
-    return
-  fi
-  echo ""
-}
-
 update_itp_path() {
   python3 - <<'PY'
 import configparser
@@ -100,54 +72,49 @@ with open(cfg_path, "w") as f:
 PY
 }
 
-download_release() {
-  local os_slug="$1"
-  local repo
-  repo="$(resolve_repo)"
-  if [ -z "$repo" ]; then
-    echo "Unable to determine GitHub repo. Use --repo owner/name or set MANTHAN_REPO."
+clean_dependencies() {
+  rm -rf \
+    "$DEPS_DIR/static_bin" \
+    "$DEPS_DIR/unique/build" \
+    "$DEPS_DIR/manthan-preprocess/build" \
+    "$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
+    "$DEPS_DIR/manthan-preprocess/louvain-community/build" \
+    "$DEPS_DIR/abc/build" \
+    "$DEPS_DIR/cmsgen/build" \
+    "$DEPS_DIR/open-wbo/build" \
+    "$DEPS_DIR/picosat-src/build"
+}
+
+update_dependencies() {
+  if [ ! -f "$DEPS_DIR/dependency_pins.json" ]; then
+    echo "Missing $DEPS_DIR/dependency_pins.json"
     return 1
   fi
-
-  local asset_name="manthan-deps-${os_slug}.tar.gz"
-  local api_url="https://api.github.com/repos/${repo}/releases/latest"
-  local tmp_json tmp_tar
-  tmp_json="$(mktemp)"
-  tmp_tar="$(mktemp)"
-
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "curl is required to download release artifacts"
-    return 1
-  fi
-
-  curl -sL "$api_url" -o "$tmp_json"
-
-  local asset_url
-  asset_url="$(python3 - "$tmp_json" "$asset_name" <<'PY'
+  local repos
+  repos="$(python3 - <<'PY'
 import json
-import sys
-
-path = sys.argv[1]
-asset_name = sys.argv[2]
-with open(path, "r") as f:
-    data = json.load(f)
-for asset in data.get("assets", []):
-    if asset.get("name") == asset_name:
-        print(asset.get("browser_download_url", ""))
-        break
+with open("dependencies/dependency_pins.json", "r") as f:
+    pins = json.load(f)
+for entry in pins:
+    print(entry["path"])
 PY
 )"
-
-  if [ -z "$asset_url" ]; then
-    echo "No release asset named $asset_name found in $repo."
-    return 1
-  fi
-
-  echo "Downloading $asset_name from $repo..."
-  curl -L "$asset_url" -o "$tmp_tar"
-  tar -xzf "$tmp_tar" -C "$ROOT_DIR"
-  rm -f "$tmp_json" "$tmp_tar"
-  return 0
+  local path branch
+  while IFS= read -r path; do
+    [ -z "$path" ] && continue
+    if [ -d "$ROOT_DIR/$path/.git" ]; then
+      git -C "$ROOT_DIR/$path" fetch --all --tags || true
+      branch="$(git -C "$ROOT_DIR/$path" symbolic-ref --short -q HEAD || true)"
+      if [ -n "$branch" ]; then
+        git -C "$ROOT_DIR/$path" pull --ff-only origin "$branch" || true
+      fi
+      case "$path" in
+        dependencies/unique|dependencies/manthan-preprocess)
+          git -C "$ROOT_DIR/$path" submodule update --init --recursive --remote || true
+          ;;
+      esac
+    fi
+  done <<< "$repos"
 }
 
 build_from_source() {
@@ -169,24 +136,15 @@ build_from_source() {
   esac
 }
 
-os_slug="$(detect_os)"
-if [ "$os_slug" = "unknown" ]; then
-  echo "Unsupported OS."
-  exit 1
+if [ "$want_clean" -eq 1 ]; then
+  clean_dependencies
 fi
 
-if [ $want_build -eq 0 ]; then
-  if [ -d "$DEPS_DIR/static_bin" ] && [ $force_download -eq 0 ]; then
-    echo "dependencies/static_bin already exists; use --force to re-download or --build to rebuild."
-  else
-    if ! download_release "$os_slug"; then
-      echo "Falling back to building from source."
-      want_build=1
-    fi
-  fi
+if [ "$want_update" -eq 1 ]; then
+  update_dependencies
 fi
 
-if [ $want_build -eq 1 ]; then
+if [ $want_build -eq 1 ] || [ "$want_clean" -eq 0 ]; then
   build_from_source
 fi
 
