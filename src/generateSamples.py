@@ -26,6 +26,7 @@ import tempfile
 import numpy as np
 from numpy import count_nonzero
 import os
+import shutil
 import subprocess
 from src import runtime_env  # noqa: F401
 from src.logging_utils import cprint
@@ -40,6 +41,13 @@ def computeBias(Xvar,Yvar,sampling_cnf, sampling_weights_y_1, sampling_weights_y
 		cprint("c [computeBias] adaptive bias sampling failed, using default weights")
 		if args.verbose >= 2:
 			cprint("c [computeBias] adaptive bias sampling error:", exc)
+		return sampling_cnf + sampling_weights_y_1
+	if samples_biased_one.size == 0 or samples_biased_zero.size == 0:
+		cprint("c [computeBias] empty samples; using default weights")
+		return sampling_cnf + sampling_weights_y_1
+	max_idx = max(Yvar) - 1
+	if samples_biased_one.shape[1] <= max_idx or samples_biased_zero.shape[1] <= max_idx:
+		cprint("c [computeBias] sample dimension mismatch; using default weights")
 		return sampling_cnf + sampling_weights_y_1
 
 	bias = ""
@@ -133,6 +141,12 @@ def generatesample(args, num_samples, sampling_cnf, inputfile_name, weighted):
 		with open(tempcnffile, "w") as f:
 			f.write(sampling_cnf)
 		f.close()
+
+		if getattr(args, "debug_keep", False):
+			cmsgen_cnf_path = os.path.abspath(inputfile_name + "_cmsgen_sample.cnf")
+			shutil.copyfile(tempcnffile, cmsgen_cnf_path)
+			if getattr(args, "verbose", 0) >= 1:
+				cprint("c [samples] saved cmsgen cnf:", cmsgen_cnf_path)
 
 		cmsgen = "./dependencies/static_bin/cmsgen"
 		if not os.path.isfile(cmsgen):

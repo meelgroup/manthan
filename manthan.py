@@ -31,6 +31,7 @@ import random
 import argparse
 import copy
 import tempfile
+import shutil
 from src import runtime_env  # noqa: F401
 from src.tempfiles import temp_path
 import numpy as np
@@ -84,6 +85,7 @@ def manthan():
         output_stem = Path(input_name).stem
     output_path = args.output or f"{output_stem}_skolem.v"
     temp_stem = re.sub(r"[^A-Za-z0-9_-]+", "_", output_stem).strip("_") or "manthan"
+    last_errorformula_path = os.path.abspath(temp_stem + "_errorformula_last.v")
 
     cnffile_name = temp_path(temp_stem + ".cnf")
 
@@ -93,6 +95,11 @@ def manthan():
     if args.preprocess == 1:
         cprint("c [manthan] preprocessing: finding unates (constant functions)")
         start_t = time.time()
+        if getattr(args, "debug_keep", False):
+            preprocess_cnf_path = os.path.abspath(temp_stem + "_preprocess.cnf")
+            shutil.copyfile(cnffile_name, preprocess_cnf_path)
+            if getattr(args, "verbose", 0) >= 1:
+                cprint("c [manthan] saved preprocess cnf:", preprocess_cnf_path)
         if len(Yvar) < 20000:
             PosUnate, NegUnate = preprocess(cnffile_name)
         else:
@@ -236,6 +243,13 @@ def manthan():
     while True:
         addSkolem(error_content, temp_stem, debug_keep=args.debug_keep)
         check, sigma, ret = verify(Xvar, Yvar, temp_stem, args.verbose or 0, args.debug_keep)
+        if check != 0 and getattr(args, "debug_keep", False):
+            errorformula = temp_path(temp_stem + "_errorformula.v")
+            if args.debug_keep and not os.path.isfile(errorformula):
+                errorformula = os.path.abspath(temp_stem + "_errorformula.v")
+            if os.path.isfile(errorformula):
+                shutil.copyfile(errorformula, last_errorformula_path)
+                cprint("c [manthan] last successful error formula:", last_errorformula_path)
         if check == 0:
             cprint("c [manthan] error --- ABC network read fail")
             status = "failed"

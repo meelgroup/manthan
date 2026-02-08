@@ -11,6 +11,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import shutil
 
 REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
 if REPO_ROOT not in sys.path:
@@ -21,6 +22,7 @@ import numpy as np
 
 from src.logging_utils import cprint
 from src.preprocess import parse
+from src.convert_verilog import _wrap_assign
 
 
 def _static_bin_path(bin_name):
@@ -55,7 +57,7 @@ def _convert_verilog(qdimacs_path):
     declare = "module FORMULA( "
     declare_input = ""
     declare_wire = ""
-    assign_wire = ""
+    assign_lines = []
     tmp_array = []
 
     for line in lines:
@@ -83,17 +85,19 @@ def _convert_verilog(qdimacs_path):
             continue
 
         declare_wire += "wire t_%s;\n" % (itr)
-        assign_wire += "assign t_%s = " % (itr)
-        itr += 1
 
         clause_variable = line.strip(" \n").split(" ")[:-1]
+        assign_expr = ""
         for var in clause_variable:
             if int(var) < 0:
-                assign_wire += "~%s | " % (abs(int(var)))
+                assign_expr += "~%s | " % (abs(int(var)))
             else:
-                assign_wire += "%s | " % (abs(int(var)))
+                assign_expr += "%s | " % (abs(int(var)))
 
-        assign_wire = assign_wire.strip("| ") + ";\n"
+        assign_expr = assign_expr.strip("| ")
+        assign_expr = _wrap_assign(assign_expr, indent="  ", max_terms=200)
+        assign_lines.append("assign t_%s = %s;\n" % (itr, assign_expr))
+        itr += 1
 
 
     count_tempvariable = itr
@@ -109,18 +113,24 @@ def _convert_verilog(qdimacs_path):
         temp_assign += "t_%s & " % (itr)
         if itr % 100 == 0:
             declare_wire += "wire tcount_%s;\n" % (itr)
-            assign_wire += "assign tcount_%s = %s;\n" % (itr, temp_assign.strip("& "))
+            tcount_expr = temp_assign.strip("& ")
+            tcount_expr = _wrap_assign(tcount_expr, indent="  ", max_terms=200)
+            assign_lines.append("assign tcount_%s = %s;\n" % (itr, tcount_expr))
             outstr += "tcount_%s & " % (itr)
             temp_assign = ""
         itr += 1
 
     if temp_assign != "":
         declare_wire += "wire tcount_%s;\n" % (itr)
-        assign_wire += "assign tcount_%s = %s;\n" % (itr, temp_assign.strip("& "))
+        tcount_expr = temp_assign.strip("& ")
+        tcount_expr = _wrap_assign(tcount_expr, indent="  ", max_terms=200)
+        assign_lines.append("assign tcount_%s = %s;\n" % (itr, tcount_expr))
         outstr += "tcount_%s & " % (itr)
-    outstr = "assign out = %s;\n" % (outstr.strip("& \n"))
+    out_expr = outstr.strip("& \n")
+    out_expr = _wrap_assign(out_expr, indent="  ", max_terms=200)
+    outstr = "assign out = %s;\n" % (out_expr)
 
-    verilogformula = declare + declare_input + declare_wire + assign_wire + outstr + "endmodule\n"
+    verilogformula = declare + declare_input + declare_wire + "".join(assign_lines) + outstr + "endmodule\n"
 
     return verilogformula
 
@@ -215,7 +225,7 @@ def _parse_cex(model, x_count, y_count):
     return cex[:expected]
 
 
-def check_skolem(qdimacs_path, skolem_path):
+def check_skolem(qdimacs_path, skolem_path, debug_keep=False):
     Xvar, Yvar, _ = parse(qdimacs_path)
     verilog_formula = _convert_verilog(qdimacs_path)
 
@@ -242,6 +252,9 @@ def check_skolem(qdimacs_path, skolem_path):
             f.write(skolem_content)
             if wrapper_content:
                 f.write("\n" + wrapper_content)
+        if debug_keep:
+            debug_name = os.path.splitext(os.path.basename(skolem_path))[0] + "_errorformula.v"
+            shutil.copyfile(errorformula, os.path.abspath(debug_name))
 
         cmd = [abc_cex, errorformula, cexfile]
         result = subprocess.run(cmd, cwd=tmpdir, capture_output=True, text=True)
@@ -268,9 +281,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--qdimacs", required=True, help="Input QDIMACS file")
     parser.add_argument("--skolem", required=True, help="Skolem Verilog file")
+    parser.add_argument("--debug-keep", action="store_true",
+                        help="keep generated errorformula.v in the working directory")
     args = parser.parse_args()
 
-    status, cex, err = check_skolem(args.qdimacs, args.skolem)
+    status, cex, err = check_skolem(args.qdimacs, args.skolem, args.debug_keep)
     if status == "sat":
         cprint("c [main] skolem check SAT (counterexample exists)")
         cprint("c [main] cex length:", len(cex))

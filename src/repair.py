@@ -23,6 +23,7 @@ THE SOFTWARE.
 '''
 
 import numpy as np
+import shutil
 import os
 import tempfile
 import subprocess
@@ -249,6 +250,13 @@ def findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name,
         f.write(repaircnf)
     f.close()
 
+    if getattr(args, "debug_keep", False):
+        # Persist the CNF passed to cmsgen for debugging.
+        cmsgen_cnf_path = os.path.abspath(inputfile_name + "_cmsgen.cnf")
+        shutil.copyfile(cnffile, cmsgen_cnf_path)
+        if getattr(args, "verbose", 0) >= 1:
+            cprint("c [findUnsatCore] saved cmsgen cnf:", cmsgen_cnf_path)
+
     unsatcorefile = temp_path(inputfile_name + "_unsatcore.txt")
     satfile = temp_path(inputfile_name + "_sat.txt")
     exists = os.path.isfile(unsatcorefile)
@@ -379,17 +387,21 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
             if args.verbose:
                 cprint("c [repair] gk formula is UNSAT; creating beta formula")
             
-            betaformula = ''
+            beta_terms = []
             for x in clistx:
                 x_index = np.where(np.array(Xvar) == x)[0][0]
 
                 if modelx[x_index] == 0:
-                    betaformula += "~i%s & " %(x)
+                    beta_terms.append("~i%s" % (x))
                 else:
-                    betaformula += "i%s & " %(x)
+                    beta_terms.append("i%s" % (x))
                 
             for y in clisty:
                 y_index = np.where(np.array(Yvar) == y)[0][0]
+
+                if y == repairvar:
+                    # Avoid introducing self-dependency in beta for the variable being repaired.
+                    continue
 
                 if y in ind:
                     index = np.where(np.array(ind) == y)[0][0]
@@ -400,13 +412,13 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                     continue
 
                 if modelyp[y_index] == 0:
-                    betaformula += "~o%s & " %(y)
+                    beta_terms.append("~o%s" % (y))
                 else:
-                    betaformula += "o%s & " %(y)
+                    beta_terms.append("o%s" % (y))
             
             if args.verbose >= 2:
-                cprint("c [repair] Repair function for w%s: %s" %(repairvar, betaformula.strip("& ")))
-            repairfunctions[repairvar] = betaformula.strip("& ")
+                cprint("c [repair] Repair function for w%s: %s" % (repairvar, " & ".join(beta_terms)))
+            repairfunctions[repairvar] = " & ".join(beta_terms) if beta_terms else "1'b1"
             assert(repairfunctions[repairvar] != "")
     return 0, repairfunctions
 

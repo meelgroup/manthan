@@ -26,6 +26,7 @@ import tempfile
 import os
 import subprocess
 import shutil
+import re
 import numpy as np
 from src.logging_utils import cprint
 from src.tempfiles import temp_path
@@ -91,7 +92,7 @@ def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueD
 		declare += "o%s, " %(var)
 		declarevar += "output o%s;\n" %(var)
 		if var in PosUnate:
-			assign = "o%s = 1'b1;\n" %(var)
+			assign = "assign o%s = 1'b1;\n" %(var)
 		if var in NegUnate:
 			assign += "assign o%s = 1'b0;\n" %(var)
 		if var in UniqueVar:
@@ -130,7 +131,12 @@ def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None):
 		lines = f.readlines()
 	f.close()
 
+	skip_out = False
 	for line in lines:
+		if skip_out:
+			if ";" in line:
+				skip_out = False
+			continue
 		if line.startswith("module"):
 			continue
 		if line.startswith("input"):
@@ -138,14 +144,17 @@ def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None):
 		if line.startswith("output"):
 			continue
 		if line.startswith("assign out"):
+			if ";" not in line:
+				skip_out = True
 			continue
 		if line.startswith("endmodule"):
 			continue
 		if line.startswith("assign beta"):
 			var = int(line.strip("assign beta").split("_")[0])
-			line = line.replace('& ~o%s' %(var),"")
-			line = line.replace('& o%s' %(var), "")
-			line = line.replace("o","w")
+			# Remove explicit o<var> terms and map o<digits> -> w<digits> safely.
+			line = re.sub(r"\s*&\s*~o%s\b" % var, "", line)
+			line = re.sub(r"\s*&\s*o%s\b" % var, "", line)
+			line = re.sub(r"\bo(\d+)\b", r"w\1", line)
 		content += line
 	with open(skolemformula,"w") as f:
 		f.write(declare + declare_input + content + assign + "endmodule\n")
@@ -254,12 +263,12 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 		wirestr += "wire wt%s;\n" % (itr)
 		assignstr += "assign wt%s = %s;\n" % (itr, outstr)
 		wtlist.append(itr)
-	assignstr += "assign out = "
+	out_terms = []
 	for i in wtlist:
-		assignstr += "wt%s & " % (i)
-	assign_expr = assignstr.strip("& ")
-	assign_expr = _wrap_assign(assign_expr, indent="  ", max_terms=200)
-	assignstr = assign_expr + ";\n"
+		out_terms.append("wt%s" % (i))
+	out_expr = " & ".join(out_terms)
+	out_expr = _wrap_assign(out_expr, indent="  ", max_terms=200)
+	assignstr += "assign out = " + out_expr + ";\n"
 	inputstr += " out );\n"
 	declarestr += "output out ;\n"
 	f = open(tempOutputFile, "w")
