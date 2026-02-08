@@ -61,6 +61,7 @@ from src.convert_verilog import convert_verilog
 from src.preprocess import *
 from src.callUnique import unique_function
 from src.createSkolem import *
+from src.selfsub import selfsubstitute
 from src.generateSamples import *
 from src.candidateSkolem import *
 from src.repair import *
@@ -144,8 +145,12 @@ def manthan():
     if args.unique == 1:
         cprint("c [manthan] finding uniquely defined functions")
         start_t = time.time()
-        UniqueVars, UniqueDef = unique_function(
-            qdimacs_list, Xvar, Yvar, dg, Unates)
+        try:
+            UniqueVars, UniqueDef = unique_function(
+                qdimacs_list, Xvar, Yvar, dg, Unates)
+        except MemoryError:
+            cprint("c [manthan] unique extraction skipped due to MemoryError")
+            UniqueVars, UniqueDef = [], ""
         if args.verbose:
             cprint("c [manthan] count of uniquely defined variables", len(UniqueVars))
             if args.verbose >= 2:
@@ -232,6 +237,10 @@ def manthan():
                  UniqueDef, temp_stem)
 
     error_content = createErrorFormula(Xvar, Yvar, UniqueVars, verilogformula)
+    refine_var_log = {y: 0 for y in Yvar}
+    selfsub = []
+    selfsub_wires = {}
+    selfsub_dir = temp_path("selfsub")
 
     maxsatWt, maxsatcnf, cnfcontent = maxsatContent(
         cnfcontent, (len(Xvar)+len(Yvar)), (len(PosUnate)+len(NegUnate)))
@@ -241,7 +250,7 @@ def manthan():
     start_t = time.time()
 
     while True:
-        addSkolem(error_content, temp_stem, debug_keep=args.debug_keep)
+        addSkolem(error_content, temp_stem, debug_keep=args.debug_keep, selfsub=selfsub, selfsub_dir=selfsub_dir)
         check, sigma, ret = verify(Xvar, Yvar, temp_stem, args.verbose or 0, args.debug_keep)
         if check != 0 and getattr(args, "debug_keep", False):
             errorformula = temp_path(temp_stem + "_errorformula.v")
@@ -258,7 +267,7 @@ def manthan():
             cprint("c [manthan] verification check UNSAT")
             cprint("c [manthan] no more repair needed")
             cprint("c [manthan] number of repairs needed to converge", countRefine)
-            createSkolemfunction(temp_stem, Xvar, Yvar, output_path)
+            createSkolemfunction(temp_stem, Xvar, Yvar, output_path, selfsub=selfsub, selfsub_dir=selfsub_dir)
             break
         if ret == 1:
             countRefine += 1
@@ -271,7 +280,7 @@ def manthan():
                 cnfcontent, maxsatWt, maxsatcnf, sigma[0], Xvar)
 
             ind = callMaxsat(
-                maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat)
+                maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat, selfsub=selfsub)
 
             assert(len(ind) > 0)
 
@@ -287,7 +296,7 @@ def manthan():
             if lexflag:
                 cprint("c [manthan] calling rc2 to find another set of candidates to repair")
                 ind = callRC2(maxsatcnfRepair,
-                              sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args)
+                              sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args, selfsub=selfsub)
                 if len(ind) == 0:
                     cprint("c [manthan] no candidates returned by rc2; stopping repair")
                     status = "failed"
@@ -296,8 +305,19 @@ def manthan():
                     cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))
                 lexflag, repairfunctions = repair(
                     repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, temp_stem, args, 0)
+            for yvar in list(repairfunctions.keys()):
+                refine_var_log[yvar] = refine_var_log.get(yvar, 0) + 1
+                if refine_var_log[yvar] > args.selfsubthres and yvar not in selfsub:
+                    if len(selfsub) == 0:
+                        os.makedirs(selfsub_dir, exist_ok=True)
+                    selfsub.append(yvar)
+                    if len(selfsub) > 2 and args.verbose:
+                        cprint("c [manthan] selfsub size > 2:", len(selfsub))
+                    selfsub_wires[yvar] = selfsubstitute(
+                        Xvar, Yvar, yvar, selfsub, verilogformula, selfsub_dir)
+
             updateSkolem(repairfunctions, countRefine,
-                         sigma[2], temp_stem, Yvar, args)
+                         sigma[2], temp_stem, Yvar, args, selfsub_wires=selfsub_wires)
         if countRefine > args.maxrepairitr:
             cprint("c [manthan] number of maximum allowed repair iteration reached")
             cprint("c [manthan] could not synthesize functions")
@@ -366,7 +386,7 @@ if __name__ == "__main__":
         choices=[0, 1],
         help="enable unique: 1; disable: 0; default 1",
     )
-    parser.add_argument("--itp-limit", type=int, default=1000,
+    parser.add_argument("--itp-limit", type=int, default=100000,
                         help="interpolating solver conflict limit; -1 for no limit", dest='itp_limit')
     parser.add_argument("-o", "--output", help="output skolem verilog path")
     parser.add_argument("--sample-mem-frac", type=float, default=0.7,

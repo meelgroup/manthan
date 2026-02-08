@@ -35,13 +35,18 @@ def _static_bin_path(bin_name):
 def _skolem_module_info(skolem_path):
     module_name = None
     has_out = False
+    in_module = False
     with open(skolem_path, "r") as f:
         for line in f:
-            if module_name is None:
-                match = re.match(r"\s*module\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", line)
-                if match:
+            match = re.match(r"\s*module\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", line)
+            if match:
+                if module_name is None:
                     module_name = match.group(1)
-            if re.search(r"\boutput\s+out\b", line):
+                    in_module = True
+                else:
+                    # Stop scanning outputs after the first module.
+                    in_module = False
+            if in_module and re.search(r"\boutput\s+out\b", line):
                 has_out = True
     if module_name is None:
         raise RuntimeError("Could not find module declaration in %s" % skolem_path)
@@ -165,9 +170,10 @@ def _build_error_formula(Xvar, Yvar, verilog_formula, skolem_module):
     inputerrorx = inputerrorx + inputerrory + inputerroryp + "out );\n"
     declare = declarex + declarey + declareyp + 'output out;\n' + \
         "wire out1;\n" + "wire out2;\n" + "wire out3;\n"
-    formula_call = "FORMULA F1 " + inputformula
-    skolem_call = "%s F2 " % skolem_module + inputskolem
-    formulask_call = "FORMULA F2 " + inputformula_sk
+    # Use distinct instance names to avoid duplicate identifiers in the module.
+    formula_call = "FORMULA F_formula " + inputformula
+    skolem_call = "%s F_skolem " % skolem_module + inputskolem
+    formulask_call = "FORMULA F_formulask " + inputformula_sk
     error_content = inputerrorx + declare + \
         formula_call + skolem_call + formulask_call
     error_content += "assign out = ( out1 & out2 & ~(out3) );\nendmodule\n"

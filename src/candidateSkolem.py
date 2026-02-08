@@ -228,7 +228,10 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
             dependent = dependent + depends_on_yvar
         Yfeatname = list(set(Yvar)-set(dependent))
         featname= Xvar + Yfeatname
-        Samples_Y = samples[:,(np.array(Yfeatname)-1)]
+        if Yfeatname:
+            Samples_Y = samples[:, (np.array(Yfeatname, dtype=int) - 1)]
+        else:
+            Samples_Y = samples[:, :0]
         featuredata = np.concatenate((samples_X,Samples_Y),axis=1)
         label = samples[:,(np.array(Yset)-1)]
         labeldata = binary_to_int(label)

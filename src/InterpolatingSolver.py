@@ -17,14 +17,18 @@ class InterpolatingSolver:
   def __init__(self, first_part, second_part):
     self.max_var_index = Utils.maxVarIndex(first_part + second_part)
     self.solver = itp.InterpolatingMiniSAT(self.max_var_index)
-    self.solver.addFormula(Utils.miniSAT_clauses(first_part),
-                           Utils.miniSAT_clauses(second_part))
+    for clause in first_part:
+      self.solver.addClause(Utils.miniSAT_literals(clause), 1)
+    for clause in second_part:
+      self.solver.addClause(Utils.miniSAT_literals(clause), 2)
     
   def resetFormula(self, first_part, second_part):
     self.max_var_index = Utils.maxVarIndex(first_part + second_part)
     self.solver.resetSolver(self.max_var_index)
-    self.solver.addFormula(Utils.miniSAT_clauses(first_part),
-                           Utils.miniSAT_clauses(second_part))
+    for clause in first_part:
+      self.solver.addClause(Utils.miniSAT_literals(clause), 1)
+    for clause in second_part:
+      self.solver.addClause(Utils.miniSAT_literals(clause), 2)
     
   def addClause(self, literals, first_part=True):
     max_var = max([abs(l) for l in literals])

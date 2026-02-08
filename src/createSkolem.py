@@ -109,7 +109,7 @@ def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueD
 		f.write(skolemformula)
 	f.close()
 	
-def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None):
+def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None, selfsub=None, selfsub_dir=None):
 	skolemformula = temp_path(inputfile_name + "_skolem.v")
 	if output_path is None:
 		output_path = inputfile_name + "_skolem.v"
@@ -156,8 +156,14 @@ def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None):
 			line = re.sub(r"\s*&\s*o%s\b" % var, "", line)
 			line = re.sub(r"\bo(\d+)\b", r"w\1", line)
 		content += line
+	extra_modules = ""
+	if selfsub and selfsub_dir:
+		from src.selfsub import load_selfsub_modules
+		extra_modules = load_selfsub_modules(selfsub, selfsub_dir)
 	with open(skolemformula,"w") as f:
 		f.write(declare + declare_input + content + assign + "endmodule\n")
+		if extra_modules:
+			f.write(extra_modules)
 	f.close()
 
 	shutil.copy(skolemformula, output_path)
@@ -207,7 +213,7 @@ def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
 	return error_content
 
 
-def addSkolem(error_content, inputfile_name, debug_keep=False):
+def addSkolem(error_content, inputfile_name, debug_keep=False, selfsub=None, selfsub_dir=None):
 	skolemformula = temp_path(inputfile_name + "_skolem.v")
 	with open(skolemformula, 'r') as f:
 		skolemcontent = f.read()
@@ -219,6 +225,9 @@ def addSkolem(error_content, inputfile_name, debug_keep=False):
 	f = open(errorformula, "w")
 	f.write(error_content)
 	f.write(skolemcontent)
+	if selfsub and selfsub_dir:
+		from src.selfsub import load_selfsub_modules
+		f.write(load_selfsub_modules(selfsub, selfsub_dir))
 	f.close()
 
 def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name):

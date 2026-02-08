@@ -83,13 +83,13 @@ def addXvaluation(cnfcontent, maxsatWt, maxsatcnf, modelx, Xvar):
     maxsatcnf += "\n" + maxsatstr
     return cnfcontent, maxsatcnf
 
-def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args):
+def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args, selfsub=None):
     wcnf = WCNF(from_string = maxsatcnf)
     wt_softclause = 0
     for i in range(len(Yvar)):
         yvar = Yvar[i]
 
-        if (yvar in UniqueVars) or (yvar in Unates):
+        if (yvar in UniqueVars) or (yvar in Unates) or (selfsub and yvar in selfsub):
             continue
         yindex = np.where(yvar == YvarOrder)[0][0]
         weight = len(Yvar) - yindex
@@ -109,7 +109,7 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args):
     diff_count = 0
     for var in model:
         abs_var = abs(var)
-        if (abs_var in Yvar) and (abs_var not in UniqueVars) and (abs_var not in Unates):
+        if (abs_var in Yvar) and (abs_var not in UniqueVars) and (abs_var not in Unates) and (not selfsub or abs_var not in selfsub):
             index = Yvar.index(abs_var)
             if (var < 0) and (modelyp[index] == 1):
                 indlist.append(abs_var)
@@ -143,7 +143,7 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args):
 
 
 
-def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfile_name, flag):
+def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfile_name, flag, selfsub=None):
     def pick_executable(preferred_path, fallback_path):
         if os.path.isfile(preferred_path) and os.access(preferred_path, os.X_OK):
             return preferred_path
@@ -151,7 +151,7 @@ def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfil
 
     itr = 0
     for var in Yvar:
-        if (var not in Unates) and (var not in UniqueVars):
+        if (var not in Unates) and (var not in UniqueVars) and (not selfsub or var not in selfsub):
             if flag:
                 yindex = np.where(var == YvarOrder)[0][0]
                 weight = len(Yvar) - yindex
@@ -422,7 +422,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
             assert(repairfunctions[repairvar] != "")
     return 0, repairfunctions
 
-def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, args):
+def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, args, selfsub_wires=None):
     with open(temp_path(inputfile_name + "_skolem.v"),"r") as f:
         lines = f.readlines()
     f.close()
@@ -443,6 +443,12 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, ar
                 break
             old_lines.append(lines[i])
         oldfunction = "".join(old_lines)
+        if selfsub_wires and yvar in selfsub_wires:
+            if "outsub%s" % (yvar) in oldfunction:
+                continue
+            newfunction = selfsub_wires[yvar] + "assign w%s = outsub%s;\n" % (yvar, yvar)
+            skolemcontent = skolemcontent.replace(oldfunction, newfunction)
+            continue
         oldfunctionR = oldfunction.replace("\n", " ").strip()
         prefix = "assign w%s = " % (yvar)
         if oldfunctionR.startswith(prefix):
