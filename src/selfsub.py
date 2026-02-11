@@ -53,8 +53,10 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
         write_str_true = "module FORMULA%s_true ( %s out);\n" % (var, selfsub_inputstr)
         write_str_false = "module FORMULA%s_false ( %s out);\n" % (var, selfsub_inputstr)
         write_str = selfsub_declarestr + "output out;\n"
-        write_str += "wire one;\n" + "assign one = 1;\n"
-        write_str += "wire zero;\n" + "assign zero = 0;\n"
+        write_str += "wire one;\n"
+        write_str += "wire zero;\n"
+        write_str += "assign one = 1;\n"
+        write_str += "assign zero = 0;\n"
         formula_true = inputstr.replace("#", "one")
         formula_false = inputstr.replace("#", "zero")
 
@@ -90,9 +92,12 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
     write_str_true = "module FORMULA%s_true ( %s out);\n" % (var, selfsub_inputstr)
     write_str_false = "module FORMULA%s_false ( %s out);\n" % (var, selfsub_inputstr)
     write_str = selfsub_declarestr + "output out;\n"
-    write_str += "wire one;\n" + "assign one = 1;\n"
-    write_str += "wire zero;\n" + "assign zero = 0;\n"
-    write_str += "wire out1;\n" + "wire out2;\n"
+    write_str += "wire one;\n"
+    write_str += "wire zero;\n"
+    write_str += "wire out1;\n"
+    write_str += "wire out2;\n"
+    write_str += "assign one = 1;\n"
+    write_str += "assign zero = 0;\n"
 
     formula_true = inputstr.replace("#", "one")
     formula_true1 = "FORMULA%s_true F%s ( %sout1 );\n" % (

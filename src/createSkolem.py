@@ -76,6 +76,72 @@ def _wrap_assign(expr, indent="  ", max_terms=200, max_len=4000):
 	return (sep + "\n" + indent).join(lines)
 
 
+def _normalize_verilog_module_order(verilog_text):
+	# Ensure all declarations appear before assigns/instances within each module.
+	lines = verilog_text.splitlines()
+	out = []
+	i = 0
+	while i < len(lines):
+		line = lines[i]
+		if not line.startswith("module "):
+			out.append(line)
+			i += 1
+			continue
+		# Capture one module.
+		header = line
+		body = []
+		i += 1
+		while i < len(lines):
+			l = lines[i]
+			body.append(l)
+			if l.strip().startswith("endmodule"):
+				break
+			i += 1
+		i += 1
+		decls = []
+		assigns = []
+		others = []
+		endmodule = None
+		in_assign_block = False
+		assign_block = []
+		for l in body:
+			ls = l.lstrip()
+			if ls.startswith("endmodule"):
+				if assign_block:
+					assigns.extend(assign_block)
+					assign_block = []
+					in_assign_block = False
+				endmodule = l
+				continue
+			if in_assign_block:
+				assign_block.append(l)
+				if ls.rstrip().endswith(";"):
+					assigns.extend(assign_block)
+					assign_block = []
+					in_assign_block = False
+				continue
+			if ls.startswith("input ") or ls.startswith("output ") or ls.startswith("wire ") or ls.startswith("reg "):
+				decls.append(l)
+			elif ls.startswith("assign "):
+				assign_block = [l]
+				in_assign_block = True
+				if ls.rstrip().endswith(";"):
+					assigns.extend(assign_block)
+					assign_block = []
+					in_assign_block = False
+			else:
+				others.append(l)
+		if assign_block:
+			assigns.extend(assign_block)
+		out.append(header)
+		out.extend(decls)
+		out.extend(others)
+		out.extend(assigns)
+		if endmodule is not None:
+			out.append(endmodule)
+	return "\n".join(out) + "\n"
+
+
 
 
 def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueDef, inputfile_name, output_path=None):
@@ -139,6 +205,12 @@ def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None, selfsub=N
 			continue
 		if line.startswith("module"):
 			continue
+		if line.startswith("input ["):
+			continue
+		if re.match(r"assign i\d+ = i_bus\d+\[", line):
+			continue
+		if re.match(r"assign o\d+ = o_bus\d+\[", line):
+			continue
 		if line.startswith("input"):
 			continue
 		if line.startswith("output"):
@@ -173,46 +245,53 @@ def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None, selfsub=N
 
 
 def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
-	inputformula = '('
-	inputskolem = '('
-	inputerrorx = 'module MAIN ('
-	inputerrory = ''
-	inputerroryp = ''
-	declarex = ''
-	declarey = ''
-	declareyp = ''
+	def _bus_ref(prefix, var):
+		seg = (var - 1) // 128
+		off = (var - 1) % 128
+		return f"{prefix}{seg}[{off}]"
+
+	max_var = max([0] + list(Xvar) + list(Yvar))
+	max_y = max([0] + list(Yvar))
+	v_bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+	ip_bus_cnt = (max_y + 127) // 128 if max_y > 0 else 0
+
+	v_bus_ports = [f"v_bus{i}" for i in range(v_bus_cnt)]
+	ip_bus_ports = [f"ip_bus{i}" for i in range(ip_bus_cnt)]
+	f2_bus_ports = [f"f2_bus{i}" for i in range(v_bus_cnt)]
+	o_bus_ports = [f"o_bus{i}" for i in range(ip_bus_cnt)]
+
+	bus_decl = ""
+	for name in v_bus_ports:
+		bus_decl += f"input [127:0] {name};\n"
+	for name in ip_bus_ports:
+		bus_decl += f"input [127:0] {name};\n"
+	for name in f2_bus_ports:
+		bus_decl += f"wire [127:0] {name};\n"
+	for name in o_bus_ports:
+		bus_decl += f"wire [127:0] {name};\n"
+
+	assign_inputs = ""
 	for var in Xvar:
-		inputformula += "%s, " % (var)
-		inputskolem += "%s, " % (var)
-		inputerrorx += "%s, " % (var)
-		declarex += "input %s ;\n" % (var)
+		assign_inputs += "assign %s = %s;\n" % (_bus_ref("f2_bus", var), _bus_ref("v_bus", var))
 	for var in Yvar:
-		inputformula += "%s, " % (var)
-		inputerrory += "%s, " % (var)
-		declarey += "input %s ;\n" % (var) 
-		inputerroryp += "ip%s, " % (var)
-		declareyp += "input ip%s ;\n" % (var)
-		if var in UniqueVars:
-			inputskolem += "%s, " %(var)
-		else:
-			inputskolem += "ip%s, " %(var)
-	inputformula += "out1 );\n"
-	inputformula_sk = inputskolem + "out3 );\n"
-	inputskolem += "out2 );\n"
-	inputerrorx = inputerrorx + inputerrory + inputerroryp + "out );\n"
-	declare = declarex + declarey + declareyp + 'output out;\n' + \
-		"wire out1;\n" + "wire out2;\n" + "wire out3;\n"
+		# Verification must compare Skolem outputs against an independent Y' (ip_bus),
+		# even for uniquely defined variables.
+		assign_inputs += "assign %s = %s;\n" % (_bus_ref("f2_bus", var), _bus_ref("ip_bus", var))
+		assign_inputs += "assign %s = %s;\n" % (_bus_ref("o_bus", var), _bus_ref("ip_bus", var))
+
+	inputformula = "( " + ", ".join(v_bus_ports + ["out1"]) + " );\n"
+	inputformula_sk = "( " + ", ".join(f2_bus_ports + ["out3"]) + " );\n"
+	inputskolem = "( " + ", ".join(v_bus_ports + o_bus_ports + ["out2"]) + " );\n"
+
+	inputerrorx = "module MAIN (" + ", ".join(v_bus_ports + ip_bus_ports + ["out"]) + " );\n"
+	declare = bus_decl + "output out;\n" + "wire out1;\n" + "wire out2;\n" + "wire out3;\n" + assign_inputs
 	formula_call = "FORMULA F1 " + inputformula
 	skolem_call = "SKOLEMFORMULA F2 " + inputskolem
 	formulask_call = "FORMULA F2 " + inputformula_sk
-	error_content = inputerrorx + declare + \
-		formula_call + skolem_call + formulask_call
-	error_content += "assign out = ( out1 & out2 & ~(out3) );\n" + \
-		"endmodule\n"
+	error_content = inputerrorx + declare + formula_call + skolem_call + formulask_call
+	error_content += "assign out = ( out1 & out2 & ~(out3) );\n" + "endmodule\n"
 	error_content += verilog_formula
 	return error_content
-
-
 def addSkolem(error_content, inputfile_name, debug_keep=False, selfsub=None, selfsub_dir=None):
 	skolemformula = temp_path(inputfile_name + "_skolem.v")
 	with open(skolemformula, 'r') as f:
@@ -222,13 +301,12 @@ def addSkolem(error_content, inputfile_name, debug_keep=False, selfsub=None, sel
 		errorformula = os.path.abspath(inputfile_name + "_errorformula.v")
 	else:
 		errorformula = temp_path(inputfile_name + "_errorformula.v")
-	f = open(errorformula, "w")
-	f.write(error_content)
-	f.write(skolemcontent)
-	if selfsub and selfsub_dir:
-		from src.selfsub import load_selfsub_modules
-		f.write(load_selfsub_modules(selfsub, selfsub_dir))
-	f.close()
+	with open(errorformula, "w") as f:
+		f.write(error_content)
+		f.write(skolemcontent)
+		if selfsub and selfsub_dir:
+			from src.selfsub import load_selfsub_modules
+			f.write(load_selfsub_modules(selfsub, selfsub_dir))
 
 def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name):
 	tempOutputFile = temp_path(inputfile_name + "_skolem.v")  # F(X,Y')
@@ -236,18 +314,39 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 	declarestr = ''
 	assignstr = ''
 	wirestr = 'wire zero;\nwire one;\n'
-	wirestr += "assign zero = 0;\nassign one = 1;\n"
+	assignstr += "assign zero = 0;\nassign one = 1;\n"
 	outstr = ''
 	itr = 1
 	wtlist = []
-	
+
+	def _bus_ref(prefix, var):
+		seg = (var - 1) // 128
+		off = (var - 1) % 128
+		return f"{prefix}{seg}[{off}]"
+
+	max_var = max([0] + list(Xvar) + list(Yvar))
+	max_y = max([0] + list(Yvar))
+	i_bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+	o_bus_cnt = (max_y + 127) // 128 if max_y > 0 else 0
+	i_bus_ports = []
+	o_bus_ports = []
+	for i in range(i_bus_cnt):
+		name = f"i_bus{i}"
+		i_bus_ports.append(name)
+		declarestr += f"input [127:0] {name};\n"
+	for i in range(o_bus_cnt):
+		name = f"o_bus{i}"
+		o_bus_ports.append(name)
+		declarestr += f"input [127:0] {name};\n"
+	inputstr = "module SKOLEMFORMULA (" + ", ".join(i_bus_ports + o_bus_ports + ["out"]) + ");\n"
+
 	for var in Xvar:
-		declarestr += "input i%s;\n" % (var)
-		inputstr += "i%s, " % (var)
+		declarestr += "wire i%s;\n" % (var)
+		assignstr += "assign i%s = %s;\n" % (var, _bus_ref("i_bus", var))
 	for var in Yvar:
 		flag = 0
-		declarestr += "input o%s;\n" % (var)
-		inputstr += "o%s, " % (var)
+		declarestr += "wire o%s;\n" % (var)
+		assignstr += "assign o%s = %s;\n" % (var, _bus_ref("o_bus", var))
 		wirestr += "wire w%s;\n" % (var)
 		if var not in UniqueVars:
 			if var not in candidateSkf:
@@ -278,7 +377,7 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 	out_expr = " & ".join(out_terms)
 	out_expr = _wrap_assign(out_expr, indent="  ", max_terms=200)
 	assignstr += "assign out = " + out_expr + ";\n"
-	inputstr += " out );\n"
+	# inputstr already includes the full module header.
 	declarestr += "output out ;\n"
 	f = open(tempOutputFile, "w")
 	f.write(inputstr + declarestr + wirestr)

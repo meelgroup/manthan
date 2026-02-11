@@ -129,7 +129,7 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args, selfs
         yindex = np.where(i == YvarOrder)[0][0]
         YvarOrder_ind.append(yindex)
     indlist = []
-    YvarOrder_ind.sort(reverse=True)
+    YvarOrder_ind.sort(reverse=False)
     for i in YvarOrder_ind:
         indlist.append(YvarOrder[i])
     indlist = np.array(indlist)
@@ -211,9 +211,11 @@ def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfil
 
 def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
     picosat = static_bin_path("picosat")
-    cmd = [picosat, "-s", str(args.seed), "-V", unsatcorefile, cnffile]
+    varfile = temp_path("picosat_vars.txt")
+    cmd = [picosat, "-s", str(args.seed), "-c", unsatcorefile, "-V", varfile, cnffile]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     with open(satfile, "w") as out:
-        subprocess.run(cmd, stdout=out, stderr=subprocess.DEVNULL)
+        out.write(result.stdout)
     exists = os.path.isfile(unsatcorefile)
     if exists:
         with open(unsatcorefile,"r") as f:
@@ -221,12 +223,46 @@ def findUNSATCorePicosat(cnffile,unsatcorefile, satfile, Xvar,Yvar, args):
         f.close()
         clistx = []
         clisty = []
+        # Parse CNF-style clauses and only keep unit literals.
+        clause = []
         for line in lines:
-            v = int(line.strip(" \n"))
-            if v in Xvar:
-                clistx.append(v)
-            if v in Yvar:
-                clisty.append(v)
+            line = line.strip()
+            if not line or line.startswith("c") or line.startswith("p"):
+                continue
+            for tok in line.split():
+                lit = int(tok)
+                if lit == 0:
+                    if len(clause) == 1:
+                        unit_lit = clause[0]
+                        v = abs(unit_lit)
+                        if v in Xvar:
+                            clistx.append(unit_lit)
+                        if v in Yvar:
+                            clisty.append(unit_lit)
+                    clause = []
+                else:
+                    clause.append(lit)
+        # Parse -V output (variables involved in UNSAT core resolution) from stdout.
+        varlist = []
+        if os.path.isfile(varfile):
+            with open(varfile, "r") as f:
+                for tok in f.read().split():
+                    if tok.lstrip("-").isdigit():
+                        val = int(tok)
+                        if val != 0:
+                            varlist.append(abs(val))
+            os.unlink(varfile)
+        if getattr(args, "verbose", 0) >= 1:
+            cprint("c [findUNSATCore] varlist (-V) size:", len(set(varlist)))
+            cprint("c [findUNSATCore] varlist (-V):", sorted(set(varlist)))
+        if getattr(args, "verbose", 0) >= 1:
+            core_vars = len(set(varlist))
+            core_lits = len(clistx) + len(clisty)
+            cprint("c [findUNSATCore] core vars vs core lits:", core_vars, core_lits)
+        if getattr(args, "verbose", 0) >= 1:
+            cprint("c [findUNSATCore] unit clauses found:", len(clistx) + len(clisty))
+            cprint("c [findUNSATCore] clistx:", clistx)
+            cprint("c [findUNSATCore] clisty:", clisty)
         os.unlink(unsatcorefile)
         os.unlink(cnffile)
         return 1, clistx, clisty
@@ -244,6 +280,11 @@ def findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, Count_Yvar, inputfile_name,
             break
     repaircnf = repaircnf.replace(str_tmp, "p cnf " + str(numVar) + " " + str(numCls + Count_Yvar  + len(Xvar)))
     repaircnf += repairYvar
+    if getattr(args, "verbose", 0) >= 2:
+        import hashlib
+        cnf_hash = hashlib.md5(repaircnf.encode("utf-8")).hexdigest()
+        cprint("c [findUnsatCore] repairYvar:", repairYvar.strip())
+        cprint("c [findUnsatCore] repaircnf md5:", cnf_hash)
     cnffile = temp_path(inputfile_name + "_unsat.cnf")
 
     with open(cnffile,"w") as f:
@@ -329,13 +370,13 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
 
         for jindex in range(repairvar_index,len(Yvar)):  
             yjvar = YvarOrder[jindex]
-            allowed_Y.append(yjvar)
+            if ((jindex != repairvar_index)):
+                allowed_Y.append(yjvar)
             yj_index = np.where(np.array(Yvar) == yjvar)[0][0]
             
-            if (yjvar in UniqueVars) or (yjvar in Unates):
-                continue
-
             if yjvar in repaired:
+                cprint("c [repair] yjvar %s already repaired, " \
+                "modelyp[%s] = %s" %(yjvar, yj_index, modelyp[yj_index]))
                 if modelyp[yj_index] == 0:
                     repairYvar += "%s 0\n" %(yjvar)
                 else:
@@ -388,16 +429,15 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                 cprint("c [repair] gk formula is UNSAT; creating beta formula")
             
             beta_terms = []
-            for x in clistx:
-                x_index = np.where(np.array(Xvar) == x)[0][0]
-
-                if modelx[x_index] == 0:
+            for x_lit in clistx:
+                x = abs(x_lit)
+                if x_lit < 0:
                     beta_terms.append("~i%s" % (x))
                 else:
                     beta_terms.append("i%s" % (x))
                 
-            for y in clisty:
-                y_index = np.where(np.array(Yvar) == y)[0][0]
+            for y_lit in clisty:
+                y = abs(y_lit)
 
                 if y == repairvar:
                     # Avoid introducing self-dependency in beta for the variable being repaired.
@@ -411,10 +451,15 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                 if y not in allowed_Y:
                     continue
 
-                if modelyp[y_index] == 0:
+                if y_lit < 0:
                     beta_terms.append("~o%s" % (y))
                 else:
                     beta_terms.append("o%s" % (y))
+
+            if not any(abs(lit) == repairvar for lit in clisty):
+                if args.verbose:
+                    cprint("c [repair] missing repaired literal %s in core; skipping repair" % repairvar)
+                return 0, repairfunctions
             
             if args.verbose >= 2:
                 cprint("c [repair] Repair function for w%s: %s" % (repairvar, " & ".join(beta_terms)))

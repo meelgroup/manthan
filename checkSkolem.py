@@ -53,6 +53,28 @@ def _skolem_module_info(skolem_path):
     return module_name, has_out
 
 
+def _wrap_commas(prefix, args, suffix=";\n", indent="  ", max_len=200):
+    if not args:
+        return prefix + "()" + suffix
+    current = prefix + "(" + args[0]
+    lines = []
+    for arg in args[1:]:
+        if len(current) + 2 + len(arg) > max_len:
+            lines.append(current + ",")
+            current = indent + arg
+        else:
+            current += ", " + arg
+    lines.append(current + ")" + suffix)
+    return "\n".join(lines)
+
+def _var_name(var_id):
+    return "v%s" % var_id
+
+
+def _ip_name(var_id):
+    return "ip%s" % var_id
+
+
 def _convert_verilog(qdimacs_path):
 
     with open(qdimacs_path, "r") as f:
@@ -77,16 +99,18 @@ def _convert_verilog(qdimacs_path):
         if line.startswith("a"):
             a_variables = line.strip("a").strip("\n").strip(" ").split(" ")[:-1]
             for avar in a_variables:
-                declare += "%s," % (avar)
-                declare_input += "input %s;\n" % (avar)
+                name = _var_name(avar)
+                declare += "%s," % name
+                declare_input += "input %s;\n" % name
             continue
 
         if line.startswith("e"):
             e_variables = line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
             for evar in e_variables:
                 tmp_array.append(int(evar))
-                declare += "%s," % (evar)
-                declare_input += "input %s;\n" % (evar)
+                name = _var_name(evar)
+                declare += "%s," % name
+                declare_input += "input %s;\n" % name
             continue
 
         declare_wire += "wire t_%s;\n" % (itr)
@@ -95,12 +119,12 @@ def _convert_verilog(qdimacs_path):
         assign_expr = ""
         for var in clause_variable:
             if int(var) < 0:
-                assign_expr += "~%s | " % (abs(int(var)))
+                assign_expr += "~%s | " % (_var_name(abs(int(var))))
             else:
-                assign_expr += "%s | " % (abs(int(var)))
+                assign_expr += "%s | " % (_var_name(abs(int(var))))
 
         assign_expr = assign_expr.strip("| ")
-        assign_expr = _wrap_assign(assign_expr, indent="  ", max_terms=200)
+        assign_expr = _wrap_assign(assign_expr, indent="  ", max_terms=50, max_len=200)
         assign_lines.append("assign t_%s = %s;\n" % (itr, assign_expr))
         itr += 1
 
@@ -119,7 +143,7 @@ def _convert_verilog(qdimacs_path):
         if itr % 100 == 0:
             declare_wire += "wire tcount_%s;\n" % (itr)
             tcount_expr = temp_assign.strip("& ")
-            tcount_expr = _wrap_assign(tcount_expr, indent="  ", max_terms=200)
+            tcount_expr = _wrap_assign(tcount_expr, indent="  ", max_terms=50, max_len=200)
             assign_lines.append("assign tcount_%s = %s;\n" % (itr, tcount_expr))
             outstr += "tcount_%s & " % (itr)
             temp_assign = ""
@@ -128,11 +152,11 @@ def _convert_verilog(qdimacs_path):
     if temp_assign != "":
         declare_wire += "wire tcount_%s;\n" % (itr)
         tcount_expr = temp_assign.strip("& ")
-        tcount_expr = _wrap_assign(tcount_expr, indent="  ", max_terms=200)
+        tcount_expr = _wrap_assign(tcount_expr, indent="  ", max_terms=50, max_len=200)
         assign_lines.append("assign tcount_%s = %s;\n" % (itr, tcount_expr))
         outstr += "tcount_%s & " % (itr)
     out_expr = outstr.strip("& \n")
-    out_expr = _wrap_assign(out_expr, indent="  ", max_terms=200)
+    out_expr = _wrap_assign(out_expr, indent="  ", max_terms=50, max_len=200)
     outstr = "assign out = %s;\n" % (out_expr)
 
     verilogformula = declare + declare_input + declare_wire + "".join(assign_lines) + outstr + "endmodule\n"
@@ -141,74 +165,109 @@ def _convert_verilog(qdimacs_path):
 
 
 def _build_error_formula(Xvar, Yvar, verilog_formula, skolem_module):
-    inputformula = '('
-    inputskolem = '('
-    inputerrorx = 'module MAIN ('
-    inputerrory = ''
-    inputerroryp = ''
-    declarex = ''
-    declarey = ''
-    declareyp = ''
+    inputformula = []
+    inputskolem = []
+    inputerrorx = []
+    inputerrory = []
+    inputerroryp = []
+    declarex = []
+    declarey = []
+    declareyp = []
 
     for var in Xvar:
-        inputformula += "%s, " % (var)
-        inputskolem += "%s, " % (var)
-        inputerrorx += "%s, " % (var)
-        declarex += "input %s ;\n" % (var)
+        name = _var_name(var)
+        inputformula.append(name)
+        inputskolem.append(name)
+        inputerrorx.append(name)
+        declarex.append("input %s ;\n" % name)
 
     for var in Yvar:
-        inputformula += "%s, " % (var)
-        inputerrory += "%s, " % (var)
-        declarey += "input %s ;\n" % (var)
-        inputerroryp += "ip%s, " % (var)
-        declareyp += "input ip%s ;\n" % (var)
-        inputskolem += "ip%s, " % (var)
+        name = _var_name(var)
+        ip_name = _ip_name(var)
+        inputformula.append(name)
+        inputerrory.append(name)
+        declarey.append("input %s ;\n" % name)
+        inputerroryp.append(ip_name)
+        declareyp.append("input %s ;\n" % ip_name)
+        inputskolem.append(ip_name)
 
-    inputformula += "out1 );\n"
-    inputformula_sk = inputskolem + "out3 );\n"
-    inputskolem += "out2 );\n"
-    inputerrorx = inputerrorx + inputerrory + inputerroryp + "out );\n"
-    declare = declarex + declarey + declareyp + 'output out;\n' + \
+    inputformula_call = _wrap_commas("FORMULA F_formula ", inputformula + ["out1"])
+    inputformula_sk = _wrap_commas("FORMULA F_formulask ", inputskolem + ["out3"])
+    inputskolem_call = _wrap_commas("%s F_skolem " % skolem_module, inputskolem + ["out2"])
+    inputerrorx_line = _wrap_commas("module MAIN ", inputerrorx + inputerrory + inputerroryp + ["out"])
+    declare = "".join(declarex) + "".join(declarey) + "".join(declareyp) + 'output out;\n' + \
         "wire out1;\n" + "wire out2;\n" + "wire out3;\n"
     # Use distinct instance names to avoid duplicate identifiers in the module.
-    formula_call = "FORMULA F_formula " + inputformula
-    skolem_call = "%s F_skolem " % skolem_module + inputskolem
-    formulask_call = "FORMULA F_formulask " + inputformula_sk
-    error_content = inputerrorx + declare + \
-        formula_call + skolem_call + formulask_call
+    error_content = inputerrorx_line + declare + \
+        inputformula_call + inputskolem_call + inputformula_sk
     error_content += "assign out = ( out1 & out2 & ~(out3) );\nendmodule\n"
     error_content += verilog_formula
     return error_content
 
 
 def _build_wrapper(Xvar, Yvar, skolem_module, wrapper_name):
-    decl = "module %s (" % wrapper_name
-    decl_inputs = ""
+    decl_args = []
+    decl_inputs = []
     for var in Xvar:
-        decl += "%s, " % var
-        decl_inputs += "input %s;\n" % var
+        name = _var_name(var)
+        decl_args.append(name)
+        decl_inputs.append("input %s;\n" % name)
     for var in Yvar:
-        decl += "ip%s, " % var
-        decl_inputs += "input ip%s;\n" % var
-    decl += "out);\n"
-    decl_inputs += "output out;\n"
+        ip_name = _ip_name(var)
+        decl_args.append(ip_name)
+        decl_inputs.append("input %s;\n" % ip_name)
+    decl_args.append("out")
+    decl = _wrap_commas("module %s " % wrapper_name, decl_args)
+    decl_inputs.append("output out;\n")
 
-    wires = ""
-    inst_args = ""
+    wires = []
+    inst_args = []
     for var in Xvar:
-        inst_args += "%s, " % var
+        inst_args.append(_var_name(var))
     for var in Yvar:
-        wires += "wire o%s;\n" % var
-        inst_args += "o%s, " % var
-    inst_args = inst_args.strip(", ")
-    inst = "%s U (%s);\n" % (skolem_module, inst_args)
+        wires.append("wire o%s;\n" % var)
+        inst_args.append("o%s" % var)
+    inst = _wrap_commas("%s U " % skolem_module, inst_args)
 
-    out_expr = ""
+    tcount_wires = []
+    tcount_assigns = []
+    chunk = []
+    chunk_size = 50
+    tcount_names = []
     for var in Yvar:
-        out_expr += "(~(o%s ^ ip%s)) & " % (var, var)
-    out_expr = out_expr.strip("& ")
+        chunk.append("(~(o%s ^ %s))" % (var, _ip_name(var)))
+        if len(chunk) >= chunk_size:
+            name = "tcheck_%d" % (len(tcount_names) + 1)
+            tcount_names.append(name)
+            tcount_wires.append("wire %s;\n" % name)
+            expr = " & ".join(chunk)
+            expr = _wrap_assign(expr, indent="  ", max_terms=50, max_len=200)
+            tcount_assigns.append("assign %s = %s;\n" % (name, expr))
+            chunk = []
+    if chunk:
+        name = "tcheck_%d" % (len(tcount_names) + 1)
+        tcount_names.append(name)
+        tcount_wires.append("wire %s;\n" % name)
+        expr = " & ".join(chunk)
+        expr = _wrap_assign(expr, indent="  ", max_terms=50, max_len=200)
+        tcount_assigns.append("assign %s = %s;\n" % (name, expr))
+
+    if tcount_names:
+        out_expr = " & ".join(tcount_names)
+        out_expr = _wrap_assign(out_expr, indent="  ", max_terms=50, max_len=200)
+    else:
+        out_expr = "1'b1"
     assign = "assign out = %s;\n" % out_expr
-    return decl + decl_inputs + wires + inst + assign + "endmodule\n"
+    return (
+        decl
+        + "".join(decl_inputs)
+        + "".join(wires)
+        + "".join(tcount_wires)
+        + inst
+        + "".join(tcount_assigns)
+        + assign
+        + "endmodule\n"
+    )
 
 
 def _parse_cex(model, x_count, y_count):
@@ -246,7 +305,18 @@ def check_skolem(qdimacs_path, skolem_path, debug_keep=False):
     error_content = _build_error_formula(Xvar, Yvar, verilog_formula, wrapper_name)
 
     with open(skolem_path, "r") as f:
-        skolem_content = f.read()
+        skolem_lines = f.readlines()
+    skolem_content = []
+    for line in skolem_lines:
+        stripped = line.lstrip()
+        if stripped.startswith("module ") and "(" in line and ");" in line:
+            prefix = line[:line.find("(")].rstrip() + " "
+            args_blob = line[line.find("(") + 1:line.rfind(");")]
+            args = [a.strip() for a in args_blob.split(",") if a.strip()]
+            skolem_content.append(_wrap_commas(prefix, args, suffix=";\n"))
+        else:
+            skolem_content.append(line)
+    skolem_content = "".join(skolem_content)
 
     abc_cex = _static_bin_path("file_generation_cex")
     with tempfile.TemporaryDirectory(prefix="manthan_skolem_check_") as tmpdir:

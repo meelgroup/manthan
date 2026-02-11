@@ -40,7 +40,7 @@ class InterpolatingSolver:
   
   def solve(self, assumptions=[], limit=None):
     if limit is None:
-      limit = 1000
+      limit = 100000
     return self.solver.solve(Utils.miniSAT_literals(assumptions), limit)
   
   def interpolate(self, variable, shared_variables, assumptions=[], budget=0):

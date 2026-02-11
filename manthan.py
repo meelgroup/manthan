@@ -175,16 +175,20 @@ def manthan():
     # we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
     cprint("c [manthan] parsing and converting to verilog")
     verilogformula, dg, ng = convert_verilog(args.input, args.multiclass == 1, dg)
+    use_bus_ports = "v_bus0" in verilogformula
 
     start_t = time.time()
 
     sampling_cnf = cnfcontent
     if not args.maxsamples:
-        if len(Xvar) > 4000:
+        remaining_y = len(Yvar) - len(UniqueVars) - len(PosUnate) - len(NegUnate)
+        if remaining_y < 0:
+            remaining_y = 0
+        if remaining_y > 4000:
             num_samples = 1000
-        if (len(Xvar) > 1200) and (len(Xvar) <= 4000):
+        if (remaining_y > 1200) and (remaining_y <= 4000):
             num_samples = 5000
-        if len(Xvar) <= 1200:
+        if remaining_y <= 1200:
             num_samples = 10000
     else:
         num_samples = args.maxsamples
@@ -228,6 +232,20 @@ def manthan():
     if missing:
         cprint("c [manthan] missing candidate functions for Y variables:", missing)
         raise RuntimeError("Missing candidate functions for some Y variables; see log for details.")
+
+    if args.testflip and args.testflip > 0:
+        flip_candidates = [y for y in Yvar if (y in candidateSkf and y not in UniqueVars and y not in PosUnate and y not in NegUnate)]
+        rng = random.Random(args.seed)
+        rng.shuffle(flip_candidates)
+        flip_count = min(args.testflip, len(flip_candidates))
+        flipped = flip_candidates[:flip_count]
+        for y in flipped:
+            expr = candidateSkf.get(y, "").strip()
+            if not expr:
+                expr = " 1 "
+            candidateSkf[y] = " ~ ( %s ) " % expr
+        if args.verbose:
+            cprint("c [manthan] testflip enabled; flipped %s functions" % flip_count)
 
     YvarOrder = np.array(list(nx.topological_sort(dg)))
 
@@ -305,8 +323,14 @@ def manthan():
                     cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))
                 lexflag, repairfunctions = repair(
                     repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, temp_stem, args, 0)
+            if not repairfunctions:
+                cprint("c [manthan] error --- no repairs produced; aborting")
+                status = "failed"
+                break
             for yvar in list(repairfunctions.keys()):
                 refine_var_log[yvar] = refine_var_log.get(yvar, 0) + 1
+                if use_bus_ports:
+                    continue
                 if refine_var_log[yvar] > args.selfsubthres and yvar not in selfsub:
                     if len(selfsub) == 0:
                         os.makedirs(selfsub_dir, exist_ok=True)
@@ -338,6 +362,8 @@ if __name__ == "__main__":
                         help="weighted sampling: 1; uniform sampling: 0; default 1", dest='weighted')
     parser.add_argument('--maxrepairitr', type=int, default=5000,
                         help="maximum allowed repair iterations; default 1000", dest='maxrepairitr')
+    parser.add_argument('--testflip', type=int, default=0,
+                        help="test mode: flip N learned Skolem functions to measure recovery", dest='testflip')
     parser.add_argument('--selfsubthres', type=int, default=30,
                         help="self substitution threshold", dest='selfsubthres')
     parser.add_argument('--adaptivesample', type=int, default=1,

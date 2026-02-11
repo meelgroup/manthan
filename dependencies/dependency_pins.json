@@ -2,7 +2,7 @@
   {
     "path": "dependencies/manthan-preprocess",
     "url": "https://github.com/meelgroup/manthan-preprocess",
-    "rev": "main"
+    "rev": "manthan2"
   },
   {
     "path": "dependencies/unique",

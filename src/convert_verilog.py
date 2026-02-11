@@ -65,10 +65,20 @@ def convert_verilog(input,cluster,dg):
 	f.close()
 	itr = 1
 	declare = 'module FORMULA( '
-	declare_input = ''
-	declare_wire = ''
-	assign_wire = ''
+	declare_input = []
+	declare_wire = []
+	assign_wire = []
 	tmp_array = []
+	formula_vars = set()
+	def _vname(var):
+		s = str(var).strip()
+		if s.lstrip("-").isdigit():
+			return "v%s" % (abs(int(s)))
+		return s
+	def _bus_ref(prefix, var):
+		seg = (var - 1) // 128
+		off = (var - 1) % 128
+		return f"{prefix}{seg}[{off}]"
 
 	for line in lines:
 		line = line.strip(" ")
@@ -84,16 +94,14 @@ def convert_verilog(input,cluster,dg):
 		if line.startswith("a"):
 			a_variables = line.strip("a").strip("\n").strip(" ").split(" ")[:-1]
 			for avar in a_variables:
-				declare += "%s," %(avar)
-				declare_input += "input %s;\n" %(avar)
+				formula_vars.add(int(avar))
 			continue
 
 		if line.startswith("e"):
 			e_variables = line.strip("e").strip("\n").strip(" ").split(" ")[:-1]
 			for evar in e_variables:
+				formula_vars.add(int(evar))
 				tmp_array.append(int(evar))
-				declare += "%s," %(evar)
-				declare_input += "input %s;\n" %(evar)
 				if int(evar) not in list(dg.nodes):
 					dg.add_node(int(evar))
 			continue
@@ -103,18 +111,20 @@ def convert_verilog(input,cluster,dg):
 		if not clause_variable:
 			continue
 
-		declare_wire += "wire t_%s;\n" %(itr)
-		assign_wire += "assign t_%s = " %(itr)
+		declare_wire.append("wire t_%s;\n" % (itr))
+		assign_parts = ["assign t_%s = " % (itr)]
 		itr += 1
 		for var in clause_variable:
-			if int(var) < 0:
-				assign_wire += "~%s | " %(abs(int(var)))
+			v = int(var)
+			if v < 0:
+				assign_parts.append("~%s | " % (_vname(-v)))
 			else:
-				assign_wire += "%s | " %(abs(int(var)))
+				assign_parts.append("%s | " % (_vname(v)))
 
-		assign_wire = assign_wire.strip("| ")
-		assign_wire = _wrap_assign(assign_wire, indent="  ", max_terms=200)
-		assign_wire += ";\n"
+		assign_line = "".join(assign_parts).rstrip("| ")
+		if len(assign_line) > 4000:
+			assign_line = _wrap_assign(assign_line, indent="  ", max_terms=200)
+		assign_wire.append(assign_line + ";\n")
 		
 		### if args.multiclass, then add an edge between variables of the clause ###
 
@@ -136,31 +146,50 @@ def convert_verilog(input,cluster,dg):
 
 	count_tempvariable = itr
 
-	declare += "out);\n"
-	declare_input += "output out;\n"
+	max_var = max([0] + list(formula_vars))
+	bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+	bus_ports = []
+	for i in range(bus_cnt):
+		name = f"v_bus{i}"
+		bus_ports.append(name)
+		declare_input.append(f"input [127:0] {name};\n")
+	for v in sorted(formula_vars):
+		declare_wire.append("wire %s;\n" % (_vname(v)))
+	assign_bus = []
+	for v in sorted(formula_vars):
+		assign_bus.append("assign %s = %s;\n" % (_vname(v), _bus_ref("v_bus", v)))
+	declare = "module FORMULA( " + ", ".join(bus_ports + ["out"]) + " );\n"
+	declare_input.append("output out;\n")
 
 	temp_assign = ''
-	outstr = ''
+	outstr = []
 
 	itr = 1
 	while itr < count_tempvariable:
 		temp_assign += "t_%s & " %(itr)
 		if itr % 100 == 0:
-			declare_wire += "wire tcount_%s;\n" %(itr)
-			assign_wire += "assign tcount_%s = %s;\n" %(itr,temp_assign.strip("& "))
-			outstr += "tcount_%s & " %(itr)
+			declare_wire.append("wire tcount_%s;\n" % (itr))
+			assign_wire.append("assign tcount_%s = %s;\n" % (itr,temp_assign.strip("& ")))
+			outstr.append("tcount_%s" % (itr))
 			temp_assign = ''
 		itr += 1
 
 	if temp_assign != "":
-		declare_wire += "wire tcount_%s;\n" %(itr)
-		assign_wire += "assign tcount_%s = %s;\n" %(itr,temp_assign.strip("& "))
-		outstr += "tcount_%s & " %(itr)
-	out_expr = outstr.strip("& \n")
+		declare_wire.append("wire tcount_%s;\n" % (itr))
+		assign_wire.append("assign tcount_%s = %s;\n" % (itr,temp_assign.strip("& ")))
+		outstr.append("tcount_%s" % (itr))
+	out_expr = " & ".join(outstr)
 	out_expr = _wrap_assign(out_expr, indent="  ", max_terms=200)
-	outstr = "assign out = %s;\n" %(out_expr)
+	outstr_line = "assign out = %s;\n" %(out_expr)
 
-
-	verilogformula = declare + declare_input + declare_wire + assign_wire + outstr +"endmodule\n"
+	verilogformula = (
+		declare +
+		"".join(declare_input) +
+		"".join(declare_wire) +
+		"".join(assign_bus) +
+		"".join(assign_wire) +
+		outstr_line +
+		"endmodule\n"
+	)
 
 	return verilogformula, dg, ng

@@ -88,7 +88,7 @@ class DefinabilityChecker:
     assumptions_complete = eq_disabled + eq_enabled + assumptions + [on, off]
     logging.debug("Assumptions: {}".format(assumptions_complete))
     # Check whether 'defined_variable' is defined.
-    satisfiable = self.solver.solve(assumptions_complete)
+    satisfiable = self.solver.solve(assumptions_complete,limit=100000)
     assert satisfiable != InterpolatingSolver.TRIBOOL_INDETERMINATE, \
           "SAT call indeterminate."
     
