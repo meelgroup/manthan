@@ -286,7 +286,7 @@ def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
 	inputerrorx = "module MAIN (" + ", ".join(v_bus_ports + ip_bus_ports + ["out"]) + " );\n"
 	declare = bus_decl + "output out;\n" + "wire out1;\n" + "wire out2;\n" + "wire out3;\n" + assign_inputs
 	formula_call = "FORMULA F1 " + inputformula
-	skolem_call = "SKOLEMFORMULA F2 " + inputskolem
+	skolem_call = "SKOLEMFORMULA FSK " + inputskolem
 	formulask_call = "FORMULA F2 " + inputformula_sk
 	error_content = inputerrorx + declare + formula_call + skolem_call + formulask_call
 	error_content += "assign out = ( out1 & out2 & ~(out3) );\n" + "endmodule\n"
@@ -417,6 +417,43 @@ def verify(Xvar, Yvar, inputfile_name, verbose=0, debug_keep=False):
 	if not os.path.isfile(errorformula):
 		cprint("c [verify] missing error formula:", errorformula)
 		return(0, [0], 1)
+	def _parse_cex_bits(model_str):
+		model_str = model_str.strip()
+		if not model_str:
+			return []
+		if (" " not in model_str) and ("\n" not in model_str) and all(ch in "01" for ch in model_str):
+			return [int(ch) for ch in model_str]
+		toks = model_str.split()
+		if toks and all(tok in ("0", "1") for tok in toks):
+			return [int(tok) for tok in toks]
+		raise ValueError("c [verify] unexpected CEX format (expected binary string)")
+
+	def _decode_bused(bits):
+		max_var = max([0] + list(Xvar) + list(Yvar))
+		max_y = max([0] + list(Yvar))
+		v_bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+		ip_bus_cnt = (max_y + 127) // 128 if max_y > 0 else 0
+		expected = v_bus_cnt * 128 + ip_bus_cnt * 128
+		if len(bits) != expected:
+			raise ValueError("c [verify] CEX length mismatch (expected %d, got %d)" % (expected, len(bits)))
+		v_bits = bits[:v_bus_cnt * 128]
+		ip_bits = bits[v_bus_cnt * 128:]
+
+		def _bus_val(bus_bits, var):
+			seg = (var - 1) // 128
+			off = (var - 1) % 128
+			# file_generation_cex lists bus bits in ascending index order:
+			# v_bus0[0] is the first bit, v_bus0[127] is the last.
+			idx = seg * 128 + off
+			if idx < 0 or idx >= len(bus_bits):
+				raise ValueError("c [verify] CEX index out of range for var %s" % var)
+			return bus_bits[idx]
+
+		modelx = [_bus_val(v_bits, v) for v in Xvar]
+		modely = [_bus_val(v_bits, v) for v in Yvar]
+		modelyp = [_bus_val(ip_bits, v) for v in Yvar]
+		return modelx, modely, modelyp
+
 	with tempfile.TemporaryDirectory(prefix="manthan_abc_") as abc_tmpdir:
 		cexfile = os.path.join(abc_tmpdir, inputfile_name + "_cex.txt")
 		abc_cex = static_bin_path("file_generation_cex")
@@ -437,25 +474,24 @@ def verify(Xvar, Yvar, inputfile_name, verbose=0, debug_keep=False):
 			if model:
 				cexmodels = []
 				ret = 1
-				if (" " not in model) and ("\n" not in model) and all(ch in "01" for ch in model):
-					cex = [int(ch) for ch in model]
+				cex = _parse_cex_bits(model)
+				expected_legacy = len(Xvar) + 2 * len(Yvar)
+				max_var = max([0] + list(Xvar) + list(Yvar))
+				max_y = max([0] + list(Yvar))
+				expected_bused = ((max_var + 127) // 128 if max_var > 0 else 0) * 128
+				expected_bused += ((max_y + 127) // 128 if max_y > 0 else 0) * 128
+				if len(cex) == expected_bused:
+					modelx, modely, modelyp = _decode_bused(cex)
+				elif len(cex) == expected_legacy:
+					templist = np.split(cex, [len(Xvar), len(Xvar) + len(Yvar)])
+					modelx = templist[0]
+					modely = templist[1]
+					modelyp = templist[2]
 				else:
-					cex = []
-					for tok in model.split():
-						try:
-							val = int(tok)
-						except ValueError:
-							continue
-						if val == 0:
-							continue
-						cex.append(val)
-				if len(cex) < (len(Xvar) + 2 * len(Yvar)):
-					return(1, [], 0)
-				cex = cex[:len(Xvar) + 2 * len(Yvar)]
-				templist = np.split(cex, [len(Xvar), len(Xvar) + len(Yvar)])
-				modelx = templist[0]
-				modely = templist[1]
-				modelyp = templist[2]
+					raise ValueError(
+						"c [verify] CEX length mismatch (expected %d or %d, got %d)" %
+						(expected_bused, expected_legacy, len(cex))
+					)
 				assert(len(modelx) == len(Xvar))
 				assert(len(modelyp) == len(Yvar))
 				assert(len(modely) == len(Yvar))

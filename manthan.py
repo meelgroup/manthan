@@ -75,9 +75,8 @@ def manthan():
         cprint("c [manthan] %s" % (status))
     Xvar, Yvar, qdimacs_list = parse(args.input)
 
-    if args.verbose:
-        cprint("c [manthan] count X variables", len(Xvar))
-        cprint("c [manthan] count Y variables", len(Yvar))
+    cprint("c [manthan] count X variables", len(Xvar))
+    cprint("c [manthan] count Y variables", len(Yvar))
 
     input_name = Path(args.input).name
     if input_name.endswith(".qdimacs"):
@@ -151,10 +150,9 @@ def manthan():
         except MemoryError:
             cprint("c [manthan] unique extraction skipped due to MemoryError")
             UniqueVars, UniqueDef = [], ""
-        if args.verbose:
-            cprint("c [manthan] count of uniquely defined variables", len(UniqueVars))
-            if args.verbose >= 2:
-                cprint("c [manthan] uniquely defined variables", UniqueVars)
+        cprint("c [manthan] count of uniquely defined variables", len(UniqueVars))
+        if args.verbose >= 2:
+            cprint("c [manthan] uniquely defined variables", UniqueVars)
     else:
         UniqueVars = []
         UniqueDef = ''
@@ -298,7 +296,7 @@ def manthan():
                 cnfcontent, maxsatWt, maxsatcnf, sigma[0], Xvar)
 
             ind = callMaxsat(
-                maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat, selfsub=selfsub)
+                maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat, args=args, selfsub=selfsub)
 
             assert(len(ind) > 0)
 

@@ -96,7 +96,7 @@ def unique_function(qdimacs_list, Xvar, Yvar, dg, Unates):
 						elif abs(defvar) in Yvar:
 							clause_parts.append("w%s;\n" %(abs(defvar)))
 						else:
-							cprint("c [unique_function] check unique defination")
+							cprint("c [unique_function] check unique definitions")
 							exit()
 						clauseString = "".join(clause_parts)
 						unique_def_lines.append("assign w%s = %s" %(yvar, clauseString))

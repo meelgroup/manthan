@@ -36,6 +36,8 @@ def _skolem_module_info(skolem_path):
     module_name = None
     has_out = False
     in_module = False
+    port_blob = ""
+    seen_ports = False
     with open(skolem_path, "r") as f:
         for line in f:
             match = re.match(r"\s*module\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", line)
@@ -43,14 +45,39 @@ def _skolem_module_info(skolem_path):
                 if module_name is None:
                     module_name = match.group(1)
                     in_module = True
+                    seen_ports = True
+                    port_blob += line.split("(", 1)[1]
                 else:
                     # Stop scanning outputs after the first module.
                     in_module = False
+            elif in_module and seen_ports:
+                port_blob += line
             if in_module and re.search(r"\boutput\s+out\b", line):
                 has_out = True
+            if in_module and seen_ports and ");" in line:
+                in_module = False
+                seen_ports = False
     if module_name is None:
         raise RuntimeError("Could not find module declaration in %s" % skolem_path)
-    return module_name, has_out
+    port_blob = port_blob.split(");", 1)[0]
+    ports = [p.strip() for p in port_blob.replace("\n", " ").split(",") if p.strip()]
+    is_bused = any(p.startswith("i_bus") or p.startswith("o_bus") for p in ports)
+    return module_name, has_out, is_bused
+
+
+def _wrap_concat(prefix, args, suffix=";\n", indent="  ", max_len=200):
+    if not args:
+        return prefix + "{}" + suffix
+    current = prefix + "{" + args[0]
+    lines = []
+    for arg in args[1:]:
+        if len(current) + 2 + len(arg) > max_len:
+            lines.append(current + ",")
+            current = indent + arg
+        else:
+            current += ", " + arg
+    lines.append(current + "}" + suffix)
+    return "\n".join(lines)
 
 
 def _wrap_commas(prefix, args, suffix=";\n", indent="  ", max_len=200):
@@ -270,6 +297,66 @@ def _build_wrapper(Xvar, Yvar, skolem_module, wrapper_name):
     )
 
 
+def _build_bus_wrapper(Xvar, Yvar, skolem_module, wrapper_name):
+    max_var = max([0] + list(Xvar) + list(Yvar))
+    max_y = max([0] + list(Yvar))
+    i_bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+    o_bus_cnt = (max_y + 127) // 128 if max_y > 0 else 0
+
+    decl_args = []
+    decl_inputs = []
+    for var in Xvar:
+        name = _var_name(var)
+        decl_args.append(name)
+        decl_inputs.append("input %s;\n" % name)
+    for var in Yvar:
+        ip_name = _ip_name(var)
+        decl_args.append(ip_name)
+        decl_inputs.append("input %s;\n" % ip_name)
+    decl_args.append("out")
+    decl = _wrap_commas("module %s " % wrapper_name, decl_args)
+    decl_inputs.append("output out;\n")
+
+    wires = []
+    assigns = []
+    inst_args = []
+    for i in range(i_bus_cnt):
+        name = "i_bus%d" % i
+        wires.append("wire [127:0] %s;\n" % name)
+        base = i * 128
+        for bit in range(127, -1, -1):
+            var = base + bit + 1
+            if var in Xvar:
+                expr = _var_name(var)
+            else:
+                expr = "1'b0"
+            assigns.append("assign %s[%d] = %s;\n" % (name, bit, expr))
+        inst_args.append(name)
+    for i in range(o_bus_cnt):
+        name = "o_bus%d" % i
+        wires.append("wire [127:0] %s;\n" % name)
+        base = i * 128
+        for bit in range(127, -1, -1):
+            var = base + bit + 1
+            if var in Yvar:
+                expr = _ip_name(var)
+            else:
+                expr = "1'b0"
+            assigns.append("assign %s[%d] = %s;\n" % (name, bit, expr))
+        inst_args.append(name)
+    inst_args.append("out")
+    inst = _wrap_commas("%s U " % skolem_module, inst_args)
+
+    return (
+        decl
+        + "".join(decl_inputs)
+        + "".join(wires)
+        + "".join(assigns)
+        + inst
+        + "endmodule\n"
+    )
+
+
 def _parse_cex(model, x_count, y_count):
     if (" " not in model) and ("\n" not in model) and all(ch in "01" for ch in model):
         cex = [int(ch) for ch in model]
@@ -294,8 +381,11 @@ def check_skolem(qdimacs_path, skolem_path, debug_keep=False):
     Xvar, Yvar, _ = parse(qdimacs_path)
     verilog_formula = _convert_verilog(qdimacs_path)
 
-    skolem_module, has_out = _skolem_module_info(skolem_path)
-    if has_out:
+    skolem_module, has_out, is_bused = _skolem_module_info(skolem_path)
+    if is_bused:
+        wrapper_name = "SKOLEM_BUS_WRAPPER"
+        wrapper_content = _build_bus_wrapper(Xvar, Yvar, skolem_module, wrapper_name)
+    elif has_out:
         wrapper_name = skolem_module
         wrapper_content = ""
     else:

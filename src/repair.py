@@ -143,7 +143,7 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args, selfs
 
 
 
-def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfile_name, flag, selfsub=None):
+def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfile_name, flag, args=None, selfsub=None):
     def pick_executable(preferred_path, fallback_path):
         if os.path.isfile(preferred_path) and os.access(preferred_path, os.X_OK):
             return preferred_path
@@ -175,6 +175,11 @@ def callMaxsat(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, inputfil
         with open(maxsatformula, "w") as f:
             f.write(maxsatcnf)
         f.close()
+        if getattr(args, "debug_keep", False):
+            maxsat_cnf_path = os.path.abspath(inputfile_name + "_maxsat.wcnf")
+            shutil.copyfile(maxsatformula, maxsat_cnf_path)
+            if getattr(args, "verbose", 0) >= 1:
+                cprint("c [callMaxsat] saved maxsat cnf:", maxsat_cnf_path)
 
         cmd = [openwbo, "maxsat.wcnf", "-print-unsat-soft=o.txt"]
         subprocess.run(cmd, cwd=tmpdir, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -375,8 +380,9 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
             yj_index = np.where(np.array(Yvar) == yjvar)[0][0]
             
             if yjvar in repaired:
-                cprint("c [repair] yjvar %s already repaired, " \
-                "modelyp[%s] = %s" %(yjvar, yj_index, modelyp[yj_index]))
+                if getattr(args, "verbose", 0) >= 2:
+                    cprint("c [repair] yjvar %s already repaired, " \
+                    "modelyp[%s] = %s" %(yjvar, yj_index, modelyp[yj_index]))
                 if modelyp[yj_index] == 0:
                     repairYvar += "%s 0\n" %(yjvar)
                 else:
@@ -458,8 +464,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
 
             if not any(abs(lit) == repairvar for lit in clisty):
                 if args.verbose:
-                    cprint("c [repair] missing repaired literal %s in core; skipping repair" % repairvar)
-                return 0, repairfunctions
+                    cprint("c [repair] repaired literal %s missing in core; proceeding with core-based repair" % repairvar)
             
             if args.verbose >= 2:
                 cprint("c [repair] Repair function for w%s: %s" % (repairvar, " & ".join(beta_terms)))
