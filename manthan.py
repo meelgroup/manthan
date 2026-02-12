@@ -52,7 +52,6 @@ if config.has_option("ITP-Path", "itp_path"):
 from src.DefinabilityChecker import DefinabilityChecker
 from dependencies.rc2 import RC2Stratified
 from pysat.formula import WCNF
-import pydotplus
 
 from collections import OrderedDict
 

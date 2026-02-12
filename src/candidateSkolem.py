@@ -24,13 +24,17 @@ THE SOFTWARE.
 
 import numpy as np
 from sklearn import tree
-import pydotplus
+try:
+    import pydotplus  # optional, only needed for --showtrees
+except ImportError:
+    pydotplus = None
 import networkx as nx
 from collections import OrderedDict
 from numpy import count_nonzero
 from src import runtime_env  # noqa: F401
 from src.logging_utils import cprint
 import collections
+import sys
 
 
 def treepaths(root, is_leaves, children_left, children_right, data_feature_names, feature, values, dependson, leave_label, Xvar, Yvar, index, size,args):
@@ -88,22 +92,26 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
         min_impurity_decrease=args.gini, random_state=args.seed)
     clf = clf.fit(featuredata, labeldata)
     if args.showtrees:
-        dot_data = tree.export_graphviz(clf,
-                                        feature_names=featname,
-                                        out_file=None,
-                                        filled=True,
-                                        rounded=True)
-        graph = pydotplus.graph_from_dot_data(dot_data)
-        colors = ('turquoise', 'orange')
-        edges = collections.defaultdict(list)
-        for edge in graph.get_edge_list():
-            edges[edge.get_source()].append(int(edge.get_destination()))
-        for edge in edges:
-            edges[edge].sort()
-            for i in range(2):
-                dest = graph.get_node(str(edges[edge][i]))[0]
-                dest.set_fillcolor(colors[i])
-        graph.write_png(str(yvar) + ".png")
+        if pydotplus is None:
+            cprint("c [learnCandidate] error: pydotplus is not installed; --showtrees requires it")
+            sys.exit(1)
+        else:
+            dot_data = tree.export_graphviz(clf,
+                                            feature_names=featname,
+                                            out_file=None,
+                                            filled=True,
+                                            rounded=True)
+            graph = pydotplus.graph_from_dot_data(dot_data)
+            colors = ('turquoise', 'orange')
+            edges = collections.defaultdict(list)
+            for edge in graph.get_edge_list():
+                edges[edge.get_source()].append(int(edge.get_destination()))
+            for edge in edges:
+                edges[edge].sort()
+                for i in range(2):
+                    dest = graph.get_node(str(edges[edge][i]))[0]
+                    dest.set_fillcolor(colors[i])
+            graph.write_png(str(yvar) + ".png")
     values = clf.tree_.value
     n_nodes = clf.tree_.node_count
     children_left = clf.tree_.children_left
