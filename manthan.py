@@ -66,6 +66,50 @@ from src.candidateSkolem import *
 from src.repair import *
 
 
+def _apply_unates_to_qdimacs(qdimacs_list, PosUnate, NegUnate):
+    if not PosUnate and not NegUnate:
+        return qdimacs_list, False
+    assignment = {var: True for var in PosUnate}
+    assignment.update({var: False for var in NegUnate})
+    new_list = []
+    for clause in qdimacs_list:
+        satisfied = False
+        reduced = []
+        for lit in clause:
+            var = abs(int(lit))
+            val = int(lit) > 0
+            if var in assignment:
+                if assignment[var] == val:
+                    satisfied = True
+                    break
+                continue
+            reduced.append(lit)
+        if satisfied:
+            continue
+        if not reduced:
+            return [], True
+        new_list.append(reduced)
+    return new_list, False
+
+
+def _write_qdimacs_with_prefix(inputfile, qdimacs_list, output_path, Xvar, Yvar):
+    prefix_lines = []
+    with open(inputfile, "r") as f:
+        for line in f:
+            if line.startswith("a") or line.startswith("e"):
+                prefix_lines.append(line.strip())
+    if qdimacs_list:
+        maxvar = max(abs(lit) for clause in qdimacs_list for lit in clause)
+    else:
+        maxvar = max(Xvar + Yvar) if (Xvar or Yvar) else 0
+    with open(output_path, "w") as f:
+        f.write("p cnf %d %d\n" % (maxvar, len(qdimacs_list)))
+        for line in prefix_lines:
+            f.write(line + "\n")
+        for clause in qdimacs_list:
+            f.write(" ".join(str(lit) for lit in clause) + " 0\n")
+
+
 def manthan():
     cprint("c [manthan] parsing")
     start_time = time.time()
@@ -87,9 +131,7 @@ def manthan():
     last_errorformula_path = os.path.abspath(temp_stem + "_errorformula_last.v")
 
     cnffile_name = temp_path(temp_stem + ".cnf")
-
-    cnfcontent = convertcnf(args.input, cnffile_name)
-    cnfcontent = cnfcontent.strip("\n")+"\n"
+    qdimacs_path = args.input
 
     if args.preprocess == 1:
         cprint("c [manthan] preprocessing: finding unates (constant functions)")
@@ -114,20 +156,34 @@ def manthan():
                 cprint("c [manthan] negative unates", NegUnate)
 
         Unates = PosUnate + NegUnate
-
-        for yvar in PosUnate:
-            qdimacs_list.append([yvar])
-            cnfcontent += "%s 0\n" % (yvar)
-
-        for yvar in NegUnate:
-            qdimacs_list.append([-1 * int(yvar)])
-            cnfcontent += "-%s 0\n" % (yvar)
+        if Unates:
+            qdimacs_list, unsat = _apply_unates_to_qdimacs(
+                qdimacs_list, PosUnate, NegUnate)
+            if unsat:
+                cprint("c [manthan] error --- unate substitution produced empty clause")
+                finish("failed")
+                return
+            # Keep unates fixed via unit clauses to preserve CNF clause counts/semantics.
+            for yvar in PosUnate:
+                qdimacs_list.append([int(yvar)])
+            for yvar in NegUnate:
+                qdimacs_list.append([-int(yvar)])
+            qdimacs_path = temp_path(temp_stem + "_unates.qdimacs")
+            _write_qdimacs_with_prefix(args.input, qdimacs_list, qdimacs_path, Xvar, Yvar)
+            if getattr(args, "debug_keep", False):
+                keep_path = os.path.abspath(temp_stem + "_unates.qdimacs")
+                shutil.copyfile(qdimacs_path, keep_path)
+                if getattr(args, "verbose", 0) >= 1:
+                    cprint("c [manthan] saved unate-substituted qdimacs:", keep_path)
 
     else:
         Unates = []
         PosUnate = []
         NegUnate = []
         cprint("c [manthan] preprocessing is disabled. To do preprocessing, please use --preprocess=1")
+
+    cnfcontent = convertcnf(qdimacs_path, cnffile_name)
+    cnfcontent = cnfcontent.strip("\n") + "\n"
 
     if len(Unates) == len(Yvar):
         cprint("c [manthan] positive unates", PosUnate)
@@ -171,7 +227,7 @@ def manthan():
 
     # we need verilog file for repairing the candidates, hence first let us convert the qdimacs to verilog
     cprint("c [manthan] parsing and converting to verilog")
-    verilogformula, dg, ng = convert_verilog(args.input, args.multiclass == 1, dg)
+    verilogformula, dg, ng = convert_verilog(qdimacs_path, args.multiclass == 1, dg)
     use_bus_ports = "v_bus0" in verilogformula
 
     start_t = time.time()
@@ -257,8 +313,10 @@ def manthan():
     selfsub_wires = {}
     selfsub_dir = temp_path("selfsub")
 
+    # Unate unit clauses are already included in cnfcontent (via qdimacs rewrite),
+    # so no extra clause-count adjustment is needed here.
     maxsatWt, maxsatcnf, cnfcontent = maxsatContent(
-        cnfcontent, (len(Xvar)+len(Yvar)), (len(PosUnate)+len(NegUnate)))
+        cnfcontent, (len(Xvar)+len(Yvar)), 0)
 
     countRefine = 0
 
@@ -297,7 +355,15 @@ def manthan():
             ind = callMaxsat(
                 maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat, args=args, selfsub=selfsub)
 
-            assert(len(ind) > 0)
+            if len(ind) == 0 and selfsub:
+                if args.verbose:
+                    cprint("c [manthan] no candidates from maxsat with selfsub; retrying without selfsub filter")
+                ind = callMaxsat(
+                    maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat, args=args, selfsub=None)
+            if len(ind) == 0:
+                cprint("c [manthan] no candidates returned by maxsat; stopping repair")
+                status = "failed"
+                break
 
             if args.verbose == 1:
                 cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))

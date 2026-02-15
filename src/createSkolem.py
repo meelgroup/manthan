@@ -76,6 +76,21 @@ def _wrap_assign(expr, indent="  ", max_terms=200, max_len=4000):
 	return (sep + "\n" + indent).join(lines)
 
 
+def _wrap_commas(prefix, args, suffix=";\n", indent="  ", max_len=200):
+	if not args:
+		return prefix + "()" + suffix
+	current = prefix + "(" + args[0]
+	lines = []
+	for arg in args[1:]:
+		if len(current) + 2 + len(arg) > max_len:
+			lines.append(current + ",")
+			current = indent + arg
+		else:
+			current += ", " + arg
+	lines.append(current + ")" + suffix)
+	return "\n".join(lines)
+
+
 def _normalize_verilog_module_order(verilog_text):
 	# Ensure all declarations appear before assigns/instances within each module.
 	lines = verilog_text.splitlines()
@@ -165,7 +180,7 @@ def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueD
 			assign += "assign o%s = w%s;\n" %(var,var)
 			wire += "wire w%s;\n" %(var)
 
-	declare = declare.strip(", ")+");\n"
+	declare = _wrap_commas("module SkolemFormula ", [*(f"i{v}" for v in Xvar), *(f"o{v}" for v in Yvar)], suffix=";\n")
 	skolemformula = declare + declarevar + wire + UniqueDef + assign + "endmodule\n"
 
 	if output_path is None:
@@ -191,7 +206,7 @@ def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None, selfsub=N
 		declare += "o%s, " %(var)
 		declare_input += "output o%s;\n" %(var)
 		assign += "assign o%s = w%s;\n" %(var,var)
-	declare = declare.strip(", ")+");\n"
+	declare = _wrap_commas("module SkolemFormula ", [*(f"i{v}" for v in Xvar), *(f"o{v}" for v in Yvar)], suffix=";\n")
 
 	with open(skolemformula,"r") as f:
 		lines = f.readlines()
@@ -279,16 +294,13 @@ def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
 		assign_inputs += "assign %s = %s;\n" % (_bus_ref("f2_bus", var), _bus_ref("ip_bus", var))
 		assign_inputs += "assign %s = %s;\n" % (_bus_ref("o_bus", var), _bus_ref("ip_bus", var))
 
-	inputformula = "( " + ", ".join(v_bus_ports + ["out1"]) + " );\n"
-	inputformula_sk = "( " + ", ".join(f2_bus_ports + ["out3"]) + " );\n"
-	inputskolem = "( " + ", ".join(v_bus_ports + o_bus_ports + ["out2"]) + " );\n"
+	inputformula = _wrap_commas("FORMULA F1 ", v_bus_ports + ["out1"])
+	inputformula_sk = _wrap_commas("FORMULA F2 ", f2_bus_ports + ["out3"])
+	inputskolem = _wrap_commas("SKOLEMFORMULA FSK ", v_bus_ports + o_bus_ports + ["out2"])
 
-	inputerrorx = "module MAIN (" + ", ".join(v_bus_ports + ip_bus_ports + ["out"]) + " );\n"
+	inputerrorx = _wrap_commas("module MAIN ", v_bus_ports + ip_bus_ports + ["out"])
 	declare = bus_decl + "output out;\n" + "wire out1;\n" + "wire out2;\n" + "wire out3;\n" + assign_inputs
-	formula_call = "FORMULA F1 " + inputformula
-	skolem_call = "SKOLEMFORMULA FSK " + inputskolem
-	formulask_call = "FORMULA F2 " + inputformula_sk
-	error_content = inputerrorx + declare + formula_call + skolem_call + formulask_call
+	error_content = inputerrorx + declare + inputformula + inputskolem + inputformula_sk
 	error_content += "assign out = ( out1 & out2 & ~(out3) );\n" + "endmodule\n"
 	error_content += verilog_formula
 	return error_content
@@ -338,7 +350,7 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 		name = f"o_bus{i}"
 		o_bus_ports.append(name)
 		declarestr += f"input [127:0] {name};\n"
-	inputstr = "module SKOLEMFORMULA (" + ", ".join(i_bus_ports + o_bus_ports + ["out"]) + ");\n"
+	inputstr = _wrap_commas("module SKOLEMFORMULA ", i_bus_ports + o_bus_ports + ["out"])
 
 	for var in Xvar:
 		declarestr += "wire i%s;\n" % (var)

@@ -23,6 +23,21 @@ def _ensure_dir(path):
 def _formula_vars(Xvar, Yvar):
     return list(Xvar) + list(Yvar)
 
+
+def _wrap_commas(prefix, args, suffix=";\n", indent="  ", max_len=200):
+    if not args:
+        return prefix + "()" + suffix
+    current = prefix + "(" + args[0]
+    lines = []
+    for arg in args[1:]:
+        if len(current) + 2 + len(arg) > max_len:
+            lines.append(current + ",")
+            current = indent + arg
+        else:
+            current += ", " + arg
+    lines.append(current + ")" + suffix)
+    return "\n".join(lines)
+
 def _build_bus_wrapper(formula_vars, wrapper_name):
     if not formula_vars:
         return ""
@@ -52,12 +67,47 @@ def _build_bus_wrapper(formula_vars, wrapper_name):
     return "".join(lines)
 
 
+def _build_bus_inst_wrapper(wrapper_name, args, Xvar, Yvar, target_module):
+    if not args:
+        return ""
+    max_var = max([0] + list(Xvar) + list(Yvar))
+    max_y = max([0] + list(Yvar))
+    i_bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+    o_bus_cnt = (max_y + 127) // 128 if max_y > 0 else 0
+    xset = set(Xvar)
+    yset = set(Yvar)
+    ports = ["i_bus%d" % i for i in range(i_bus_cnt)] + ["o_bus%d" % i for i in range(o_bus_cnt)] + ["out"]
+    lines = []
+    lines.append("module %s ( %s );\n" % (wrapper_name, ", ".join(ports)))
+    for i in range(i_bus_cnt):
+        lines.append("input [127:0] i_bus%d;\n" % i)
+    for i in range(o_bus_cnt):
+        lines.append("input [127:0] o_bus%d;\n" % i)
+    lines.append("output out;\n")
+    for arg in args:
+        lines.append("wire %s;\n" % arg)
+    for arg in args:
+        v = int(arg[1:])
+        seg = (v - 1) // 128
+        off = (v - 1) % 128
+        if v in xset:
+            lines.append("assign %s = i_bus%d[%d];\n" % (arg, seg, off))
+        elif v in yset:
+            lines.append("assign %s = o_bus%d[%d];\n" % (arg, seg, off))
+    conns = [".%s(%s)" % (a, a) for a in args] + [".out(out)"]
+    lines.append(_wrap_commas("%s F_ " % target_module, conns))
+    lines.append("endmodule\n")
+    return "".join(lines)
+
+
 def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
     _ensure_dir(selfsub_dir)
     formula_vars = _formula_vars(Xvar, Yvar)
     bused_formula = "v_bus0" in verilog_formula
     wrapper_name = "FORMULA"
     wrapper_content = ""
+    bus_wrapper_content = ""
+    bus_wrapper_name = ""
     if bused_formula:
         wrapper_name = "FORMULA_SCALAR_%s" % (var)
         wrapper_content = _build_bus_wrapper(formula_vars, wrapper_name)
@@ -96,15 +146,24 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
 
         true_path = os.path.join(selfsub_dir, "formula%s_true.v" % (var))
         false_path = os.path.join(selfsub_dir, "formula%s_false.v" % (var))
+        args = [s.strip() for s in selfsub_inputstr.split(",") if s.strip()]
+        if bused_formula:
+            bus_wrapper_name = "FORMULA%s_true_BUS" % (var)
+            bus_wrapper_content = _build_bus_inst_wrapper(
+                bus_wrapper_name, args, Xvar, Yvar, "FORMULA%s_true" % var)
         with open(true_path, "w") as f:
             f.write(write_str_true + write_str + formula_true + "\n")
             if wrapper_content:
                 f.write(wrapper_content)
+            if bus_wrapper_content:
+                f.write(bus_wrapper_content)
             f.write(verilog_formula)
         with open(false_path, "w") as f:
             f.write(write_str_false + write_str + formula_false + "\n")
             if wrapper_content:
                 f.write(wrapper_content)
+            if bus_wrapper_content:
+                f.write(bus_wrapper_content)
             f.write(verilog_formula)
 
         subprocess.run([file_write_verilog, true_path, true_path],
@@ -112,8 +171,18 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
         subprocess.run([file_write_verilog, false_path, false_path],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        return_string = "wire outsub%s ;\nFORMULA%s_true F%s_ ( %s outsub%s);\n" % (
-            var, var, var, selfsub_inputstr, var)
+        if bused_formula:
+            max_var = max([0] + list(Xvar) + list(Yvar))
+            max_y = max([0] + list(Yvar))
+            i_bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+            o_bus_cnt = (max_y + 127) // 128 if max_y > 0 else 0
+            bus_args = ["i_bus%d" % i for i in range(i_bus_cnt)] + ["o_bus%d" % i for i in range(o_bus_cnt)] + ["outsub%s" % var]
+            inst = _wrap_commas("%s F%s_ " % (bus_wrapper_name, var), bus_args)
+        else:
+            args = [s.strip() for s in selfsub_inputstr.split(",") if s.strip()]
+            conns = [".%s(%s)" % (a, a) for a in args] + [".out(outsub%s)" % var]
+            inst = _wrap_commas("FORMULA%s_true F%s_ " % (var, var), conns)
+        return_string = "wire outsub%s ;\n%s" % (var, inst)
         return return_string
 
     last_update = selfsub[index_selfsub - 1]
@@ -151,11 +220,18 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
 
     true_path = os.path.join(selfsub_dir, "formula%s_true.v" % (var))
     false_path = os.path.join(selfsub_dir, "formula%s_false.v" % (var))
+    args = [s.strip() for s in selfsub_inputstr.split(",") if s.strip()]
+    if bused_formula:
+        bus_wrapper_name = "FORMULA%s_true_BUS" % (var)
+        bus_wrapper_content = _build_bus_inst_wrapper(
+            bus_wrapper_name, args, Xvar, Yvar, "FORMULA%s_true" % var)
     with open(true_path, "w") as f:
         f.write(write_str_true + write_str + formula_true1 + formula_true2)
         f.write("assign out = out1 | out2 ;\nendmodule\n")
         if wrapper_content:
             f.write(wrapper_content)
+        if bus_wrapper_content:
+            f.write(bus_wrapper_content)
         f.write(file_content_true + "\n")
         f.write(file_content_false + "\n")
     with open(false_path, "w") as f:
@@ -163,6 +239,8 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
         f.write("assign out = out1 | out2 ;\nendmodule\n")
         if wrapper_content:
             f.write(wrapper_content)
+        if bus_wrapper_content:
+            f.write(bus_wrapper_content)
         f.write(file_content_true + "\n")
         f.write(file_content_false + "\n")
 
@@ -171,8 +249,18 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
     subprocess.run([file_write_verilog, false_path, false_path],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    return_string = "wire outsub%s ;\nFORMULA%s_true F%s_ ( %s outsub%s);\n" % (
-        var, var, var, selfsub_inputstr, var)
+    if bused_formula:
+        max_var = max([0] + list(Xvar) + list(Yvar))
+        max_y = max([0] + list(Yvar))
+        i_bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+        o_bus_cnt = (max_y + 127) // 128 if max_y > 0 else 0
+        bus_args = ["i_bus%d" % i for i in range(i_bus_cnt)] + ["o_bus%d" % i for i in range(o_bus_cnt)] + ["outsub%s" % var]
+        inst = _wrap_commas("%s F%s_ " % (bus_wrapper_name, var), bus_args)
+    else:
+        args = [s.strip() for s in selfsub_inputstr.split(",") if s.strip()]
+        conns = [".%s(%s)" % (a, a) for a in args] + [".out(outsub%s)" % var]
+        inst = _wrap_commas("FORMULA%s_true F%s_ " % (var, var), conns)
+    return_string = "wire outsub%s ;\n%s" % (var, inst)
     return return_string
 
 
