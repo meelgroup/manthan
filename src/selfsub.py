@@ -47,7 +47,7 @@ def _build_bus_wrapper(formula_vars, wrapper_name):
 
     ports = ["i%s" % v for v in formula_vars] + ["out"]
     lines = []
-    lines.append("module %s ( %s );\n" % (wrapper_name, ", ".join(ports)))
+    lines.append(_wrap_commas("module %s " % wrapper_name, ports))
     for v in formula_vars:
         lines.append("input i%s;\n" % v)
     lines.append("output out;\n")
@@ -114,62 +114,61 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
     index_selfsub = selfsub.index(var)
 
     def build_io(exclude_selfsub):
-        inputstr = "%s F%s_ ( " % (wrapper_name, var)
-        selfsub_inputstr = ""
+        arglist = []
+        selfsub_ports = []
         selfsub_declarestr = ""
         for v in formula_vars:
             if v == var:
-                inputstr += "# ,"
+                arglist.append("#")
                 continue
             if exclude_selfsub and v in selfsub:
                 continue
             sig = "i%s" % (v)
-            inputstr += "%s ," % (sig)
-            selfsub_inputstr += "%s ," % (sig)
+            arglist.append(sig)
+            selfsub_ports.append(sig)
             selfsub_declarestr += "input %s;\n" % (sig)
-        inputstr += "out );\nendmodule"
-        return inputstr, selfsub_inputstr, selfsub_declarestr
+        return arglist, selfsub_ports, selfsub_declarestr
 
     file_write_verilog = _static_bin_path("file_write_verilog")
 
     if index_selfsub == 0:
-        inputstr, selfsub_inputstr, selfsub_declarestr = build_io(False)
-        write_str_true = "module FORMULA%s_true ( %s out);\n" % (var, selfsub_inputstr)
-        write_str_false = "module FORMULA%s_false ( %s out);\n" % (var, selfsub_inputstr)
+        arglist, selfsub_ports, selfsub_declarestr = build_io(False)
+        write_str_true = _wrap_commas("module FORMULA%s_true " % var, selfsub_ports + ["out"])
+        write_str_false = _wrap_commas("module FORMULA%s_false " % var, selfsub_ports + ["out"])
         write_str = selfsub_declarestr + "output out;\n"
         write_str += "wire one;\n"
         write_str += "wire zero;\n"
         write_str += "assign one = 1;\n"
         write_str += "assign zero = 0;\n"
-        formula_true = inputstr.replace("#", "one")
-        formula_false = inputstr.replace("#", "zero")
+        args_one = [("one" if a == "#" else a) for a in arglist]
+        args_zero = [("zero" if a == "#" else a) for a in arglist]
+        formula_true = _wrap_commas("%s F%s_ " % (wrapper_name, var), args_one + ["out"])
+        formula_false = _wrap_commas("%s F%s_ " % (wrapper_name, var), args_zero + ["out"])
 
         true_path = os.path.join(selfsub_dir, "formula%s_true.v" % (var))
         false_path = os.path.join(selfsub_dir, "formula%s_false.v" % (var))
-        args = [s.strip() for s in selfsub_inputstr.split(",") if s.strip()]
+        args = list(selfsub_ports)
         if bused_formula:
             bus_wrapper_name = "FORMULA%s_true_BUS" % (var)
             bus_wrapper_content = _build_bus_inst_wrapper(
                 bus_wrapper_name, args, Xvar, Yvar, "FORMULA%s_true" % var)
         with open(true_path, "w") as f:
-            f.write(write_str_true + write_str + formula_true + "\n")
+            f.write(write_str_true + write_str + formula_true + "\nendmodule\n")
             if wrapper_content:
                 f.write(wrapper_content)
             if bus_wrapper_content:
                 f.write(bus_wrapper_content)
-            f.write(verilog_formula)
         with open(false_path, "w") as f:
-            f.write(write_str_false + write_str + formula_false + "\n")
-            if wrapper_content:
-                f.write(wrapper_content)
-            if bus_wrapper_content:
-                f.write(bus_wrapper_content)
-            f.write(verilog_formula)
+            f.write(write_str_false + write_str + formula_false + "\nendmodule\n")
+            # Only include shared modules in the true file to avoid duplicates.
 
-        subprocess.run([file_write_verilog, true_path, true_path],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run([file_write_verilog, false_path, false_path],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # For bused formulas, ABC's write_verilog produces escaped identifiers that
+        # file_generation_cex cannot parse reliably. Keep our generated verilog.
+        if not bused_formula:
+            subprocess.run([file_write_verilog, true_path, true_path],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run([file_write_verilog, false_path, false_path],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         if bused_formula:
             max_var = max([0] + list(Xvar) + list(Yvar))
@@ -188,16 +187,10 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
     last_update = selfsub[index_selfsub - 1]
     true_prev = os.path.join(selfsub_dir, "formula%s_true.v" % (last_update))
     false_prev = os.path.join(selfsub_dir, "formula%s_false.v" % (last_update))
-    with open(true_prev, "r") as f:
-        file_content_true = f.read()
-    with open(false_prev, "r") as f:
-        file_content_false = f.read()
-    if os.path.isfile(false_prev):
-        os.remove(false_prev)
 
-    inputstr, selfsub_inputstr, selfsub_declarestr = build_io(True)
-    write_str_true = "module FORMULA%s_true ( %s out);\n" % (var, selfsub_inputstr)
-    write_str_false = "module FORMULA%s_false ( %s out);\n" % (var, selfsub_inputstr)
+    arglist, selfsub_ports, selfsub_declarestr = build_io(True)
+    write_str_true = _wrap_commas("module FORMULA%s_true " % var, selfsub_ports + ["out"])
+    write_str_false = _wrap_commas("module FORMULA%s_false " % var, selfsub_ports + ["out"])
     write_str = selfsub_declarestr + "output out;\n"
     write_str += "wire one;\n"
     write_str += "wire zero;\n"
@@ -206,21 +199,17 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
     write_str += "assign one = 1;\n"
     write_str += "assign zero = 0;\n"
 
-    formula_true = inputstr.replace("#", "one")
-    formula_true1 = "FORMULA%s_true F%s ( %sout1 );\n" % (
-        last_update, last_update, formula_true)
-    formula_true2 = "FORMULA%s_false F%s ( %sout2 );\n" % (
-        last_update, last_update, formula_true)
+    args_one = [("one" if a == "#" else a) for a in arglist]
+    args_zero = [("zero" if a == "#" else a) for a in arglist]
+    formula_true1 = _wrap_commas("FORMULA%s_true F%s_t1 " % (last_update, last_update), args_one + ["out1"])
+    formula_true2 = _wrap_commas("FORMULA%s_false F%s_t2 " % (last_update, last_update), args_one + ["out2"])
 
-    formula_false = inputstr.replace("#", "zero")
-    formula_false1 = "FORMULA%s_false F%s( %sout2 );\n" % (
-        last_update, last_update, formula_false)
-    formula_false2 = "FORMULA%s_true F%s( %sout1 );\n" % (
-        last_update, last_update, formula_false)
+    formula_false1 = _wrap_commas("FORMULA%s_false F%s_f1 " % (last_update, last_update), args_zero + ["out2"])
+    formula_false2 = _wrap_commas("FORMULA%s_true F%s_f2 " % (last_update, last_update), args_zero + ["out1"])
 
     true_path = os.path.join(selfsub_dir, "formula%s_true.v" % (var))
     false_path = os.path.join(selfsub_dir, "formula%s_false.v" % (var))
-    args = [s.strip() for s in selfsub_inputstr.split(",") if s.strip()]
+    args = list(selfsub_ports)
     if bused_formula:
         bus_wrapper_name = "FORMULA%s_true_BUS" % (var)
         bus_wrapper_content = _build_bus_inst_wrapper(
@@ -232,22 +221,18 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
             f.write(wrapper_content)
         if bus_wrapper_content:
             f.write(bus_wrapper_content)
-        f.write(file_content_true + "\n")
-        f.write(file_content_false + "\n")
     with open(false_path, "w") as f:
         f.write(write_str_false + write_str + formula_false1 + formula_false2)
         f.write("assign out = out1 | out2 ;\nendmodule\n")
-        if wrapper_content:
-            f.write(wrapper_content)
-        if bus_wrapper_content:
-            f.write(bus_wrapper_content)
-        f.write(file_content_true + "\n")
-        f.write(file_content_false + "\n")
+        # Only include shared modules in the true file to avoid duplicates.
 
-    subprocess.run([file_write_verilog, true_path, true_path],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run([file_write_verilog, false_path, false_path],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # For bused formulas, ABC's write_verilog produces escaped identifiers that
+    # file_generation_cex cannot parse reliably. Keep our generated verilog.
+    if not bused_formula:
+        subprocess.run([file_write_verilog, true_path, true_path],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([file_write_verilog, false_path, false_path],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     if bused_formula:
         max_var = max([0] + list(Xvar) + list(Yvar))
@@ -269,9 +254,12 @@ def load_selfsub_modules(selfsub, selfsub_dir):
         return ""
     content = ""
     for var in selfsub:
-        path = os.path.join(selfsub_dir, "formula%s_true.v" % (var))
-        if not os.path.isfile(path):
-            continue
-        with open(path, "r") as f:
-            content += "\n" + f.read()
+        true_path = os.path.join(selfsub_dir, "formula%s_true.v" % (var))
+        false_path = os.path.join(selfsub_dir, "formula%s_false.v" % (var))
+        if os.path.isfile(true_path):
+            with open(true_path, "r") as f:
+                content += "\n" + f.read()
+        if os.path.isfile(false_path):
+            with open(false_path, "r") as f:
+                content += "\n" + f.read()
     return content

@@ -123,5 +123,5 @@ def preprocess(cnffile_name):
 			else:
 				cprint("c [preprocess] preprocessing error .. contining ")
 				exit()
-			cprint("c [preprocess] preprocessing finished, found %s positive unates and %s negative unates" % (len(PosUnate), len(NegUnate)))
+			cprint("c [preprocess] preprocessing done, found %s positive unates and %s negative unates" % (len(PosUnate), len(NegUnate)))
 			return PosUnate, NegUnate

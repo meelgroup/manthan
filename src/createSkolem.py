@@ -91,6 +91,11 @@ def _wrap_commas(prefix, args, suffix=";\n", indent="  ", max_len=200):
 	return "\n".join(lines)
 
 
+def _sanitize_bus_indices(text):
+	# ABC expects tokens with brackets to end with ']'. Ensure punctuation is separated.
+	return re.sub(r"\]([,);])", r"] \1", text)
+
+
 def _normalize_verilog_module_order(verilog_text):
 	# Ensure all declarations appear before assigns/instances within each module.
 	lines = verilog_text.splitlines()
@@ -182,6 +187,7 @@ def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueD
 
 	declare = _wrap_commas("module SkolemFormula ", [*(f"i{v}" for v in Xvar), *(f"o{v}" for v in Yvar)], suffix=";\n")
 	skolemformula = declare + declarevar + wire + UniqueDef + assign + "endmodule\n"
+	skolemformula = _sanitize_bus_indices(skolemformula)
 
 	if output_path is None:
 		output_path = inputfile_name + "_skolem.v"
@@ -248,9 +254,11 @@ def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None, selfsub=N
 		from src.selfsub import load_selfsub_modules
 		extra_modules = load_selfsub_modules(selfsub, selfsub_dir)
 	with open(skolemformula,"w") as f:
-		f.write(declare + declare_input + content + assign + "endmodule\n")
+		out_text = declare + declare_input + content + assign + "endmodule\n"
 		if extra_modules:
-			f.write(extra_modules)
+			out_text += extra_modules
+		out_text = _sanitize_bus_indices(out_text)
+		f.write(out_text)
 	f.close()
 
 	shutil.copy(skolemformula, output_path)
@@ -303,7 +311,7 @@ def createErrorFormula(Xvar, Yvar, UniqueVars, verilog_formula):
 	error_content = inputerrorx + declare + inputformula + inputskolem + inputformula_sk
 	error_content += "assign out = ( out1 & out2 & ~(out3) );\n" + "endmodule\n"
 	error_content += verilog_formula
-	return error_content
+	return _sanitize_bus_indices(error_content)
 def addSkolem(error_content, inputfile_name, debug_keep=False, selfsub=None, selfsub_dir=None):
 	skolemformula = temp_path(inputfile_name + "_skolem.v")
 	with open(skolemformula, 'r') as f:
@@ -313,12 +321,13 @@ def addSkolem(error_content, inputfile_name, debug_keep=False, selfsub=None, sel
 		errorformula = os.path.abspath(inputfile_name + "_errorformula.v")
 	else:
 		errorformula = temp_path(inputfile_name + "_errorformula.v")
+	combined = error_content + skolemcontent
+	if selfsub and selfsub_dir:
+		from src.selfsub import load_selfsub_modules
+		combined += load_selfsub_modules(selfsub, selfsub_dir)
+	combined = _sanitize_bus_indices(combined)
 	with open(errorformula, "w") as f:
-		f.write(error_content)
-		f.write(skolemcontent)
-		if selfsub and selfsub_dir:
-			from src.selfsub import load_selfsub_modules
-			f.write(load_selfsub_modules(selfsub, selfsub_dir))
+		f.write(combined)
 
 def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name):
 	tempOutputFile = temp_path(inputfile_name + "_skolem.v")  # F(X,Y')
@@ -391,11 +400,10 @@ def createSkolem(candidateSkf, Xvar, Yvar, UniqueVars, UniqueDef, inputfile_name
 	assignstr += "assign out = " + out_expr + ";\n"
 	# inputstr already includes the full module header.
 	declarestr += "output out ;\n"
-	f = open(tempOutputFile, "w")
-	f.write(inputstr + declarestr + wirestr)
-	f.write(UniqueDef.strip("\n")+"\n")
-	f.write(assignstr + "endmodule")
-	f.close()
+	out_text = inputstr + declarestr + wirestr + UniqueDef.strip("\n") + "\n" + assignstr + "endmodule\n"
+	out_text = _sanitize_bus_indices(out_text)
+	with open(tempOutputFile, "w") as f:
+		f.write(out_text)
 
 
 def simply(inputfile_name):
