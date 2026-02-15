@@ -23,14 +23,48 @@ def _ensure_dir(path):
 def _formula_vars(Xvar, Yvar):
     return list(Xvar) + list(Yvar)
 
+def _build_bus_wrapper(formula_vars, wrapper_name):
+    if not formula_vars:
+        return ""
+    max_var = max(formula_vars)
+    bus_cnt = (max_var + 127) // 128 if max_var > 0 else 0
+    vars_set = set(formula_vars)
+
+    ports = ["i%s" % v for v in formula_vars] + ["out"]
+    lines = []
+    lines.append("module %s ( %s );\n" % (wrapper_name, ", ".join(ports)))
+    for v in formula_vars:
+        lines.append("input i%s;\n" % v)
+    lines.append("output out;\n")
+    for i in range(bus_cnt):
+        lines.append("wire [127:0] v_bus%d;\n" % i)
+    for i in range(bus_cnt):
+        base = i * 128
+        for bit in range(128):
+            var = base + bit + 1
+            if var in vars_set:
+                lines.append("assign v_bus%d[%d] = i%d;\n" % (i, bit, var))
+            else:
+                lines.append("assign v_bus%d[%d] = 1'b0;\n" % (i, bit))
+    bus_args = ["v_bus%d" % i for i in range(bus_cnt)] + ["out"]
+    lines.append("FORMULA F ( %s );\n" % (", ".join(bus_args)))
+    lines.append("endmodule\n")
+    return "".join(lines)
+
 
 def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
     _ensure_dir(selfsub_dir)
     formula_vars = _formula_vars(Xvar, Yvar)
+    bused_formula = "v_bus0" in verilog_formula
+    wrapper_name = "FORMULA"
+    wrapper_content = ""
+    if bused_formula:
+        wrapper_name = "FORMULA_SCALAR_%s" % (var)
+        wrapper_content = _build_bus_wrapper(formula_vars, wrapper_name)
     index_selfsub = selfsub.index(var)
 
     def build_io(exclude_selfsub):
-        inputstr = "FORMULA F%s_ ( " % (var)
+        inputstr = "%s F%s_ ( " % (wrapper_name, var)
         selfsub_inputstr = ""
         selfsub_declarestr = ""
         for v in formula_vars:
@@ -64,9 +98,13 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
         false_path = os.path.join(selfsub_dir, "formula%s_false.v" % (var))
         with open(true_path, "w") as f:
             f.write(write_str_true + write_str + formula_true + "\n")
+            if wrapper_content:
+                f.write(wrapper_content)
             f.write(verilog_formula)
         with open(false_path, "w") as f:
             f.write(write_str_false + write_str + formula_false + "\n")
+            if wrapper_content:
+                f.write(wrapper_content)
             f.write(verilog_formula)
 
         subprocess.run([file_write_verilog, true_path, true_path],
@@ -116,11 +154,15 @@ def selfsubstitute(Xvar, Yvar, var, selfsub, verilog_formula, selfsub_dir):
     with open(true_path, "w") as f:
         f.write(write_str_true + write_str + formula_true1 + formula_true2)
         f.write("assign out = out1 | out2 ;\nendmodule\n")
+        if wrapper_content:
+            f.write(wrapper_content)
         f.write(file_content_true + "\n")
         f.write(file_content_false + "\n")
     with open(false_path, "w") as f:
         f.write(write_str_false + write_str + formula_false1 + formula_false2)
         f.write("assign out = out1 | out2 ;\nendmodule\n")
+        if wrapper_content:
+            f.write(wrapper_content)
         f.write(file_content_true + "\n")
         f.write(file_content_false + "\n")
 

@@ -50,44 +50,39 @@ fi
 
 mkdir -p "$STATIC_DIR"
 
-echo "c building preprocess"
+echo "c building preprocess (bfss)"
 (
-  cd "$DEPS_DIR/manthan-preprocess"
-  echo "c building cryptominisat (shared)"
-  (
-    cd "$DEPS_DIR/manthan-preprocess/cryptominisat"
+  cd "$DEPS_DIR/bfss"
+  if [ -f "CMakeLists.txt" ]; then
     rm -rf build
     mkdir -p build
     cd build
-    cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PYTHON_INTERFACE=OFF -DMANPAGE=OFF -DCMAKE_DISABLE_FIND_PACKAGE_breakid=ON -DBREAKID_FOUND=OFF -DBREAKID_LIBRARIES= -DBREAKID_INCLUDE_DIRS= -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    cmake .. -DCMAKE_BUILD_TYPE=Release
+    cmake --build . -- -j8
+    cd ..
+  elif [ -f "Makefile" ] || [ -f "makefile" ]; then
     make -j8
-  )
-  echo "c building louvain-community (shared)"
-  (
-    cd "$DEPS_DIR/manthan-preprocess/louvain-community"
-    rm -rf build
-    mkdir -p build
-    cd build
-    cmake .. -DBUILD_SHARED_LIBS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-    make -j8
-  )
-  rm -rf build
-  mkdir -p build
-  cd build
-  cmake .. -DSTATICCOMPILE=OFF -DNOM4RI=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    -Dcryptominisat5_DIR="$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
-    -Dlouvain_communities_DIR="$DEPS_DIR/manthan-preprocess/louvain-community/build"
-  make -j8
-  cp preprocess "$STATIC_DIR/preprocess"
-  # Bundle shared libs alongside preprocess and make it load from $ORIGIN.
+  else
+    echo "c bfss build files not found"
+    exit 1
+  fi
+
+  bfss_bin=""
+  if [ -f "$DEPS_DIR/bfss/unate" ]; then
+    bfss_bin="$DEPS_DIR/bfss/unate"
+  elif [ -f "$DEPS_DIR/bfss/build/unate" ]; then
+    bfss_bin="$DEPS_DIR/bfss/build/unate"
+  elif [ -f "$DEPS_DIR/bfss/build/src/unate" ]; then
+    bfss_bin="$DEPS_DIR/bfss/build/src/unate"
+  fi
+
+  if [ -z "$bfss_bin" ]; then
+    echo "c bfss build did not produce unate"
+    exit 1
+  fi
+  cp "$bfss_bin" "$STATIC_DIR/preprocess"
   if command -v patchelf >/dev/null 2>&1; then
     patchelf --set-rpath '$ORIGIN' "$STATIC_DIR/preprocess" || true
-  fi
-  if [ -d "$DEPS_DIR/manthan-preprocess/cryptominisat/build/lib" ]; then
-    cp -f "$DEPS_DIR/manthan-preprocess/cryptominisat/build/lib/"*.so* "$STATIC_DIR/" 2>/dev/null || true
-  fi
-  if [ -d "$DEPS_DIR/manthan-preprocess/louvain-community/build/lib" ]; then
-    cp -f "$DEPS_DIR/manthan-preprocess/louvain-community/build/lib/"*.so* "$STATIC_DIR/" 2>/dev/null || true
   fi
 )
 

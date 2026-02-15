@@ -95,12 +95,12 @@ def manthan():
         cprint("c [manthan] preprocessing: finding unates (constant functions)")
         start_t = time.time()
         if getattr(args, "debug_keep", False):
-            preprocess_cnf_path = os.path.abspath(temp_stem + "_preprocess.cnf")
-            shutil.copyfile(cnffile_name, preprocess_cnf_path)
+            preprocess_qdimacs_path = os.path.abspath(temp_stem + "_preprocess.qdimacs")
+            shutil.copyfile(args.input, preprocess_qdimacs_path)
             if getattr(args, "verbose", 0) >= 1:
-                cprint("c [manthan] saved preprocess cnf:", preprocess_cnf_path)
+                cprint("c [manthan] saved preprocess qdimacs:", preprocess_qdimacs_path)
         if len(Yvar) < 20000:
-            PosUnate, NegUnate = preprocess(cnffile_name)
+            PosUnate, NegUnate = preprocess(args.input)
         else:
             cprint("c [manthan] too many Y variables, let us proceed with Unique extraction")
             PosUnate = []
@@ -326,8 +326,6 @@ def manthan():
                 break
             for yvar in list(repairfunctions.keys()):
                 refine_var_log[yvar] = refine_var_log.get(yvar, 0) + 1
-                if use_bus_ports:
-                    continue
                 if refine_var_log[yvar] > args.selfsubthres and yvar not in selfsub:
                     if len(selfsub) == 0:
                         os.makedirs(selfsub_dir, exist_ok=True)

@@ -158,7 +158,7 @@ def skolemfunction_preprocess(Xvar, Yvar, PosUnate, NegUnate, UniqueVar, UniqueD
 		declare += "o%s, " %(var)
 		declarevar += "output o%s;\n" %(var)
 		if var in PosUnate:
-			assign = "assign o%s = 1'b1;\n" %(var)
+			assign += "assign o%s = 1'b1;\n" %(var)
 		if var in NegUnate:
 			assign += "assign o%s = 1'b0;\n" %(var)
 		if var in UniqueVar:

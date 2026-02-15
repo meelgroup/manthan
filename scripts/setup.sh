@@ -76,9 +76,7 @@ clean_dependencies() {
   rm -rf \
     "$DEPS_DIR/static_bin" \
     "$DEPS_DIR/unique/build" \
-    "$DEPS_DIR/manthan-preprocess/build" \
-    "$DEPS_DIR/manthan-preprocess/cryptominisat/build" \
-    "$DEPS_DIR/manthan-preprocess/louvain-community/build" \
+    "$DEPS_DIR/bfss/build" \
     "$DEPS_DIR/abc/build" \
     "$DEPS_DIR/cmsgen/build" \
     "$DEPS_DIR/open-wbo/build" \
@@ -109,7 +107,7 @@ PY
         git -C "$ROOT_DIR/$path" pull --ff-only origin "$branch" || true
       fi
       case "$path" in
-        dependencies/unique|dependencies/manthan-preprocess)
+        dependencies/unique|dependencies/bfss)
           git -C "$ROOT_DIR/$path" submodule update --init --recursive --remote || true
           ;;
       esac

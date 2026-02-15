@@ -67,7 +67,7 @@ jobs:
                   print(f"Skipping {path} (not a git repo)", file=sys.stderr)
                   return
               subprocess.check_call(["git", "-C", str(path), "checkout", rev])
-              if str(path) in {"dependencies/unique", "dependencies/manthan-preprocess"}:
+              if str(path) in {"dependencies/unique", "dependencies/bfss"}:
                   subprocess.check_call(["git", "-C", str(path), "submodule", "update", "--init", "--recursive"])
 
           for entry in pins:

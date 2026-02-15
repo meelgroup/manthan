@@ -32,7 +32,7 @@ checkout_pin() {
     git -C "$path" fetch --all --tags || true
     git -C "$path" checkout "$rev"
     case "$path" in
-      */dependencies/unique|*/dependencies/manthan-preprocess)
+      */dependencies/unique|*/dependencies/bfss)
         git -C "$path" submodule update --init --recursive
         ;;
     esac
@@ -49,7 +49,7 @@ checkout_pin() {
   git clone "$url" "$path"
   git -C "$path" checkout "$rev"
   case "$path" in
-    */dependencies/unique|*/dependencies/manthan-preprocess)
+    */dependencies/unique|*/dependencies/bfss)
       git -C "$path" submodule update --init --recursive
       ;;
   esac

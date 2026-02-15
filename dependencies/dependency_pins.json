@@ -1,8 +1,8 @@
 [
   {
-    "path": "dependencies/manthan-preprocess",
-    "url": "https://github.com/meelgroup/manthan-preprocess",
-    "rev": "manthan2"
+    "path": "dependencies/bfss",
+    "url": "https://github.com/meelgroup/bfss",
+    "rev": "fix-macos-build"
   },
   {
     "path": "dependencies/unique",

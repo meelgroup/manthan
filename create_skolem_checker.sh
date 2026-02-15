@@ -4,10 +4,10 @@ ulimit -t unlimited
 shopt -s nullglob
 
 filespos="synth"
-# Directory containing QDIMACS specs (override via env SPEC_DIR)
-SPEC_DIR="${SPEC_DIR:-${SLURM_SUBMIT_DIR}/inputfiles/${filespos}}"
-# Directory containing corresponding skolem outputs (override via env SKOLEM_DIR)
-SKOLEM_DIR="${SKOLEM_DIR:-${SLURM_SUBMIT_DIR}/outfiles}"
+# Directory containing QDIMACS specs (hard-coded)
+SPEC_DIR="${SLURM_SUBMIT_DIR}/inputfiles/${filespos}"
+# Directory containing corresponding skolem outputs (hard-coded)
+SKOLEM_DIR="${SLURM_SUBMIT_DIR}/outfiles"
 
 
 opts_arr=(
@@ -55,12 +55,15 @@ cd "$orig" || exit
 
 # create todo
 rm -f todo
+rm -rf todo_blocks
+mkdir -p todo_blocks
 at_opt=0
 numlines=0
-mylinesper=0
+block_idx=0
 
 add_todo() {
     echo "$1" >> todo
+    echo "$1" >> "${block_file}"
     lines_this=$((lines_this+1))
 }
 for opts in "${opts_arr[@]}"
@@ -70,6 +73,8 @@ do
     for file in $files
     do
         lines_this=0
+        block_file="todo_blocks/todo.block.${block_idx}"
+        : > "${block_file}"
         filename=$(basename "$file")
         filenameunzipped=${filename%.gz}
 
@@ -86,15 +91,8 @@ do
         add_todo "skolem_path=\"${SKOLEM_DIR}/${filename}_skolem.v.xz\""
         add_todo "skolem_fallback=\"${SKOLEM_DIR}/${fin_out_dir}/${filenameunzipped%.qdimacs}_skolem.v\""
         add_todo "if [[ -f \"${skolem_path}\" ]]; then xz -d -c \"${skolem_path}\" > \"${filenameunzipped%.qdimacs}_skolem.v\"; skolem_use=\"${filenameunzipped%.qdimacs}_skolem.v\"; elif [[ -f \"${skolem_fallback}\" ]]; then skolem_use=\"${skolem_fallback}\"; else echo \"Missing skolem for ${filename}\"; exit 1; fi"
-        add_todo "/usr/bin/time --verbose -o ${baseout}.timeout_manthan ./doalarm -t real ${tlimit} ${opts} --qdimacs ${filenameunzipped} --skolem \"${skolem_use}\" > ${baseout}.out_manthan 2>&1"
-
-        #copy back result
-	add_todo "xz ${baseout}.out* 2>/dev/null || true"
-	add_todo "xz ${baseout}.timeout* 2>/dev/null || true"
-	add_todo "rm -f core.*"
-
-	add_todo "mv ${baseout}.out*.xz ${outputdir}/${fin_out_dir}/ 2>/dev/null || true"
-	add_todo "mv ${baseout}.timeout*.xz ${outputdir}/${fin_out_dir}/ 2>/dev/null || true"
+        # run and copy back result immediately after this instance finishes
+        add_todo "/usr/bin/time --verbose -o ${baseout}.timeout_manthan ./doalarm -t real ${tlimit} ${opts} --qdimacs ${filenameunzipped} --skolem \"${skolem_use}\" > ${baseout}.out_manthan 2>&1; xz ${baseout}.out* 2>/dev/null || true; xz ${baseout}.timeout* 2>/dev/null || true; rm -f core.*; mv ${baseout}.out*.xz ${outputdir}/${fin_out_dir}/ 2>/dev/null || true; mv ${baseout}.timeout*.xz ${outputdir}/${fin_out_dir}/ 2>/dev/null || true"
 
 	
         add_todo "rm -f ${baseout}*"
@@ -102,22 +100,14 @@ do
         add_todo "rm -f ${filenameunzipped}"
         add_todo "rm -f ${filename}"
 
-        if [[ $mylinesper -eq 0 ]]; then
-            mylinesper=$lines_this
-        fi
-
         numlines=$((numlines+1))
+        block_idx=$((block_idx+1))
     done
     (( at_opt++ ))
 done
 
 # create per-core todos
-numper=$((numlines/numthreads))
-remain=$((numlines-numper*numthreads))
-if [[ $remain -ge 1 ]]; then
-    numper=$((numper+1))
-fi
-remain=$((numlines-numper*(numthreads-1)))
+numper=$(((numlines + numthreads - 1) / numthreads))
 
 moretime=$((tlimit+30))
 mystart=0
@@ -135,40 +125,16 @@ do
         echo "source ./todo.sh" >> todo_$myi.sh
         echo "source manthan-venv/bin/activate" >> todo_$myi.sh
     fi
-    typeset -i myi
-    typeset -i numper
-    typeset -i mystart
-    mystart=$((mystart + numper))
-    if [[ $myi -lt $((numthreads-1)) ]]; then
-        if [[ $mystart -gt $((numlines+numper)) ]]; then
-            sleep 0
-        else
-            if [[ $mystart -lt $numlines ]]; then
-                myp=$((numper*mylinesper))
-                mys=$((mystart*mylinesper))
-                if [[ $myi -eq $OMPI_COMM_WORLD_RANK ]]; then
-                    head -n $mys todo | tail -n $myp >> todo_$myi.sh
-                fi
-            else
-                #we are at boundary, e.g. numlines is 100, numper is 3, mystart is 102
-                #we must only print the last numper-(mystart-numlines) = 3-2 = 1
-                mys=$((mystart*mylinesper))
-                p=$(( numper-mystart+numlines ))
-                if [[ $p -gt 0 ]]; then
-                    myp=$((p*mylinesper))
-                    if [[ $myi -eq $OMPI_COMM_WORLD_RANK ]]; then
-                        head -n $mys todo | tail -n $myp >> todo_$myi.sh
-                    fi
-                fi
-            fi
-        fi
-    else
-        if [[ $remain -gt 0 ]]; then
-            mys=$((mystart*mylinesper))
-            mr=$((remain*mylinesper))
-            if [[ $myi -eq $OMPI_COMM_WORLD_RANK ]]; then
-                head -n $mys todo | tail -n $mr >> todo_$myi.sh
-            fi
+    start=$((myi * numper))
+    end=$((start + numper - 1))
+    if [[ $end -ge $numlines ]]; then
+        end=$((numlines - 1))
+    fi
+    if [[ $myi -eq $OMPI_COMM_WORLD_RANK ]]; then
+        if [[ $start -le $end ]]; then
+            for ((idx=start; idx<=end; idx++)); do
+                cat "todo_blocks/todo.block.${idx}" >> todo_$myi.sh
+            done
         fi
     fi
     if [[ $myi -eq $OMPI_COMM_WORLD_RANK ]]; then
@@ -194,5 +160,6 @@ rm -rf flow_*
 rm -rf tmp
 rm -f todo
 rm -f todo_*
+rm -rf todo_blocks
 rm -rf out*
 exit 0

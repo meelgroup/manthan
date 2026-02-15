@@ -4,3 +4,7 @@
 [submodule "dependencies/sources/abc-fork-ufo"]
 	path = dependencies/sources/abc-fork-ufo
 	url = https://github.com/meelgroup/abc-fork-ufo.git
+[submodule "dependencies/bfss"]
+	path = dependencies/bfss
+	url = https://github.com/meelgroup/bfss
+	branch = fix-macos-build
