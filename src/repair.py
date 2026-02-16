@@ -129,7 +129,7 @@ def callRC2(maxsatcnf, modelyp, UniqueVars, Unates, Yvar, YvarOrder, args, selfs
         yindex = np.where(i == YvarOrder)[0][0]
         YvarOrder_ind.append(yindex)
     indlist = []
-    YvarOrder_ind.sort(reverse=False)
+    YvarOrder_ind.sort(reverse=True)
     for i in YvarOrder_ind:
         indlist.append(YvarOrder[i])
     indlist = np.array(indlist)
