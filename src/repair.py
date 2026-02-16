@@ -433,6 +433,9 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
             repaired.append(repairvar)
             if args.verbose:
                 cprint("c [repair] gk formula is UNSAT; creating beta formula")
+            if not any(abs(lit) == repairvar for lit in clisty):
+                cprint("c [repair] repaired literal %s missing in core; returning early" % repairvar)
+                return 0, repairfunctions
             
             beta_terms = []
             for x_lit in clistx:
@@ -460,12 +463,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                 if y_lit < 0:
                     beta_terms.append("~o%s" % (y))
                 else:
-                    beta_terms.append("o%s" % (y))
-
-            if not any(abs(lit) == repairvar for lit in clisty):
-                if args.verbose:
-                    cprint("c [repair] repaired literal %s missing in core; proceeding with core-based repair" % repairvar)
-            
+                    beta_terms.append("o%s" % (y))            
             if args.verbose >= 2:
                 cprint("c [repair] Repair function for w%s: %s" % (repairvar, " & ".join(beta_terms)))
             repairfunctions[repairvar] = " & ".join(beta_terms) if beta_terms else "1'b1"

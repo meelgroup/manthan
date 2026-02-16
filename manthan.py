@@ -156,7 +156,7 @@ def manthan():
                 cprint("c [manthan] negative unates", NegUnate)
 
         Unates = PosUnate + NegUnate
-        if Unates:
+        if Unates and args.apply_unates == 1:
             qdimacs_list, unsat = _apply_unates_to_qdimacs(
                 qdimacs_list, PosUnate, NegUnate)
             if unsat:
@@ -175,6 +175,9 @@ def manthan():
                 shutil.copyfile(qdimacs_path, keep_path)
                 if getattr(args, "verbose", 0) >= 1:
                     cprint("c [manthan] saved unate-substituted qdimacs:", keep_path)
+        elif Unates and args.apply_unates == 0:
+            if args.verbose:
+                cprint("c [manthan] unates detected; substitution disabled (--apply-unates=0)")
 
     else:
         Unates = []
@@ -333,7 +336,13 @@ def manthan():
                 shutil.copyfile(errorformula, last_errorformula_path)
                 cprint("c [manthan] last successful error formula:", last_errorformula_path)
         if check == 0:
-            cprint("c [manthan] error --- ABC network read fail")
+            errorformula = temp_path(temp_stem + "_errorformula.v")
+            if args.debug_keep and not os.path.isfile(errorformula):
+                errorformula = os.path.abspath(temp_stem + "_errorformula.v")
+            cprint("c [manthan] error --- file_generation_cex failed to read error formula")
+            cprint("c [manthan] errorformula:", errorformula)
+            if not args.verbose:
+                cprint("c [manthan] hint: rerun with --verb=1 to see ABC stderr")
             status = "failed"
             break
         if ret == 0:
@@ -441,6 +450,15 @@ if __name__ == "__main__":
         type=int,
         choices=[0, 1],
         help="enable preprocess: 1; disable: 0; default 1",
+    )
+    parser.add_argument(
+        "--apply-unates",
+        nargs="?",
+        const=1,
+        default=1,
+        type=int,
+        choices=[0, 1],
+        help="substitute unates into the spec: 1; disable substitution: 0; default 1",
     )
     parser.add_argument(
         "--multiclass",
