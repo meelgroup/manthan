@@ -478,6 +478,6 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
     if args.verbose:
         cprint("c [learnCandidate] generated candidate functions for all variables.")
 
-    if args.verbose == 2:
+    if args.verbose >= 1:
         cprint("c [learnCandidate] candidate functions are", candidateSkf)
     return candidateSkf, dg    
