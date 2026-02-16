@@ -337,7 +337,8 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
         psi_i = " | ".join("( " + path + " )" for path in paths)
         D_dict[yvar[i]] = D
         psi_dict[yvar[i]] = psi_i.strip()
-    print("c [learnCandidate] candidate functions for Y variables are", psi_dict)
+    if args.verbose >= 2:
+        cprint("c [learnCandidate] candidate functions for Y variables are", psi_dict)
     return psi_dict, D_dict
          
 
