@@ -233,56 +233,107 @@ def manthan():
     verilogformula, dg, ng = convert_verilog(qdimacs_path, args.multiclass == 1, dg)
     use_bus_ports = "v_bus0" in verilogformula
 
-    start_t = time.time()
-
-    sampling_cnf = cnfcontent
-    if not args.maxsamples:
-        remaining_y = len(Yvar) - len(UniqueVars) - len(PosUnate) - len(NegUnate)
-        if remaining_y < 0:
-            remaining_y = 0
-        if remaining_y > 4000:
-            num_samples = 1000
-        if (remaining_y > 1200) and (remaining_y <= 4000):
-            num_samples = 5000
-        if remaining_y <= 1200:
-            num_samples = 10000
-    else:
-        num_samples = args.maxsamples
-
-    if args.weighted:
-        sampling_weights_y_1 = ''
-        sampling_weights_y_0 = ''
-        for xvar in Xvar:
-            sampling_cnf += "w %s 0.5\n" % (xvar)
-        for yvar in Yvar:
-            if yvar in UniqueVars:
-                sampling_cnf += "w %s 0.5\n" % (yvar)
-                continue
-            if (yvar in PosUnate) or (yvar in NegUnate):
-                continue
-
-            sampling_weights_y_1 += "w %s 0.9\n" % (yvar)
-            sampling_weights_y_0 += "w %s 0.1\n" % (yvar)
-
-        if args.adaptivesample:
-            weighted_sampling_cnf = computeBias(
-                Xvar, Yvar, sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, temp_stem, Unates + UniqueVars, args)
+    imported_candidates = {}
+    imported_vars = set()
+    if args.candidate_skolem:
+        y_candidates = set(Yvar) - set(UniqueVars) - set(PosUnate) - set(NegUnate)
+        try:
+            # Import before sampling so we can skip learning these variables.
+            imported_candidates = loadCandidateSkfFromVerilog(
+                args.candidate_skolem, allowed_vars=y_candidates, verbose=max(1, args.verbose))
+        except Exception as exc:
+            cprint("c [manthan] error --- failed to load candidate skolem file:", args.candidate_skolem)
+            cprint("c [manthan] reason:", str(exc))
+            finish("failed")
+            return
+        imported_vars = set(imported_candidates.keys())
+        if imported_candidates:
+            cprint("c [manthan] imported candidate functions for %s Y variables from %s" % (
+                len(imported_candidates), args.candidate_skolem))
+            if args.verbose >= 2:
+                cprint("c [manthan] imported candidate Y variables:", sorted(imported_candidates.keys()))
         else:
-            weighted_sampling_cnf = sampling_cnf + sampling_weights_y_1
+            cprint("c [manthan] warning: no usable candidate functions found in", args.candidate_skolem)
 
-        cprint("c [manthan] generating weighted samples")
-        samples = generatesample(
-            args, num_samples, weighted_sampling_cnf, temp_stem, 1)
+    unresolved_y = set(Yvar) - set(UniqueVars) - set(PosUnate) - set(NegUnate)
+    imported_covers_all = bool(unresolved_y) and unresolved_y.issubset(imported_vars)
+
+    if imported_covers_all:
+        cprint(
+            "c [manthan] imported candidates cover all unresolved Y variables (%s); "
+            "skipping sample generation and candidate learning" % len(unresolved_y)
+        )
+        candidateSkf = dict(imported_candidates)
+        for var in PosUnate:
+            candidateSkf[var] = " 1 "
+        for var in NegUnate:
+            candidateSkf[var] = " 0 "
     else:
-        cprint("c [manthan] generating uniform samples")
-        samples = generatesample(
-            args, num_samples, sampling_cnf, temp_stem, 0)
+        start_t = time.time()
 
-    cprint("c [manthan] generated samples.. learning candidate functions")
-    start_t = time.time()
+        sampling_cnf = cnfcontent
+        if not args.maxsamples:
+            remaining_y = len(Yvar) - len(UniqueVars) - len(PosUnate) - len(NegUnate) - len(imported_vars)
+            if remaining_y < 0:
+                remaining_y = 0
+            if remaining_y > 4000:
+                num_samples = 1000
+            if (remaining_y > 1200) and (remaining_y <= 4000):
+                num_samples = 5000
+            if remaining_y <= 1200:
+                num_samples = 10000
+        else:
+            num_samples = args.maxsamples
 
-    candidateSkf, dg = learnCandidate(
-        Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args)
+        if args.weighted:
+            sampling_weights_y_1 = ''
+            sampling_weights_y_0 = ''
+            for xvar in Xvar:
+                sampling_cnf += "w %s 0.5\n" % (xvar)
+            for yvar in Yvar:
+                if yvar in UniqueVars:
+                    sampling_cnf += "w %s 0.5\n" % (yvar)
+                    continue
+                if yvar in imported_vars:
+                    continue
+                if (yvar in PosUnate) or (yvar in NegUnate):
+                    continue
+
+                sampling_weights_y_1 += "w %s 0.9\n" % (yvar)
+                sampling_weights_y_0 += "w %s 0.1\n" % (yvar)
+
+            if args.adaptivesample:
+                weighted_sampling_cnf = computeBias(
+                    Xvar, Yvar, sampling_cnf, sampling_weights_y_1, sampling_weights_y_0, temp_stem, Unates + UniqueVars + list(imported_vars), args)
+            else:
+                weighted_sampling_cnf = sampling_cnf + sampling_weights_y_1
+
+            cprint("c [manthan] generating weighted samples")
+            samples = generatesample(
+                args, num_samples, weighted_sampling_cnf, temp_stem, 1)
+        else:
+            cprint("c [manthan] generating uniform samples")
+            samples = generatesample(
+                args, num_samples, sampling_cnf, temp_stem, 0)
+
+        actual_samples = samples.shape[0] if hasattr(samples, "shape") else len(samples)
+        cprint("c [manthan] samples generated: %s (requested: %s)" % (actual_samples, num_samples))
+        cprint("c [manthan] generated samples.. learning candidate functions")
+        start_t = time.time()
+
+        candidateSkf, dg = learnCandidate(
+            Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args, seed_candidates=imported_candidates)
+
+    if imported_candidates:
+        yset = set(Yvar)
+        for yvar, expr in imported_candidates.items():
+            # Ensure dependency graph reflects imported formulas.
+            if yvar in dg:
+                for dep in list(dg.successors(yvar)):
+                    dg.remove_edge(yvar, dep)
+            for dep in candidateYDeps(expr):
+                if dep in yset and dep != yvar:
+                    dg.add_edge(yvar, dep)
 
     missing = [y for y in Yvar if (y not in UniqueVars and y not in PosUnate and y not in NegUnate and y not in candidateSkf)]
     if missing:
@@ -436,7 +487,7 @@ if __name__ == "__main__":
                         help="test mode: flip N learned Skolem functions to measure recovery", dest='testflip')
     parser.add_argument('--selfsubthres', type=int, default=30,
                         help="self substitution threshold", dest='selfsubthres')
-    parser.add_argument('--adaptivesample', type=int, default=1,
+    parser.add_argument('--adaptivesample', type=int, default=0,
                         help="required --weighted to 1: to enable/disable adaptive weighted sampling ", dest='adaptivesample')
     parser.add_argument('--showtrees', type=int, default=0,
                         help="To see the decision trees: 1; default 0", dest='showtrees')
@@ -494,6 +545,10 @@ if __name__ == "__main__":
     parser.add_argument("--itp-limit", type=int, default=100000,
                         help="interpolating solver conflict limit; -1 for no limit", dest='itp_limit')
     parser.add_argument("-o", "--output", help="output skolem verilog path")
+    parser.add_argument(
+        "--candidate-skolem",
+        help="optional skolem verilog path to import candidate assignments (assign w<var> = ...) for a subset of Y",
+    )
     parser.add_argument("--sample-mem-frac", type=float, default=0.7,
                         help="fraction of available memory to use for sample parsing (0 disables cap)")
     parser.add_argument("--debug-keep", action="store_true",

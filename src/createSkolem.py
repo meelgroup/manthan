@@ -219,30 +219,41 @@ def createSkolemfunction(inputfile_name, Xvar, Yvar, output_path=None, selfsub=N
 	f.close()
 
 	skip_out = False
+	skip_module_decl = False
 	for line in lines:
+		stripped = line.lstrip()
+		if skip_module_decl:
+			if ");" in line:
+				skip_module_decl = False
+			continue
 		if skip_out:
 			if ";" in line:
 				skip_out = False
 			continue
-		if line.startswith("module"):
+		if stripped.startswith("module "):
+			if ");" not in line:
+				skip_module_decl = True
 			continue
-		if line.startswith("input ["):
+		if stripped.startswith("input ["):
 			continue
-		if re.match(r"assign i\d+ = i_bus\d+\[", line):
+		# Defensive: drop dangling wrapped bus-port lines from module headers.
+		if re.match(r"(i_bus|o_bus)\d+\b", stripped):
 			continue
-		if re.match(r"assign o\d+ = o_bus\d+\[", line):
+		if re.match(r"assign i\d+ = i_bus\d+\[", stripped):
 			continue
-		if line.startswith("input"):
+		if re.match(r"assign o\d+ = o_bus\d+\[", stripped):
 			continue
-		if line.startswith("output"):
+		if stripped.startswith("input"):
 			continue
-		if line.startswith("assign out"):
+		if stripped.startswith("output"):
+			continue
+		if stripped.startswith("assign out"):
 			if ";" not in line:
 				skip_out = True
 			continue
-		if line.startswith("endmodule"):
+		if stripped.startswith("endmodule"):
 			continue
-		if line.startswith("assign beta"):
+		if stripped.startswith("assign beta"):
 			var = int(line.strip("assign beta").split("_")[0])
 			# Remove explicit o<var> terms and map o<digits> -> w<digits> safely.
 			line = re.sub(r"\s*&\s*~o%s\b" % var, "", line)

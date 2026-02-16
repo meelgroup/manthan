@@ -35,6 +35,180 @@ from src import runtime_env  # noqa: F401
 from src.logging_utils import cprint
 import collections
 import sys
+import re
+import os
+
+
+def candidateYDeps(expr):
+    """Return Y-variable dependencies (w<var> references) used in a candidate expression."""
+    return sorted(set(int(v) for v in re.findall(r"\bw(\d+)\b", expr)))
+
+
+def _normalize_candidate_expr(expr):
+    expr = expr.replace("\r", " ").replace("\n", " ")
+    expr = re.sub(r"\b1'b1\b", "1", expr)
+    expr = re.sub(r"\b1'b0\b", "0", expr)
+    expr = re.sub(r"\bone\b", "1", expr)
+    expr = re.sub(r"\bzero\b", "0", expr)
+    expr = " ".join(expr.split())
+    return " %s " % expr.strip()
+
+
+def _candidate_expr_supported(expr):
+    # Keep this strict: imported expressions must be self-contained boolean formulas
+    # over i<var>/w<var> plus constants and operators.
+    ids = re.findall(r"[A-Za-z_][A-Za-z0-9_]*", expr)
+    for tok in ids:
+        if re.fullmatch(r"[iw]\d+", tok):
+            continue
+        return False
+    if re.search(r"[^0-9A-Za-z_~&|() \t]", expr):
+        return False
+    return True
+
+
+def loadCandidateSkfFromVerilog(path, allowed_vars=None, verbose=0):
+    """
+    Load candidate definitions from a Verilog skolem file.
+
+    Expected form: assign w<var> = <expr>;
+    Returns a dict {var: expr} for vars in allowed_vars (if provided).
+    """
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+
+    with open(path, "r") as f:
+        content = f.read()
+
+    # Strip comments first to avoid false positives.
+    content = re.sub(r"/\*.*?\*/", " ", content, flags=re.S)
+    content = re.sub(r"//.*", " ", content)
+
+    allowed = set(allowed_vars) if allowed_vars is not None else None
+    loaded = {}
+    skipped_unsupported = []
+    skipped_filtered = 0
+    w_seen = 0
+    w_loaded = 0
+    abc_seen = 0
+    abc_loaded = 0
+    assign_re = re.compile(r"assign\s+w(\d+)\s*=\s*(.*?);", flags=re.S)
+    for m in assign_re.finditer(content):
+        w_seen += 1
+        var = int(m.group(1))
+        if (allowed is not None) and (var not in allowed):
+            skipped_filtered += 1
+            continue
+        expr = _normalize_candidate_expr(m.group(2))
+        if not _candidate_expr_supported(expr):
+            skipped_unsupported.append(var)
+            continue
+        loaded[var] = expr
+        w_loaded += 1
+
+    if not loaded:
+        # Fallback for ABC-written SKOLEMFORMULA style:
+        #   output i<k>; assign i<k> = <expr>;
+        # where indices are often 0-based variable ids.
+        output_indices = set()
+        for blk in re.finditer(r"\boutput\b(.*?);", content, flags=re.S):
+            output_indices.update(int(v) for v in re.findall(r"\bi(\d+)\b", blk.group(1)))
+        if output_indices:
+            # ABC often emits intermediate nets (`new_n...`) in output assignments.
+            # Inline these nets so imported candidates become pure boolean formulas.
+            assign_map = {}
+            for m in re.finditer(r"assign\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?);", content, flags=re.S):
+                assign_map[m.group(1)] = m.group(2).strip()
+            abc_seen = len(output_indices)
+
+            id_re = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
+            i_tok_re = re.compile(r"i\d+")
+            resolved = {}
+
+            def _resolve_expr(expr_text, visiting):
+                expr_text = re.sub(r"\b1'b1\b", "1", expr_text)
+                expr_text = re.sub(r"\b1'b0\b", "0", expr_text)
+                expr_text = re.sub(r"\b1'h1\b", "1", expr_text)
+                expr_text = re.sub(r"\b1'h0\b", "0", expr_text)
+                out = []
+                last = 0
+                for m_id in id_re.finditer(expr_text):
+                    out.append(expr_text[last:m_id.start()])
+                    tok = m_id.group(0)
+                    if i_tok_re.fullmatch(tok):
+                        out.append(tok)
+                    elif tok in assign_map:
+                        sub = _resolve_symbol(tok, visiting)
+                        if sub is None:
+                            return None
+                        out.append("( %s )" % sub)
+                    else:
+                        return None
+                    last = m_id.end()
+                out.append(expr_text[last:])
+                expr_out = " ".join("".join(out).split())
+                if re.search(r"[^0-9A-Za-z_~&|() \t]", expr_out):
+                    return None
+                return expr_out
+
+            def _resolve_symbol(sym, visiting):
+                if sym in resolved:
+                    return resolved[sym]
+                if sym in visiting:
+                    return None
+                rhs = assign_map.get(sym)
+                if rhs is None:
+                    return None
+                visiting.add(sym)
+                expr = _resolve_expr(rhs, visiting)
+                visiting.remove(sym)
+                resolved[sym] = expr
+                return expr
+
+            def _rewrite_i_tokens(expr_text):
+                def repl(m_i):
+                    idx = int(m_i.group(1))
+                    mapped = idx + 1
+                    if idx in output_indices:
+                        return "w%s" % mapped
+                    return "i%s" % mapped
+                return re.sub(r"\bi(\d+)\b", repl, expr_text)
+
+            for idx in sorted(output_indices):
+                var = idx + 1
+                if (allowed is not None) and (var not in allowed):
+                    skipped_filtered += 1
+                    continue
+                expr_resolved = _resolve_symbol("i%s" % idx, set())
+                if expr_resolved is None:
+                    skipped_unsupported.append(var)
+                    continue
+                expr = _rewrite_i_tokens(expr_resolved)
+                expr = _normalize_candidate_expr(expr)
+                if not _candidate_expr_supported(expr):
+                    skipped_unsupported.append(var)
+                    continue
+                loaded[var] = expr
+                abc_loaded += 1
+
+    if verbose:
+        cprint(
+            "c [learnCandidate] import summary: "
+            "w-style seen=%s loaded=%s, abc-style seen=%s loaded=%s, "
+            "filtered=%s, unsupported=%s, total_loaded=%s"
+            % (
+                w_seen,
+                w_loaded,
+                abc_seen,
+                abc_loaded,
+                skipped_filtered,
+                len(set(skipped_unsupported)),
+                len(loaded),
+            )
+        )
+        if skipped_unsupported:
+            cprint("c [learnCandidate] skipped unsupported imported candidates for vars:", sorted(set(skipped_unsupported)))
+    return loaded
 
 
 def treepaths(root, is_leaves, children_left, children_right, data_feature_names, feature, values, dependson, leave_label, Xvar, Yvar, index, size,args):
@@ -133,7 +307,7 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
             stack.append((children_right[node_id], parent_depth + 1))
         else:
             is_leaves[node_id] = True
-            leave_label[node_id]=clf.classes_[np.argmax(clf.tree_.value[node_id])]
+            #leave_label[node_id]=clf.classes_[np.argmax(clf.tree_.value[node_id])]
     
     D_dict = {}
     psi_dict = {}
@@ -163,7 +337,7 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
         psi_i = " | ".join("( " + path + " )" for path in paths)
         D_dict[yvar[i]] = D
         psi_dict[yvar[i]] = psi_i.strip()
-    
+    print("c [learnCandidate] candidate functions for Y variables are", psi_dict)
     return psi_dict, D_dict
          
 
@@ -176,9 +350,9 @@ def binary_to_int(lst):
 	label = np.packbits(lst,axis=1)
 	return label
 
-def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args):
+def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, args, seed_candidates=None):
     
-    candidateSkf = {}
+    candidateSkf = dict(seed_candidates or {})
     samples_X = samples[:, (np.array(Xvar)-1)]
     disjointSet = []
     clusterY = []
@@ -198,7 +372,7 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
             ng.remove_node(var)
     
     for var in Yvar:
-        if (var in UniqueVars) or (var in PosUnate) or (var in NegUnate):
+        if (var in UniqueVars) or (var in PosUnate) or (var in NegUnate) or (var in candidateSkf):
             continue
         if args.multiclass:
             if var in list(ng.nodes):
@@ -259,5 +433,4 @@ def learnCandidate(Xvar, Yvar, UniqueVars, PosUnate, NegUnate, samples, dg, ng, 
 
     if args.verbose == 2:
         cprint("c [learnCandidate] candidate functions are", candidateSkf)
-
     return candidateSkf, dg    
