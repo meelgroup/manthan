@@ -261,10 +261,54 @@ def treepaths(root, is_leaves, children_left, children_right, data_feature_names
     return(list_left + list_right, dependson)
 
 def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar):
-    clf = tree.DecisionTreeClassifier(
-        criterion='gini',
-        min_impurity_decrease=args.gini, random_state=args.seed)
-    clf = clf.fit(featuredata, labeldata)
+    def _unique_count(arr):
+        arr = np.asarray(arr)
+        if arr.ndim <= 1:
+            return np.unique(arr).size
+        try:
+            return np.unique(arr, axis=0).shape[0]
+        except TypeError:
+            return len(set(tuple(row) for row in arr.tolist()))
+
+    def _fit_with_gini(gini_value):
+        model = tree.DecisionTreeClassifier(
+            criterion='gini',
+            min_impurity_decrease=gini_value,
+            random_state=args.seed)
+        return model.fit(featuredata, labeldata)
+
+    gini_start = float(args.gini)
+    gini_schedule = [gini_start]
+    if gini_start > 0:
+        gini_schedule.append(gini_start / 10.0)
+        gini_schedule.append(gini_start / 100.0)
+        gini_schedule.append(0.0)
+    # Deduplicate while preserving order.
+    seen = set()
+    gini_schedule = [g for g in gini_schedule if not (g in seen or seen.add(g))]
+
+    target_unique = _unique_count(labeldata)
+    clf = None
+    chosen_gini = gini_schedule[0]
+    for idx, gini_value in enumerate(gini_schedule):
+        clf = _fit_with_gini(gini_value)
+        chosen_gini = gini_value
+        if not getattr(args, "auto_gini", 1):
+            break
+        if target_unique <= 1:
+            break
+        pred_unique = _unique_count(clf.predict(featuredata))
+        # If labels vary but model predicts only one value, lower gini and retry.
+        if pred_unique > 1:
+            break
+        if idx < len(gini_schedule) - 1 and getattr(args, "verbose", 0) >= 1:
+            cprint(
+                "c [learnCandidate] auto-lowering gini for Yset %s: %s -> %s (non-constant labels, constant prediction)"
+                % (yvar, gini_value, gini_schedule[idx + 1])
+            )
+    if getattr(args, "verbose", 0) >= 2 and chosen_gini != gini_start:
+        cprint("c [learnCandidate] using lowered gini %s for Yset %s" % (chosen_gini, yvar))
+
     if args.showtrees:
         if pydotplus is None:
             cprint("c [learnCandidate] error: pydotplus is not installed; --showtrees requires it")
@@ -302,12 +346,14 @@ def createDecisionTree(featname, featuredata, labeldata, yvar, args, Xvar, Yvar)
     while len(stack) > 0:
         node_id, parent_depth = stack.pop()
         node_depth[node_id] = parent_depth + 1
+        node_values = np.asarray(clf.tree_.value[node_id]).reshape(-1)
+        classes = clf.classes_[0] if isinstance(clf.classes_, list) else clf.classes_
+        leave_label[node_id] = int(classes[int(np.argmax(node_values))])
         if (children_left[node_id] != children_right[node_id]):
             stack.append((children_left[node_id], parent_depth + 1))
             stack.append((children_right[node_id], parent_depth + 1))
         else:
             is_leaves[node_id] = True
-            #leave_label[node_id]=clf.classes_[np.argmax(clf.tree_.value[node_id])]
     
     D_dict = {}
     psi_dict = {}

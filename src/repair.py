@@ -359,7 +359,11 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
     repairfunctions = {}
     ind_org = ind.copy()
     satvar = []
+    request_rc2 = False
+    print("c [repair] candidate set size:", len(ind))
+    print("c [repair] candidate set:", ind)
     while itr < len(ind):
+        print("c [repair] candidate set:", ind)
         repairvar = ind[itr]
         itr += 1
         
@@ -397,6 +401,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
         if args.verbose:
             cprint("c [repair] repairing %s" %(repairvar))
         
+        cprint("c [repair] allowed_Y for %s: %s" %(repairvar, allowed_Y))
         ret, model, clistx, clisty = findUnsatCore(repairYvar, repaircnf, Xvar, Yvar, count_Yvar, inputfile_name, args)
 
         if ret == 0:
@@ -430,12 +435,12 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                     if flag == 0:
                         ind = np.append(ind, Yvar[yk]).astype(int)
         else:
-            repaired.append(repairvar)
+            
             if args.verbose:
                 cprint("c [repair] gk formula is UNSAT; creating beta formula")
             if not any(abs(lit) == repairvar for lit in clisty):
-                cprint("c [repair] repaired literal %s missing in core; returning early" % repairvar)
-                return 0, repairfunctions
+                cprint("c [repair] repaired literal %s missing in core; skipping candidate" % repairvar)
+                continue
             
             beta_terms = []
             for x_lit in clistx:
@@ -468,6 +473,7 @@ def repair(repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, inp
                 cprint("c [repair] Repair function for w%s: %s" % (repairvar, " & ".join(beta_terms)))
             repairfunctions[repairvar] = " & ".join(beta_terms) if beta_terms else "1'b1"
             assert(repairfunctions[repairvar] != "")
+            repaired.append(repairvar)
     return 0, repairfunctions
 
 def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, args, selfsub_wires=None):
@@ -475,6 +481,7 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, ar
         lines = f.readlines()
     f.close()
     skolemcontent = "".join(lines)
+    updates_applied = 0
     for yvar in list(repairfunctions.keys()):
         start_idx = None
         for i, line in enumerate(lines):
@@ -495,7 +502,10 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, ar
             if "outsub%s" % (yvar) in oldfunction:
                 continue
             newfunction = selfsub_wires[yvar] + "assign w%s = outsub%s;\n" % (yvar, yvar)
-            skolemcontent = skolemcontent.replace(oldfunction, newfunction)
+            newcontent = skolemcontent.replace(oldfunction, newfunction)
+            if newcontent != skolemcontent:
+                updates_applied += 1
+            skolemcontent = newcontent
             continue
         oldfunctionR = oldfunction.replace("\n", " ").strip()
         prefix = "assign w%s = " % (yvar)
@@ -514,7 +524,11 @@ def updateSkolem(repairfunctions, countRefine, modelyp, inputfile_name, Yvar, ar
             cprint("c [updateSkolem] Old function for w%s: %s" %(yvar, oldfunction.strip("\n")))
             cprint("c [updateSkolem] New function for w%s: %s" %(yvar, newfunction.strip("\n")))
             cprint("c [updateSkolem] Repair function for w%s: %s" %(yvar, repairformula.strip("\n")))
-        skolemcontent = skolemcontent.replace(oldfunction, repairformula + newfunction)
+        newcontent = skolemcontent.replace(oldfunction, repairformula + newfunction)
+        if newcontent != skolemcontent:
+            updates_applied += 1
+        skolemcontent = newcontent
     with open(temp_path(inputfile_name + "_skolem.v"),"w") as f:
         f.write(skolemcontent)
     f.close()
+    return updates_applied

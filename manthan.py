@@ -110,6 +110,32 @@ def _write_qdimacs_with_prefix(inputfile, qdimacs_list, output_path, Xvar, Yvar)
             f.write(" ".join(str(lit) for lit in clause) + " 0\n")
 
 
+def _write_samples(samples, output_path):
+    arr = np.asarray(samples, dtype=np.uint8)
+    if arr.ndim == 1:
+        arr = arr.reshape(1, -1)
+    with open(output_path, "w") as f:
+        for row in arr:
+            f.write(" ".join(str(int(v)) for v in row) + "\n")
+
+
+def _non_selfsub_fallback_candidates(YvarOrder, Unates, UniqueVars, selfsub_wires, blocked_candidates, limit=1):
+    """Pick unresolved, directly-repairable Y vars to avoid all-selfsub dead-ends."""
+    unate_set = set(int(v) for v in Unates)
+    unique_set = set(int(v) for v in UniqueVars)
+    selfsub_set = set(int(v) for v in (selfsub_wires.keys() if selfsub_wires else []))
+    blocked_set = set(int(v) for v in blocked_candidates)
+    out = []
+    for y in YvarOrder:
+        y = int(y)
+        if y in unate_set or y in unique_set or y in selfsub_set or y in blocked_set:
+            continue
+        out.append(y)
+        if len(out) >= max(1, int(limit)):
+            break
+    return out
+
+
 def manthan():
     cprint("c [manthan] parsing")
     start_time = time.time()
@@ -273,14 +299,11 @@ def manthan():
 
         sampling_cnf = cnfcontent
         if not args.maxsamples:
-            remaining_y = len(Yvar) - len(UniqueVars) - len(PosUnate) - len(NegUnate) - len(imported_vars)
-            if remaining_y < 0:
-                remaining_y = 0
-            if remaining_y > 4000:
+            if len(Xvar) > 4000:
                 num_samples = 1000
-            if (remaining_y > 1200) and (remaining_y <= 4000):
+            if (len(Xvar) > 1200) and (len(Xvar) <= 4000):
                 num_samples = 5000
-            if remaining_y <= 1200:
+            if len(Xvar) <= 1200:
                 num_samples = 10000
         else:
             num_samples = args.maxsamples
@@ -318,6 +341,10 @@ def manthan():
 
         actual_samples = samples.shape[0] if hasattr(samples, "shape") else len(samples)
         cprint("c [manthan] samples generated: %s (requested: %s)" % (actual_samples, num_samples))
+        if args.samples_out:
+            samples_out_path = os.path.abspath(args.samples_out)
+            _write_samples(samples, samples_out_path)
+            cprint("c [manthan] wrote samples to", samples_out_path)
         cprint("c [manthan] generated samples.. learning candidate functions")
         start_t = time.time()
 
@@ -361,6 +388,12 @@ def manthan():
     createSkolem(candidateSkf, Xvar, Yvar, UniqueVars,
                  UniqueDef, temp_stem)
 
+    if args.stop_after_learning:
+        createSkolemfunction(temp_stem, Xvar, Yvar, output_path)
+        cprint("c [manthan] stop-after-learning enabled; wrote learned candidates to", output_path)
+        finish("finished")
+        return
+
     error_content = createErrorFormula(Xvar, Yvar, UniqueVars, verilogformula)
     refine_var_log = {y: 0 for y in Yvar}
     selfsub = []
@@ -373,6 +406,7 @@ def manthan():
         cnfcontent, (len(Xvar)+len(Yvar)), 0)
 
     countRefine = 0
+    blocked_candidates = set()
 
     start_t = time.time()
 
@@ -414,16 +448,92 @@ def manthan():
 
             ind = callMaxsat(
                 maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat, args=args, selfsub=selfsub)
+            if len(ind) > 0 and blocked_candidates:
+                before = [int(v) for v in ind]
+                ind = np.array([int(v) for v in ind if int(v) not in blocked_candidates], dtype=int)
+                removed_blocked = sorted(set(before) - set(int(v) for v in ind))
+                if removed_blocked and args.verbose:
+                    cprint("c [manthan] filtered blocked candidates from maxsat:", removed_blocked)
 
+            fallback_removed_selfsub = []
             if len(ind) == 0 and selfsub:
                 if args.verbose:
                     cprint("c [manthan] no candidates from maxsat with selfsub; retrying without selfsub filter")
                 ind = callMaxsat(
                     maxsatcnfRepair, sigma[2], UniqueVars, Unates, Yvar, YvarOrder, temp_stem, args.weightedmaxsat, args=args, selfsub=None)
+                if len(ind) > 0 and blocked_candidates:
+                    before = [int(v) for v in ind]
+                    ind = np.array([int(v) for v in ind if int(v) not in blocked_candidates], dtype=int)
+                    removed_blocked = sorted(set(before) - set(int(v) for v in ind))
+                    if removed_blocked and args.verbose:
+                        cprint("c [manthan] filtered blocked candidates from fallback:", removed_blocked)
+                # Self-substituted variables are not directly repairable via beta updates.
+                # If fallback returns only selfsub vars, keeping selfsub wiring causes a no-op loop.
+                # Re-enable direct repair for those vars by dropping their selfsub wiring.
+                if len(ind) > 0 and selfsub_wires:
+                    filtered = [int(v) for v in ind if int(v) not in selfsub_wires]
+                    removed = sorted(set(int(v) for v in ind) - set(filtered))
+                    fallback_removed_selfsub = list(removed)
+                    if removed:
+                        if filtered:
+                            if args.verbose:
+                                cprint("c [manthan] filtered selfsub candidates from fallback:", removed)
+                            ind = np.array(filtered, dtype=int)
+                        else:
+                            non_selfsub_ind = _non_selfsub_fallback_candidates(
+                                YvarOrder, Unates, UniqueVars, selfsub_wires, blocked_candidates, limit=len(ind))
+                            if non_selfsub_ind:
+                                if args.verbose:
+                                    cprint("c [manthan] only selfsub candidates returned; using non-selfsub fallback:", non_selfsub_ind)
+                                ind = np.array(non_selfsub_ind, dtype=int)
+                            else:
+                                if args.verbose:
+                                    cprint("c [manthan] only selfsub candidates returned; re-enabling direct repair for:", removed)
+                                for y in removed:
+                                    selfsub_wires.pop(y, None)
+                                ind = np.array([int(v) for v in ind], dtype=int)
+            if len(ind) == 0 and fallback_removed_selfsub:
+                if args.verbose:
+                    cprint("c [manthan] filtered fallback left no candidates; re-enabling direct repair for:", fallback_removed_selfsub)
+                for y in fallback_removed_selfsub:
+                    selfsub_wires.pop(y, None)
+                ind = np.array(fallback_removed_selfsub, dtype=int)
+            if len(ind) == 0 and blocked_candidates:
+                if args.verbose:
+                    cprint("c [manthan] no candidates after blocking; clearing blocked set and retrying")
+                blocked_candidates.clear()
+                continue
             if len(ind) == 0:
-                cprint("c [manthan] no candidates returned by maxsat; stopping repair")
-                status = "failed"
-                break
+                if args.verbose:
+                    cprint("c [manthan] no candidates returned by maxsat; trying rc2 fallback")
+                ind = callRC2(maxsatcnfRepair,
+                              sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args, selfsub=selfsub)
+                if len(ind) > 0 and blocked_candidates:
+                    before = [int(v) for v in ind]
+                    ind = np.array([int(v) for v in ind if int(v) not in blocked_candidates], dtype=int)
+                    removed_blocked = sorted(set(before) - set(int(v) for v in ind))
+                    if removed_blocked and args.verbose:
+                        cprint("c [manthan] filtered blocked candidates from rc2 fallback:", removed_blocked)
+                if len(ind) == 0 and selfsub:
+                    ind = callRC2(maxsatcnfRepair,
+                                  sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args, selfsub=None)
+                    if len(ind) > 0 and blocked_candidates:
+                        before = [int(v) for v in ind]
+                        ind = np.array([int(v) for v in ind if int(v) not in blocked_candidates], dtype=int)
+                        removed_blocked = sorted(set(before) - set(int(v) for v in ind))
+                        if removed_blocked and args.verbose:
+                            cprint("c [manthan] filtered blocked candidates from rc2 fallback(no-selfsub):", removed_blocked)
+                if len(ind) == 0:
+                    non_selfsub_ind = _non_selfsub_fallback_candidates(
+                        YvarOrder, Unates, UniqueVars, selfsub_wires, blocked_candidates, limit=1)
+                    if non_selfsub_ind:
+                        if args.verbose:
+                            cprint("c [manthan] maxsat/rc2 empty; using non-selfsub fallback:", non_selfsub_ind)
+                        ind = np.array(non_selfsub_ind, dtype=int)
+                if len(ind) == 0:
+                    cprint("c [manthan] no candidates returned by maxsat/rc2; stopping repair")
+                    status = "failed"
+                    break
 
             if args.verbose == 1:
                 cprint("c [manthan] number of candidates undergoing repair iterations", len(ind))
@@ -438,8 +548,31 @@ def manthan():
                 cprint("c [manthan] calling rc2 to find another set of candidates to repair")
                 ind = callRC2(maxsatcnfRepair,
                               sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args, selfsub=selfsub)
+                if len(ind) > 0 and blocked_candidates:
+                    before = [int(v) for v in ind]
+                    ind = np.array([int(v) for v in ind if int(v) not in blocked_candidates], dtype=int)
+                    removed_blocked = sorted(set(before) - set(int(v) for v in ind))
+                    if removed_blocked and args.verbose:
+                        cprint("c [manthan] filtered blocked candidates from rc2:", removed_blocked)
                 if len(ind) == 0:
-                    cprint("c [manthan] no candidates returned by rc2; stopping repair")
+                    if selfsub:
+                        ind = callRC2(maxsatcnfRepair,
+                                      sigma[2], UniqueVars, Unates, Yvar, YvarOrder, args, selfsub=None)
+                        if len(ind) > 0 and blocked_candidates:
+                            before = [int(v) for v in ind]
+                            ind = np.array([int(v) for v in ind if int(v) not in blocked_candidates], dtype=int)
+                            removed_blocked = sorted(set(before) - set(int(v) for v in ind))
+                            if removed_blocked and args.verbose:
+                                cprint("c [manthan] filtered blocked candidates from rc2(no-selfsub):", removed_blocked)
+                if len(ind) == 0:
+                    non_selfsub_ind = _non_selfsub_fallback_candidates(
+                        YvarOrder, Unates, UniqueVars, selfsub_wires, blocked_candidates, limit=1)
+                    if non_selfsub_ind:
+                        if args.verbose:
+                            cprint("c [manthan] rc2 empty; using non-selfsub fallback:", non_selfsub_ind)
+                        ind = np.array(non_selfsub_ind, dtype=int)
+                if len(ind) == 0:
+                    cprint("c [manthan] no candidates returned by rc2/non-selfsub; stopping repair")
                     status = "failed"
                     break
                 if args.verbose == 1:
@@ -447,7 +580,23 @@ def manthan():
                 lexflag, repairfunctions = repair(
                     repaircnf, ind, Xvar, Yvar, YvarOrder, UniqueVars, Unates, sigma, temp_stem, args, 0)
             if not repairfunctions:
+                if len(ind) > 0:
+                    newly_blocked = [int(v) for v in ind]
+                    for y in newly_blocked:
+                        blocked_candidates.add(y)
+                        selfsub_wires.pop(y, None)
+                    if args.verbose:
+                        cprint("c [manthan] no repairs from current candidates; blocking and retrying:", sorted(set(newly_blocked)))
+                    if len(blocked_candidates) < len(Yvar):
+                        continue
                 cprint("c [manthan] error --- no repairs produced; aborting")
+                status = "failed"
+                break
+            updates_applied = updateSkolem(repairfunctions, countRefine,
+                         sigma[2], temp_stem, Yvar, args, selfsub_wires=selfsub_wires)
+            if updates_applied == 0:
+                continue
+                cprint("c [manthan] no skolem update applied for proposed repairs; stopping to avoid repair loop")
                 status = "failed"
                 break
             for yvar in list(repairfunctions.keys()):
@@ -460,14 +609,6 @@ def manthan():
                         cprint("c [manthan] selfsub size > 2:", len(selfsub))
                     selfsub_wires[yvar] = selfsubstitute(
                         Xvar, Yvar, yvar, selfsub, verilogformula, selfsub_dir)
-
-            updateSkolem(repairfunctions, countRefine,
-                         sigma[2], temp_stem, Yvar, args, selfsub_wires=selfsub_wires)
-        if countRefine > args.maxrepairitr:
-            cprint("c [manthan] number of maximum allowed repair iteration reached")
-            cprint("c [manthan] could not synthesize functions")
-            status = "failed"
-            break
     finish(status)
 
 
@@ -479,6 +620,15 @@ if __name__ == "__main__":
     parser.add_argument('--verb', type=int, default=0, help="0 ,1 ,2", dest='verbose')
     parser.add_argument(
         '--gini', type=float, help="minimum impurity drop, default = 0.005", default=0.005, dest='gini')
+    parser.add_argument(
+        "--auto-gini",
+        nargs="?",
+        const=1,
+        default=1,
+        type=int,
+        choices=[0, 1],
+        help="auto-lower gini when labels are non-constant but prediction is constant: 1; disable: 0; default 1",
+    )
     parser.add_argument('--weightedsampling', type=int, default=1,
                         help="weighted sampling: 1; uniform sampling: 0; default 1", dest='weighted')
     parser.add_argument('--maxrepairitr', type=int, default=5000,
@@ -515,7 +665,7 @@ if __name__ == "__main__":
         "--multiclass",
         nargs="?",
         const=1,
-        default=1,
+        default=0,
         type=int,
         choices=[0, 1],
         help="enable multiclass: 1; disable: 0; default 1",
@@ -551,8 +701,17 @@ if __name__ == "__main__":
     )
     parser.add_argument("--sample-mem-frac", type=float, default=0.7,
                         help="fraction of available memory to use for sample parsing (0 disables cap)")
+    parser.add_argument(
+        "--samples-out",
+        help="optional path to dump generated samples (rows of 0/1 values)",
+    )
     parser.add_argument("--debug-keep", action="store_true",
                         help="keep generated temp files for debugging")
+    parser.add_argument(
+        "--stop-after-learning",
+        action="store_true",
+        help="write learned candidate skolem and exit before verification/repair",
+    )
     parser.add_argument("input", help="input file")
     args = parser.parse_args()
     try:
