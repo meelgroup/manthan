@@ -81,6 +81,10 @@ Some benchmarks are available in the `benchmarks` directory.
 
 Full list of benchmarks used for our experiments is available [here](https://zenodo.org/record/3892859#.XuTB2XUzZhE). The dataset includes qdimacs and verilog benchmarks. 
 
+## Notice (Last Updated: Oct 3, 2026)
+
+Some researchers reported that they were unable to reproduce the empirical numbers as mentioned in our paper. Our preliminary investigations reveal that, while the correctness and theoretical guarantees of the algorithm continue to hold, there were bugs in our implementation. Unfortunately, due to medical reasons, it is taking us some time to fix the bugs. We are fully committed to fixing any bugs and report the correct empirical numbers as soon as possible.
+
 ## Issues and questions
 Please [create a new issue](https://github.com/meelgroup/manthan/issues).
 
